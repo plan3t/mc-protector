@@ -1,0 +1,14 @@
+package com.mcprotector.data;
+
+public enum FactionPermission {
+    BLOCK_BREAK,
+    BLOCK_PLACE,
+    BLOCK_USE,
+    CONTAINER_OPEN,
+    REDSTONE_TOGGLE,
+    ENTITY_INTERACT,
+    CREATE_MACHINE_INTERACT,
+    CHUNK_CLAIM,
+    CHUNK_OVERTAKE,
+    MANAGE_RELATIONS
+}
