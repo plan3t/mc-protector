@@ -53,12 +53,20 @@ public class Faction {
         return members;
     }
 
+    public int getMemberCount() {
+        return members.size();
+    }
+
     public void setRole(UUID player, FactionRole role) {
         members.put(player, role);
     }
 
     public FactionRole getRole(UUID player) {
         return members.get(player);
+    }
+
+    public void removeMember(UUID player) {
+        members.remove(player);
     }
 
     public boolean hasPermission(UUID player, FactionPermission permission) {

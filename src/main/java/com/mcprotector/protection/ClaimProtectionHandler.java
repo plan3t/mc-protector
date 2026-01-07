@@ -8,14 +8,19 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.tags.BlockTags;
 import net.minecraft.world.MenuProvider;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.core.Direction;
 import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.neoforge.event.entity.EntityMobGriefingEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
 import net.neoforged.neoforge.event.level.BlockEvent;
+import net.neoforged.neoforge.event.level.ExplosionEvent;
+import net.neoforged.neoforge.event.level.PistonEvent;
 
 public class ClaimProtectionHandler {
 
@@ -39,6 +44,22 @@ public class ClaimProtectionHandler {
             return;
         }
         if (!isAllowed(player, pos, FactionPermission.BLOCK_PLACE)) {
+            event.setCanceled(true);
+        }
+    }
+
+    @SubscribeEvent
+    public void onFluidPlace(BlockEvent.FluidPlaceBlockEvent event) {
+        BlockPos pos = event.getPos();
+        if (isClaimed(event.getLevel(), pos)) {
+            event.setCanceled(true);
+        }
+    }
+
+    @SubscribeEvent
+    public void onFireSpread(BlockEvent.FireSpreadEvent event) {
+        BlockPos pos = event.getPos();
+        if (isClaimed(event.getLevel(), pos)) {
             event.setCanceled(true);
         }
     }
@@ -69,6 +90,36 @@ public class ClaimProtectionHandler {
         BlockPos pos = event.getPos();
         if (!isAllowed(player, pos, FactionPermission.ENTITY_INTERACT)) {
             event.setCanceled(true);
+        }
+    }
+
+    @SubscribeEvent
+    public void onExplosionDetonate(ExplosionEvent.Detonate event) {
+        if (!(event.getLevel() instanceof ServerLevel serverLevel)) {
+            return;
+        }
+        event.getAffectedBlocks().removeIf(pos -> FactionData.get(serverLevel).isClaimed(pos));
+    }
+
+    @SubscribeEvent
+    public void onPistonPre(PistonEvent.Pre event) {
+        Direction direction = event.getDirection();
+        for (BlockPos pos : event.getAffectedBlocks()) {
+            if (isClaimed(event.getLevel(), pos) || isClaimed(event.getLevel(), pos.relative(direction))) {
+                event.setCanceled(true);
+                return;
+            }
+        }
+    }
+
+    @SubscribeEvent
+    public void onMobGriefing(EntityMobGriefingEvent event) {
+        Entity entity = event.getEntity();
+        if (!(entity instanceof Mob)) {
+            return;
+        }
+        if (isClaimed(event.getLevel(), entity.blockPosition())) {
+            event.setCanGrief(false);
         }
     }
 

@@ -2,10 +2,13 @@ package com.mcprotector.dynmap;
 
 import com.mcprotector.McProtectorMod;
 import com.mcprotector.data.Faction;
+import com.mcprotector.data.FactionData;
 import net.minecraft.world.level.ChunkPos;
 
 import java.lang.reflect.Method;
+import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 
 public final class DynmapBridge {
     private static boolean available;
@@ -78,9 +81,57 @@ public final class DynmapBridge {
             if (existing != null) {
                 Method setLabel = existing.getClass().getMethod("setLabel", String.class);
                 setLabel.invoke(existing, faction.get().getName());
+                applyStyle(existing, faction.get());
             }
         } catch (Throwable error) {
             McProtectorMod.LOGGER.warn("Failed to update Dynmap marker: {}", error.getMessage());
+        }
+    }
+
+    public static void syncClaims(FactionData data) {
+        if (!available || markerSet == null) {
+            return;
+        }
+        clearMarkers();
+        for (Map.Entry<Long, UUID> entry : data.getClaims().entrySet()) {
+            ChunkPos chunkPos = new ChunkPos(entry.getKey());
+            Optional<Faction> faction = data.getFaction(entry.getValue());
+            updateClaim(chunkPos, faction);
+        }
+    }
+
+    private static void applyStyle(Object areaMarker, Faction faction) {
+        try {
+            int color = colorForFaction(faction);
+            Method setLineStyle = areaMarker.getClass().getMethod("setLineStyle", int.class, double.class, int.class);
+            Method setFillStyle = areaMarker.getClass().getMethod("setFillStyle", double.class, int.class);
+            setLineStyle.invoke(areaMarker, 2, 0.8D, color);
+            setFillStyle.invoke(areaMarker, 0.35D, color);
+        } catch (Throwable error) {
+            McProtectorMod.LOGGER.warn("Failed to style Dynmap marker: {}", error.getMessage());
+        }
+    }
+
+    private static int colorForFaction(Faction faction) {
+        int hash = Math.abs(faction.getId().hashCode());
+        int r = 80 + (hash % 176);
+        int g = 80 + ((hash / 7) % 176);
+        int b = 80 + ((hash / 13) % 176);
+        return (r << 16) | (g << 8) | b;
+    }
+
+    private static void clearMarkers() {
+        try {
+            Method getAreaMarkers = markerSet.getClass().getMethod("getAreaMarkers");
+            Object markers = getAreaMarkers.invoke(markerSet);
+            if (markers instanceof Iterable<?> iterable) {
+                for (Object marker : iterable) {
+                    Method delete = marker.getClass().getMethod("deleteMarker");
+                    delete.invoke(marker);
+                }
+            }
+        } catch (Throwable error) {
+            McProtectorMod.LOGGER.warn("Failed to clear Dynmap markers: {}", error.getMessage());
         }
     }
 }

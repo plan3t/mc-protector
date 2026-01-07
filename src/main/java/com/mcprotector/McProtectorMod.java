@@ -12,6 +12,7 @@ import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.neoforged.fml.javafmlmod.FMLJavaModLoadingContext;
 import net.neoforged.neoforge.common.MinecraftForge;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
+import net.neoforged.neoforge.event.server.ServerStartedEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -24,6 +25,7 @@ public class McProtectorMod {
         IEventBus modBus = FMLJavaModLoadingContext.get().getModEventBus();
         modBus.addListener(this::onCommonSetup);
         MinecraftForge.EVENT_BUS.addListener(this::registerCommands);
+        MinecraftForge.EVENT_BUS.addListener(this::onServerStarted);
         MinecraftForge.EVENT_BUS.register(new ClaimProtectionHandler());
     }
 
@@ -34,5 +36,11 @@ public class McProtectorMod {
     private void registerCommands(RegisterCommandsEvent event) {
         FactionCommands.register(event.getDispatcher());
         FactionRelationCommands.register(event.getDispatcher());
+    }
+
+    private void onServerStarted(ServerStartedEvent event) {
+        for (var level : event.getServer().getAllLevels()) {
+            DynmapBridge.syncClaims(FactionData.get(level));
+        }
     }
 }
