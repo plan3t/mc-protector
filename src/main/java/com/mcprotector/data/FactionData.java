@@ -22,6 +22,7 @@ public class FactionData extends SavedData {
     private final Map<UUID, UUID> playerFaction = new HashMap<>();
     private final Map<Long, UUID> claims = new HashMap<>();
     private final Map<UUID, Map<UUID, FactionRelation>> relations = new HashMap<>();
+    private final Map<UUID, UUID> pendingInvites = new HashMap<>();
 
     public static FactionData get(ServerLevel level) {
         return level.getDataStorage().computeIfAbsent(FactionData::load, FactionData::new, DATA_NAME);
@@ -144,6 +145,10 @@ public class FactionData extends SavedData {
         return Optional.ofNullable(factions.get(factionId));
     }
 
+    public Optional<UUID> getFactionIdByPlayer(UUID playerId) {
+        return Optional.ofNullable(playerFaction.get(playerId));
+    }
+
     public Faction createFaction(String name, Player owner) {
         UUID id = UUID.randomUUID();
         Faction faction = new Faction(id, name, owner.getUUID());
@@ -153,6 +158,40 @@ public class FactionData extends SavedData {
         return faction;
     }
 
+    public boolean addMember(UUID factionId, UUID playerId, FactionRole role) {
+        Faction faction = factions.get(factionId);
+        if (faction == null) {
+            return false;
+        }
+        faction.setRole(playerId, role);
+        playerFaction.put(playerId, factionId);
+        pendingInvites.remove(playerId);
+        setDirty();
+        return true;
+    }
+
+    public boolean removeMember(UUID playerId) {
+        UUID factionId = playerFaction.remove(playerId);
+        if (factionId == null) {
+            return false;
+        }
+        Faction faction = factions.get(factionId);
+        if (faction == null) {
+            return false;
+        }
+        faction.removeMember(playerId);
+        setDirty();
+        return true;
+    }
+
+    public void invitePlayer(UUID playerId, UUID factionId) {
+        pendingInvites.put(playerId, factionId);
+    }
+
+    public Optional<UUID> getInvite(UUID playerId) {
+        return Optional.ofNullable(pendingInvites.get(playerId));
+    }
+
     public void disbandFaction(UUID factionId) {
         Faction faction = factions.remove(factionId);
         if (faction == null) {
@@ -160,6 +199,7 @@ public class FactionData extends SavedData {
         }
         for (UUID member : faction.getMembers().keySet()) {
             playerFaction.remove(member);
+            pendingInvites.remove(member);
         }
         claims.values().removeIf(id -> id.equals(factionId));
         relations.remove(factionId);
@@ -174,6 +214,9 @@ public class FactionData extends SavedData {
         if (claims.containsKey(key)) {
             return false;
         }
+        if (getClaimCount(factionId) >= getMaxClaims(factionId)) {
+            return false;
+        }
         claims.put(key, factionId);
         setDirty();
         return true;
@@ -186,6 +229,9 @@ public class FactionData extends SavedData {
             return false;
         }
         if (!isAtWar(factionId, currentOwner)) {
+            return false;
+        }
+        if (getClaimCount(factionId) >= getMaxClaims(factionId)) {
             return false;
         }
         claims.put(key, factionId);
@@ -229,7 +275,57 @@ public class FactionData extends SavedData {
         if (faction.isEmpty()) {
             return true;
         }
-        return faction.get().hasPermission(player.getUUID(), permission);
+        if (faction.get().hasPermission(player.getUUID(), permission)) {
+            return true;
+        }
+        Optional<UUID> playerFactionId = getFactionIdByPlayer(player.getUUID());
+        if (playerFactionId.isEmpty()) {
+            return false;
+        }
+        FactionRelation relation = getRelation(playerFactionId.get(), ownerId.get());
+        if (relation == FactionRelation.ALLY) {
+            return isAllowedForAllies(permission);
+        }
+        if (relation == FactionRelation.WAR) {
+            return isAllowedForWar(permission);
+        }
+        return false;
+    }
+
+    public int getClaimCount(UUID factionId) {
+        int count = 0;
+        for (UUID id : claims.values()) {
+            if (factionId.equals(id)) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    public int getMaxClaims(UUID factionId) {
+        Faction faction = factions.get(factionId);
+        if (faction == null) {
+            return 0;
+        }
+        return Math.max(10, faction.getMemberCount() * 10);
+    }
+
+    public Map<Long, UUID> getClaims() {
+        return claims;
+    }
+
+    private boolean isAllowedForAllies(FactionPermission permission) {
+        return switch (permission) {
+            case BLOCK_USE, CONTAINER_OPEN, REDSTONE_TOGGLE, ENTITY_INTERACT, CREATE_MACHINE_INTERACT -> true;
+            default -> false;
+        };
+    }
+
+    private boolean isAllowedForWar(FactionPermission permission) {
+        return switch (permission) {
+            case BLOCK_BREAK, BLOCK_PLACE, BLOCK_USE, CONTAINER_OPEN, REDSTONE_TOGGLE, ENTITY_INTERACT, CREATE_MACHINE_INTERACT -> true;
+            default -> false;
+        };
     }
 
     public void setRelation(UUID source, UUID target, FactionRelation relation) {

@@ -2,10 +2,13 @@ package com.mcprotector.dynmap;
 
 import com.mcprotector.McProtectorMod;
 import com.mcprotector.data.Faction;
+import com.mcprotector.data.FactionData;
 import net.minecraft.world.level.ChunkPos;
 
 import java.lang.reflect.Method;
+import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 
 public final class DynmapBridge {
     private static boolean available;
@@ -81,6 +84,17 @@ public final class DynmapBridge {
             }
         } catch (Throwable error) {
             McProtectorMod.LOGGER.warn("Failed to update Dynmap marker: {}", error.getMessage());
+        }
+    }
+
+    public static void syncClaims(FactionData data) {
+        if (!available || markerSet == null) {
+            return;
+        }
+        for (Map.Entry<Long, UUID> entry : data.getClaims().entrySet()) {
+            ChunkPos chunkPos = new ChunkPos(entry.getKey());
+            Optional<Faction> faction = data.getFaction(entry.getValue());
+            updateClaim(chunkPos, faction);
         }
     }
 }
