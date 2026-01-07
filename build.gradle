@@ -14,10 +14,10 @@ java {
 }
 
 neoForge {
-    version = '20.4.80-beta'
+    version = '20.1.103'
     parchment {
-        minecraftVersion = '1.20.4'
-        mappingsVersion = '2024.01.07'
+        minecraftVersion = '1.20.1'
+        mappingsVersion = '2023.09.03'
     }
     runs {
         client {
