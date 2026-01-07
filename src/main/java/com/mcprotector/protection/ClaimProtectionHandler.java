@@ -16,6 +16,7 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
 import net.neoforged.neoforge.event.level.BlockEvent;
+import net.neoforged.neoforge.event.level.ExplosionEvent;
 
 public class ClaimProtectionHandler {
 
@@ -39,6 +40,22 @@ public class ClaimProtectionHandler {
             return;
         }
         if (!isAllowed(player, pos, FactionPermission.BLOCK_PLACE)) {
+            event.setCanceled(true);
+        }
+    }
+
+    @SubscribeEvent
+    public void onFluidPlace(BlockEvent.FluidPlaceBlockEvent event) {
+        BlockPos pos = event.getPos();
+        if (isClaimed(event.getLevel(), pos)) {
+            event.setCanceled(true);
+        }
+    }
+
+    @SubscribeEvent
+    public void onFireSpread(BlockEvent.FireSpreadEvent event) {
+        BlockPos pos = event.getPos();
+        if (isClaimed(event.getLevel(), pos)) {
             event.setCanceled(true);
         }
     }
@@ -70,6 +87,14 @@ public class ClaimProtectionHandler {
         if (!isAllowed(player, pos, FactionPermission.ENTITY_INTERACT)) {
             event.setCanceled(true);
         }
+    }
+
+    @SubscribeEvent
+    public void onExplosionDetonate(ExplosionEvent.Detonate event) {
+        if (!(event.getLevel() instanceof ServerLevel serverLevel)) {
+            return;
+        }
+        event.getAffectedBlocks().removeIf(pos -> FactionData.get(serverLevel).isClaimed(pos));
     }
 
     private boolean isAllowed(Player player, BlockPos pos, FactionPermission permission) {
