@@ -25,3 +25,60 @@ Dynmap markers are enabled automatically when the Dynmap API is available. Claim
 
 ## Development
 This project uses the NeoForge ModDev plugin. Update the NeoForge and Minecraft versions in `build.gradle` to match your target.
+
+## Singleplayer Testing (Minecraft 1.20.1)
+The development environment targets Minecraft 1.20.1 and requires Java 17. See the steps below to install Java 17 and run the mod in a singleplayer test world.
+
+### 1) Install Java 17
+You can install Java 17 (Temurin/OpenJDK) alongside newer Java versions. Make sure you know the install path.
+
+Example default Windows install path:
+```
+C:\Program Files\Eclipse Adoptium\jdk-17.x.x
+```
+
+### 2) Open a terminal
+Use a system terminal to run the commands below (not the Minecraft chat):
+- **Windows:** PowerShell or Command Prompt
+- **macOS/Linux:** Terminal
+
+### 3) Point the terminal to Java 17 (Windows)
+If your system default is a newer Java version, set Java 17 for the current terminal session.
+
+Command Prompt:
+```
+set JAVA_HOME=C:\Program Files\Eclipse Adoptium\jdk-17.x.x
+set PATH=%JAVA_HOME%\bin;%PATH%
+```
+
+PowerShell:
+```
+$env:JAVA_HOME = "C:\Program Files\Eclipse Adoptium\jdk-17.x.x"
+$env:PATH = "$env:JAVA_HOME\\bin;$env:PATH"
+```
+
+### 4) Verify the Java version
+```
+java -version
+```
+Confirm the output shows Java 17.
+
+### 5) Run the development client
+From the repository root (the folder containing `build.gradle`):
+```
+gradle runClient
+```
+This starts the NeoForge development client with the mod loaded.
+
+### 6) Create a singleplayer world and test
+In Minecraft:
+1. Choose **Singleplayer**
+2. Create or open a world
+3. Test commands:
+   - `/faction create <name>`
+   - `/faction claim`
+   - `/faction info`
+   - `/faction ally add <faction>`
+   - `/faction war declare <faction>`
+
+If you see protection behavior working as expected, the mod is running correctly.
