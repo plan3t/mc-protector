@@ -1,0 +1,24 @@
+modLoader="javafml"
+loaderVersion="[1,)"
+license="MIT"
+
+[[mods]]
+modId="mcprotector"
+version="0.1.0"
+displayName="MC Protector"
+authors="OpenAI"
+description='''Faction claims and protection with Dynmap integration.'''
+
+[[dependencies.mcprotector]]
+modId="neoforge"
+mandatory=true
+versionRange="[20.4,)"
+ordering="NONE"
+side="BOTH"
+
+[[dependencies.mcprotector]]
+modId="minecraft"
+mandatory=true
+versionRange="[1.20.4,1.21)"
+ordering="NONE"
+side="BOTH"
