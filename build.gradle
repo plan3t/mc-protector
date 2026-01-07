@@ -1,7 +1,7 @@
 plugins {
     id 'java'
     id 'maven-publish'
-    id 'net.neoforged.moddev' version '1.0.15'
+    id 'net.minecraftforge.gradle' version '6.0.16'
 }
 
 group = 'com.mcprotector'
@@ -13,30 +13,48 @@ java {
     }
 }
 
-neoForge {
-    version = '20.1.103'
-    parchment {
-        minecraftVersion = '1.20.1'
-        mappingsVersion = '2023.09.03'
-    }
-    runs {
-        client {
-            client()
-        }
-        server {
-            server()
-        }
-    }
-}
-
 repositories {
     mavenCentral()
+    maven {
+        url = 'https://maven.minecraftforge.net'
+    }
 }
 
 dependencies {
+    minecraft 'net.minecraftforge:forge:1.20.1-47.4.0'
     compileOnly 'org.dynmap:DynmapCoreAPI:3.7-beta-5'
 }
 
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
+}
+
+minecraft {
+    mappings channel: 'official', version: '1.20.1'
+
+    runs {
+        client {
+            workingDirectory project.file('run')
+            property 'forge.logging.markers', 'REGISTRIES'
+            property 'forge.logging.console.level', 'debug'
+
+            mods {
+                mcprotector {
+                    source sourceSets.main
+                }
+            }
+        }
+
+        server {
+            workingDirectory project.file('run')
+            property 'forge.logging.markers', 'REGISTRIES'
+            property 'forge.logging.console.level', 'debug'
+
+            mods {
+                mcprotector {
+                    source sourceSets.main
+                }
+            }
+        }
+    }
 }
