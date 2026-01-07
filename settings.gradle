@@ -8,12 +8,3 @@ pluginManagement {
 }
 
 rootProject.name = 'mc-protector'
-
-pluginManagement {
-    repositories {
-        gradlePluginPortal()
-        maven {
-            url = 'https://maven.minecraftforge.net'
-        }
-    }
-}
