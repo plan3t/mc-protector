@@ -35,7 +35,7 @@ public final class DynmapBridge {
             Method getMarkerSet = markerApi.getClass().getMethod("getMarkerSet", String.class);
             markerSet = getMarkerSet.invoke(markerApi, "mcprotector_claims");
             if (markerSet == null) {
-                Method createMarkerSet = markerApi.getClass().getMethod("createMarkerSet", String.class, String.class, String.class, boolean);
+                Method createMarkerSet = markerApi.getClass().getMethod("createMarkerSet", String.class, String.class, String.class, boolean.class);
                 markerSet = createMarkerSet.invoke(markerApi, "mcprotector_claims", "Faction Claims", null, false);
             }
             available = markerSet != null;
