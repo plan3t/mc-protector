@@ -4,6 +4,11 @@ plugins {
     id 'net.minecraftforge.gradle' version '6.0.16'
 }
 
+def requiredGradleVersion = GradleVersion.version('8.6')
+if (GradleVersion.current() != requiredGradleVersion) {
+    throw new GradleException("This project requires Gradle ${requiredGradleVersion}. Current version: ${GradleVersion.current()}.")
+}
+
 group = 'com.mcprotector'
 version = '0.1.0'
 
@@ -17,6 +22,9 @@ repositories {
     mavenCentral()
     maven {
         url = 'https://maven.minecraftforge.net'
+    }
+    maven {
+        url = 'https://repo.dynmap.us/repository/maven-public/'
     }
 }
 

@@ -64,7 +64,7 @@ java -version
 Confirm the output shows Java 17.
 
 ### 5) Run the development client
-From the repository root (the folder containing `build.gradle`), use Gradle 8.6:
+From the repository root (the folder containing `build.gradle`), use Gradle 8.6 (newer 8.x releases can fail with a `versionParser` error when applying ForgeGradle):
 ```
 gradle runClient
 ```
