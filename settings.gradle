@@ -2,9 +2,12 @@ pluginManagement {
     repositories {
         gradlePluginPortal()
         maven {
-            url = 'https://maven.minecraftforge.net'
+            name = 'MinecraftForge'
+            url = 'https://maven.minecraftforge.net/'
         }
     }
 }
 
-rootProject.name = 'mc-protector'
+plugins {
+    id 'org.gradle.toolchains.foojay-resolver-convention' version '0.7.0'
+}
