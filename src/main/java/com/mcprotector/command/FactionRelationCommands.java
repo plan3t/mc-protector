@@ -6,6 +6,7 @@ import com.mcprotector.data.FactionPermission;
 import com.mcprotector.data.FactionRelation;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.StringArgumentType;
+import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
@@ -38,7 +39,13 @@ public final class FactionRelationCommands {
     }
 
     private static int setRelation(CommandSourceStack source, String targetName, FactionRelation relation) {
-        ServerPlayer player = source.getPlayerOrException();
+        ServerPlayer player;
+        try {
+            player = source.getPlayerOrException();
+        } catch (CommandSyntaxException e) {
+            source.sendFailure(Component.literal("This command can only be used by a player."));
+            return 0;
+        }
         FactionData data = FactionData.get(player.serverLevel());
         Optional<Faction> faction = data.getFactionByPlayer(player.getUUID());
         if (faction.isEmpty()) {
@@ -64,7 +71,13 @@ public final class FactionRelationCommands {
     }
 
     private static int clearRelation(CommandSourceStack source, String targetName) {
-        ServerPlayer player = source.getPlayerOrException();
+        ServerPlayer player;
+        try {
+            player = source.getPlayerOrException();
+        } catch (CommandSyntaxException e) {
+            source.sendFailure(Component.literal("This command can only be used by a player."));
+            return 0;
+        }
         FactionData data = FactionData.get(player.serverLevel());
         Optional<Faction> faction = data.getFactionByPlayer(player.getUUID());
         if (faction.isEmpty()) {
