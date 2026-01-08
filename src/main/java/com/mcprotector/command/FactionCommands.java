@@ -9,6 +9,7 @@ import com.mcprotector.dynmap.DynmapBridge;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
+import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.arguments.EntityArgument;
@@ -78,7 +79,7 @@ public final class FactionCommands {
         );
     }
 
-    private static int createFaction(CommandSourceStack source, String name) {
+    private static int createFaction(CommandSourceStack source, String name) throws CommandSyntaxException {
         ServerPlayer player = source.getPlayerOrException();
         FactionData data = FactionData.get(player.serverLevel());
         if (data.getFactionByPlayer(player.getUUID()).isPresent()) {
@@ -90,7 +91,7 @@ public final class FactionCommands {
         return 1;
     }
 
-    private static int disbandFaction(CommandSourceStack source) {
+    private static int disbandFaction(CommandSourceStack source) throws CommandSyntaxException {
         ServerPlayer player = source.getPlayerOrException();
         FactionData data = FactionData.get(player.serverLevel());
         Optional<Faction> faction = data.getFactionByPlayer(player.getUUID());
@@ -114,7 +115,7 @@ public final class FactionCommands {
         return 1;
     }
 
-    private static int claimChunk(CommandSourceStack source) {
+    private static int claimChunk(CommandSourceStack source) throws CommandSyntaxException {
         ServerPlayer player = source.getPlayerOrException();
         FactionData data = FactionData.get(player.serverLevel());
         Optional<Faction> faction = data.getFactionByPlayer(player.getUUID());
@@ -140,7 +141,7 @@ public final class FactionCommands {
         return 1;
     }
 
-    private static int unclaimChunk(CommandSourceStack source) {
+    private static int unclaimChunk(CommandSourceStack source) throws CommandSyntaxException {
         ServerPlayer player = source.getPlayerOrException();
         FactionData data = FactionData.get(player.serverLevel());
         Optional<Faction> faction = data.getFactionByPlayer(player.getUUID());
@@ -162,7 +163,7 @@ public final class FactionCommands {
         return 1;
     }
 
-    private static int overtakeChunk(CommandSourceStack source) {
+    private static int overtakeChunk(CommandSourceStack source) throws CommandSyntaxException {
         ServerPlayer player = source.getPlayerOrException();
         FactionData data = FactionData.get(player.serverLevel());
         Optional<Faction> faction = data.getFactionByPlayer(player.getUUID());
@@ -188,7 +189,7 @@ public final class FactionCommands {
         return 1;
     }
 
-    private static int factionInfo(CommandSourceStack source) {
+    private static int factionInfo(CommandSourceStack source) throws CommandSyntaxException {
         ServerPlayer player = source.getPlayerOrException();
         FactionData data = FactionData.get(player.serverLevel());
         Optional<Faction> faction = data.getFactionByPlayer(player.getUUID());
@@ -206,7 +207,7 @@ public final class FactionCommands {
         return 1;
     }
 
-    private static int invitePlayer(CommandSourceStack source, ServerPlayer target) {
+    private static int invitePlayer(CommandSourceStack source, ServerPlayer target) throws CommandSyntaxException {
         ServerPlayer player = source.getPlayerOrException();
         if (player.getUUID().equals(target.getUUID())) {
             source.sendFailure(Component.literal("You cannot invite yourself."));
@@ -232,7 +233,7 @@ public final class FactionCommands {
         return 1;
     }
 
-    private static int joinFaction(CommandSourceStack source, String name) {
+    private static int joinFaction(CommandSourceStack source, String name) throws CommandSyntaxException {
         ServerPlayer player = source.getPlayerOrException();
         FactionData data = FactionData.get(player.serverLevel());
         if (data.getFactionByPlayer(player.getUUID()).isPresent()) {
@@ -257,7 +258,7 @@ public final class FactionCommands {
         return 1;
     }
 
-    private static int leaveFaction(CommandSourceStack source) {
+    private static int leaveFaction(CommandSourceStack source) throws CommandSyntaxException {
         ServerPlayer player = source.getPlayerOrException();
         FactionData data = FactionData.get(player.serverLevel());
         Optional<Faction> faction = data.getFactionByPlayer(player.getUUID());
@@ -277,7 +278,7 @@ public final class FactionCommands {
         return 1;
     }
 
-    private static int kickMember(CommandSourceStack source, ServerPlayer target) {
+    private static int kickMember(CommandSourceStack source, ServerPlayer target) throws CommandSyntaxException {
         ServerPlayer player = source.getPlayerOrException();
         FactionData data = FactionData.get(player.serverLevel());
         Optional<Faction> faction = data.getFactionByPlayer(player.getUUID());
@@ -307,7 +308,7 @@ public final class FactionCommands {
         return 1;
     }
 
-    private static int setRole(CommandSourceStack source, ServerPlayer target, FactionRole role) {
+    private static int setRole(CommandSourceStack source, ServerPlayer target, FactionRole role) throws CommandSyntaxException {
         ServerPlayer player = source.getPlayerOrException();
         FactionData data = FactionData.get(player.serverLevel());
         Optional<Faction> faction = data.getFactionByPlayer(player.getUUID());
@@ -334,7 +335,7 @@ public final class FactionCommands {
         return 1;
     }
 
-    private static int listPermissions(CommandSourceStack source) {
+    private static int listPermissions(CommandSourceStack source) throws CommandSyntaxException {
         ServerPlayer player = source.getPlayerOrException();
         FactionData data = FactionData.get(player.serverLevel());
         Optional<Faction> faction = data.getFactionByPlayer(player.getUUID());
@@ -350,7 +351,7 @@ public final class FactionCommands {
         return 1;
     }
 
-    private static int updatePermission(CommandSourceStack source, String roleName, String permissionName, boolean grant) {
+    private static int updatePermission(CommandSourceStack source, String roleName, String permissionName, boolean grant) throws CommandSyntaxException {
         ServerPlayer player = source.getPlayerOrException();
         FactionData data = FactionData.get(player.serverLevel());
         Optional<Faction> faction = data.getFactionByPlayer(player.getUUID());
@@ -388,7 +389,7 @@ public final class FactionCommands {
         return 1;
     }
 
-    private static int claimInfo(CommandSourceStack source) {
+    private static int claimInfo(CommandSourceStack source) throws CommandSyntaxException {
         ServerPlayer player = source.getPlayerOrException();
         FactionData data = FactionData.get(player.serverLevel());
         Optional<UUID> ownerId = data.getClaimOwner(player.blockPosition());
@@ -406,11 +407,12 @@ public final class FactionCommands {
         if (playerFaction.isPresent()) {
             relation = data.getRelation(playerFaction.get(), ownerId.get());
         }
-        source.sendSuccess(() -> Component.literal("Claim owner: " + owner.get().getName() + " | Relation: " + relation.name()), false);
+        String message = "Claim owner: " + owner.get().getName() + " | Relation: " + relation.name();
+        source.sendSuccess(() -> Component.literal(message), false);
         return 1;
     }
 
-    private static int factionMap(CommandSourceStack source, int radius) {
+    private static int factionMap(CommandSourceStack source, int radius) throws CommandSyntaxException {
         ServerPlayer player = source.getPlayerOrException();
         FactionData data = FactionData.get(player.serverLevel());
         ChunkPos center = new ChunkPos(player.blockPosition());
