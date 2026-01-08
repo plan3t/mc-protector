@@ -9,7 +9,9 @@ import net.minecraft.tags.BlockTags;
 import net.minecraft.world.MenuProvider;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.level.LevelAccessor;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.BaseFireBlock;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
@@ -53,7 +55,10 @@ public class ClaimProtectionHandler {
     }
 
     @SubscribeEvent
-    public void onFireSpread(BlockEvent.FireSpreadEvent event) {
+    public void onFireSpread(BlockEvent.EntityPlaceEvent event) {
+        if (!(event.getPlacedBlock().getBlock() instanceof BaseFireBlock)) {
+            return;
+        }
         BlockPos pos = event.getPos();
         if (isClaimed(event.getLevel(), pos)) {
             event.setCanceled(true);
@@ -104,7 +109,7 @@ public class ClaimProtectionHandler {
         return FactionData.get(serverPlayer.serverLevel()).hasPermission(serverPlayer, pos, permission);
     }
 
-    private boolean isClaimed(net.minecraft.world.level.Level level, BlockPos pos) {
+    private boolean isClaimed(LevelAccessor level, BlockPos pos) {
         if (!(level instanceof ServerLevel serverLevel)) {
             return false;
         }
