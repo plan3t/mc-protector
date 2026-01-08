@@ -24,7 +24,7 @@ A NeoForge mod scaffold for faction creation, chunk claiming, and claim protecti
 Dynmap markers are enabled automatically when the Dynmap API is available. Claims are mapped to area markers in the `Faction Claims` marker set.
 
 ## Development
-This project uses the NeoForge ModDev plugin. Update the NeoForge and Minecraft versions in `build.gradle` to match your target.
+This project uses the ForgeGradle plugin. Update the Forge and Minecraft versions in `build.gradle` to match your target.
 
 ## Singleplayer Testing (Minecraft 1.20.1)
 The development environment targets Minecraft 1.20.1 and requires Java 17. See the steps below to install Java 17 and run the mod in a singleplayer test world.
@@ -64,11 +64,11 @@ java -version
 Confirm the output shows Java 17.
 
 ### 5) Run the development client
-From the repository root (the folder containing `build.gradle`):
+From the repository root (the folder containing `build.gradle`), use Gradle 8.6 (newer 8.x releases can fail with a `versionParser` error when applying ForgeGradle):
 ```
 gradle runClient
 ```
-This starts the NeoForge development client with the mod loaded.
+This starts the Forge development client with the mod loaded.
 
 ### 6) Create a singleplayer world and test
 In Minecraft:
