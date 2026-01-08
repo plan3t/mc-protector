@@ -21,7 +21,9 @@ public final class DynmapBridge {
     public static void init() {
         try {
             Class<?> dynmapClass = Class.forName("org.dynmap.DynmapAPI");
-            Object dynmap = org.dynmap.DynmapAPIListener.getAPI();
+            Class<?> listenerClass = Class.forName("org.dynmap.DynmapAPIListener");
+            Method getApi = listenerClass.getMethod("getAPI");
+            Object dynmap = getApi.invoke(null);
             if (dynmap == null) {
                 McProtectorMod.LOGGER.info("Dynmap detected but API not ready yet.");
                 return;

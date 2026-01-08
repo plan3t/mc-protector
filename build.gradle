@@ -23,14 +23,10 @@ repositories {
     maven {
         url = 'https://maven.minecraftforge.net'
     }
-    maven {
-        url = 'https://repo.dynmap.us/repository/maven-public/'
-    }
 }
 
 dependencies {
     minecraft 'net.minecraftforge:forge:1.20.1-47.4.0'
-    compileOnly 'org.dynmap:DynmapCoreAPI:3.7-beta-5'
 }
 
 tasks.withType(JavaCompile).configureEach {
