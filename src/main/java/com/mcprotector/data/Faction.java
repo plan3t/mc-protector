@@ -6,6 +6,7 @@ import net.minecraft.ChatFormatting;
 import java.util.EnumMap;
 import java.util.EnumSet;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -17,9 +18,12 @@ public class Faction {
     private final Map<UUID, FactionRole> members = new HashMap<>();
     private final EnumMap<FactionRole, EnumSet<FactionPermission>> permissions = new EnumMap<>(FactionRole.class);
     private final EnumMap<FactionRole, String> rankNames = new EnumMap<>(FactionRole.class);
+    private final Set<UUID> trustedPlayers = new HashSet<>();
     private String colorName;
     private String motd;
     private String description;
+    private String bannerColor;
+    private FactionProtectionTier protectionTier;
 
     public Faction(UUID id, String name, UUID owner) {
         this.id = id;
@@ -106,6 +110,22 @@ public class Faction {
         return rankNames;
     }
 
+    public Set<UUID> getTrustedPlayers() {
+        return trustedPlayers;
+    }
+
+    public void addTrustedPlayer(UUID playerId) {
+        trustedPlayers.add(playerId);
+    }
+
+    public void removeTrustedPlayer(UUID playerId) {
+        trustedPlayers.remove(playerId);
+    }
+
+    public boolean isTrusted(UUID playerId) {
+        return trustedPlayers.contains(playerId);
+    }
+
     public String getColorName() {
         return colorName;
     }
@@ -134,10 +154,28 @@ public class Faction {
         this.description = description;
     }
 
+    public String getBannerColor() {
+        return bannerColor;
+    }
+
+    public void setBannerColor(String bannerColor) {
+        this.bannerColor = bannerColor;
+    }
+
+    public FactionProtectionTier getProtectionTier() {
+        return protectionTier;
+    }
+
+    public void setProtectionTier(FactionProtectionTier protectionTier) {
+        this.protectionTier = protectionTier;
+    }
+
     private void applyDefaults() {
         colorName = FactionConfig.getDefaultColorName();
         motd = FactionConfig.getDefaultMotd();
         description = FactionConfig.getDefaultDescription();
+        bannerColor = FactionConfig.getDefaultBannerColor();
+        protectionTier = FactionConfig.getDefaultProtectionTier();
         rankNames.putAll(FactionConfig.getDefaultRankNames());
     }
 }
