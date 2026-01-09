@@ -1,5 +1,8 @@
 package com.mcprotector.command;
 
+import com.mcprotector.chat.FactionChatManager;
+import com.mcprotector.chat.FactionChatMode;
+import com.mcprotector.config.FactionConfig;
 import com.mcprotector.data.Faction;
 import com.mcprotector.data.FactionData;
 import com.mcprotector.data.FactionPermission;
@@ -10,6 +13,7 @@ import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
+import net.minecraft.ChatFormatting;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.arguments.EntityArgument;
@@ -42,6 +46,10 @@ public final class FactionCommands {
                     .executes(context -> overtakeChunk(context.getSource())))
                 .then(Commands.literal("info")
                     .executes(context -> factionInfo(context.getSource())))
+                .then(Commands.literal("chat")
+                    .executes(context -> showChatMode(context.getSource()))
+                    .then(Commands.argument("mode", StringArgumentType.word())
+                        .executes(context -> setChatMode(context.getSource(), StringArgumentType.getString(context, "mode")))))
                 .then(Commands.literal("invite")
                     .then(Commands.argument("player", EntityArgument.player())
                         .executes(context -> invitePlayer(context.getSource(), EntityArgument.getPlayer(context, "player")))))
@@ -70,6 +78,36 @@ public final class FactionCommands {
                         .then(Commands.argument("role", StringArgumentType.word())
                             .then(Commands.argument("permission", StringArgumentType.word())
                                 .executes(context -> updatePermission(context.getSource(), StringArgumentType.getString(context, "role"), StringArgumentType.getString(context, "permission"), false))))))
+                .then(Commands.literal("motd")
+                    .executes(context -> showMotd(context.getSource()))
+                    .then(Commands.literal("set")
+                        .then(Commands.argument("message", StringArgumentType.greedyString())
+                            .executes(context -> setMotd(context.getSource(), StringArgumentType.getString(context, "message")))))
+                    .then(Commands.literal("clear")
+                        .executes(context -> clearMotd(context.getSource()))))
+                .then(Commands.literal("description")
+                    .executes(context -> showDescription(context.getSource()))
+                    .then(Commands.literal("set")
+                        .then(Commands.argument("message", StringArgumentType.greedyString())
+                            .executes(context -> setDescription(context.getSource(), StringArgumentType.getString(context, "message")))))
+                    .then(Commands.literal("clear")
+                        .executes(context -> clearDescription(context.getSource()))))
+                .then(Commands.literal("color")
+                    .executes(context -> showColor(context.getSource()))
+                    .then(Commands.argument("color", StringArgumentType.word())
+                        .executes(context -> setColor(context.getSource(), StringArgumentType.getString(context, "color")))))
+                .then(Commands.literal("rank")
+                    .then(Commands.literal("list")
+                        .executes(context -> listRanks(context.getSource())))
+                    .then(Commands.literal("set")
+                        .then(Commands.argument("role", StringArgumentType.word())
+                            .then(Commands.argument("name", StringArgumentType.greedyString())
+                                .executes(context -> setRankName(context.getSource(), StringArgumentType.getString(context, "role"), StringArgumentType.getString(context, "name"))))))
+                    .then(Commands.literal("preset")
+                        .then(Commands.argument("name", StringArgumentType.word())
+                            .executes(context -> applyRankPreset(context.getSource(), StringArgumentType.getString(context, "name")))))
+                    .then(Commands.literal("presets")
+                        .executes(context -> listRankPresets(context.getSource()))))
                 .then(Commands.literal("claiminfo")
                     .executes(context -> claimInfo(context.getSource())))
                 .then(Commands.literal("map")
@@ -200,10 +238,14 @@ public final class FactionCommands {
         int claims = data.getClaimCount(faction.get().getId());
         int maxClaims = data.getMaxClaims(faction.get().getId());
         FactionRole role = faction.get().getRole(player.getUUID());
-        source.sendSuccess(() -> Component.literal("Faction: " + faction.get().getName()
-            + " | Role: " + role.name()
+        String message = "Faction: " + faction.get().getName()
+            + " | Role: " + faction.get().getRankName(role)
+            + " | Color: " + faction.get().getColorName()
             + " | Claims: " + claims + "/" + maxClaims
-            + " | Members: " + faction.get().getMemberCount()), false);
+            + " | Members: " + faction.get().getMemberCount()
+            + "\nMOTD: " + faction.get().getMotd()
+            + "\nDescription: " + faction.get().getDescription();
+        source.sendSuccess(() -> Component.literal(message), false);
         return 1;
     }
 
@@ -444,5 +486,186 @@ public final class FactionCommands {
         map.append("\nLegend: * you, O owned, A ally, W war, N neutral, . unclaimed");
         source.sendSuccess(() -> Component.literal(map.toString()), false);
         return 1;
+    }
+
+    private static int showChatMode(CommandSourceStack source) throws CommandSyntaxException {
+        ServerPlayer player = source.getPlayerOrException();
+        FactionChatMode mode = FactionChatManager.getMode(player.getUUID());
+        source.sendSuccess(() -> Component.literal("Current chat mode: " + mode.name()), false);
+        return 1;
+    }
+
+    private static int setChatMode(CommandSourceStack source, String modeName) throws CommandSyntaxException {
+        ServerPlayer player = source.getPlayerOrException();
+        FactionChatMode mode;
+        try {
+            mode = FactionChatMode.valueOf(modeName.toUpperCase());
+        } catch (IllegalArgumentException ex) {
+            source.sendFailure(Component.literal("Unknown chat mode. Use public, faction, or ally."));
+            return 0;
+        }
+        if (mode != FactionChatMode.PUBLIC && FactionData.get(player.serverLevel()).getFactionByPlayer(player.getUUID()).isEmpty()) {
+            source.sendFailure(Component.literal("You are not in a faction."));
+            return 0;
+        }
+        FactionChatManager.setMode(player.getUUID(), mode);
+        source.sendSuccess(() -> Component.literal("Chat mode set to " + mode.name()), false);
+        return 1;
+    }
+
+    private static int showMotd(CommandSourceStack source) throws CommandSyntaxException {
+        Optional<Faction> faction = getFactionForMember(source);
+        if (faction.isEmpty()) {
+            return 0;
+        }
+        source.sendSuccess(() -> Component.literal("MOTD: " + faction.get().getMotd()), false);
+        return 1;
+    }
+
+    private static int setMotd(CommandSourceStack source, String motd) throws CommandSyntaxException {
+        Optional<Faction> faction = getFactionForSettings(source);
+        if (faction.isEmpty()) {
+            return 0;
+        }
+        faction.get().setMotd(motd);
+        FactionData.get(source.getLevel()).setDirty();
+        source.sendSuccess(() -> Component.literal("Faction MOTD updated."), true);
+        return 1;
+    }
+
+    private static int clearMotd(CommandSourceStack source) throws CommandSyntaxException {
+        return setMotd(source, FactionConfig.getDefaultMotd());
+    }
+
+    private static int showDescription(CommandSourceStack source) throws CommandSyntaxException {
+        Optional<Faction> faction = getFactionForMember(source);
+        if (faction.isEmpty()) {
+            return 0;
+        }
+        source.sendSuccess(() -> Component.literal("Description: " + faction.get().getDescription()), false);
+        return 1;
+    }
+
+    private static int setDescription(CommandSourceStack source, String description) throws CommandSyntaxException {
+        Optional<Faction> faction = getFactionForSettings(source);
+        if (faction.isEmpty()) {
+            return 0;
+        }
+        faction.get().setDescription(description);
+        FactionData.get(source.getLevel()).setDirty();
+        source.sendSuccess(() -> Component.literal("Faction description updated."), true);
+        return 1;
+    }
+
+    private static int clearDescription(CommandSourceStack source) throws CommandSyntaxException {
+        return setDescription(source, FactionConfig.getDefaultDescription());
+    }
+
+    private static int showColor(CommandSourceStack source) throws CommandSyntaxException {
+        Optional<Faction> faction = getFactionForMember(source);
+        if (faction.isEmpty()) {
+            return 0;
+        }
+        source.sendSuccess(() -> Component.literal("Faction color: " + faction.get().getColorName()), false);
+        return 1;
+    }
+
+    private static int setColor(CommandSourceStack source, String colorName) throws CommandSyntaxException {
+        Optional<Faction> faction = getFactionForSettings(source);
+        if (faction.isEmpty()) {
+            return 0;
+        }
+        ChatFormatting color = FactionConfig.parseColor(colorName);
+        if (color == ChatFormatting.WHITE && !"white".equalsIgnoreCase(colorName)) {
+            source.sendFailure(Component.literal("Unknown color name."));
+            return 0;
+        }
+        faction.get().setColorName(color.getName());
+        FactionData.get(source.getLevel()).setDirty();
+        source.sendSuccess(() -> Component.literal("Faction color updated to " + color.getName()), true);
+        return 1;
+    }
+
+    private static int listRanks(CommandSourceStack source) throws CommandSyntaxException {
+        Optional<Faction> faction = getFactionForMember(source);
+        if (faction.isEmpty()) {
+            return 0;
+        }
+        StringBuilder message = new StringBuilder("Faction ranks:");
+        for (FactionRole role : FactionRole.values()) {
+            message.append("\n").append(role.name()).append(": ").append(faction.get().getRankName(role));
+        }
+        source.sendSuccess(() -> Component.literal(message.toString()), false);
+        return 1;
+    }
+
+    private static int setRankName(CommandSourceStack source, String roleName, String name) throws CommandSyntaxException {
+        Optional<Faction> faction = getFactionForSettings(source);
+        if (faction.isEmpty()) {
+            return 0;
+        }
+        FactionRole role;
+        try {
+            role = FactionRole.valueOf(roleName.toUpperCase());
+        } catch (IllegalArgumentException ex) {
+            source.sendFailure(Component.literal("Unknown role."));
+            return 0;
+        }
+        faction.get().setRankName(role, name);
+        FactionData.get(source.getLevel()).setDirty();
+        source.sendSuccess(() -> Component.literal("Rank name updated for " + role.name()), true);
+        return 1;
+    }
+
+    private static int applyRankPreset(CommandSourceStack source, String presetName) throws CommandSyntaxException {
+        Optional<Faction> faction = getFactionForSettings(source);
+        if (faction.isEmpty()) {
+            return 0;
+        }
+        var preset = FactionConfig.getPresetNames(presetName);
+        if (preset.isEmpty()) {
+            source.sendFailure(Component.literal("Unknown preset name."));
+            return 0;
+        }
+        for (var entry : preset.entrySet()) {
+            faction.get().setRankName(entry.getKey(), entry.getValue());
+        }
+        FactionData.get(source.getLevel()).setDirty();
+        source.sendSuccess(() -> Component.literal("Applied rank preset " + presetName), true);
+        return 1;
+    }
+
+    private static int listRankPresets(CommandSourceStack source) throws CommandSyntaxException {
+        StringBuilder message = new StringBuilder("Rank presets:");
+        for (var entry : FactionConfig.getPresetDisplayMap().entrySet()) {
+            message.append("\n").append(entry.getKey()).append(" = ").append(entry.getValue());
+        }
+        source.sendSuccess(() -> Component.literal(message.toString()), false);
+        return 1;
+    }
+
+    private static Optional<Faction> getFactionForSettings(CommandSourceStack source) throws CommandSyntaxException {
+        ServerPlayer player = source.getPlayerOrException();
+        FactionData data = FactionData.get(player.serverLevel());
+        Optional<Faction> faction = data.getFactionByPlayer(player.getUUID());
+        if (faction.isEmpty()) {
+            source.sendFailure(Component.literal("You are not in a faction."));
+            return Optional.empty();
+        }
+        if (!faction.get().hasPermission(player.getUUID(), FactionPermission.MANAGE_SETTINGS)) {
+            source.sendFailure(Component.literal("You lack permission to manage faction settings."));
+            return Optional.empty();
+        }
+        return faction;
+    }
+
+    private static Optional<Faction> getFactionForMember(CommandSourceStack source) throws CommandSyntaxException {
+        ServerPlayer player = source.getPlayerOrException();
+        FactionData data = FactionData.get(player.serverLevel());
+        Optional<Faction> faction = data.getFactionByPlayer(player.getUUID());
+        if (faction.isEmpty()) {
+            source.sendFailure(Component.literal("You are not in a faction."));
+        }
+        return faction;
     }
 }

@@ -1,5 +1,8 @@
 package com.mcprotector.data;
 
+import com.mcprotector.config.FactionConfig;
+import net.minecraft.ChatFormatting;
+
 import java.util.EnumMap;
 import java.util.EnumSet;
 import java.util.HashMap;
@@ -13,12 +16,17 @@ public class Faction {
     private final UUID owner;
     private final Map<UUID, FactionRole> members = new HashMap<>();
     private final EnumMap<FactionRole, EnumSet<FactionPermission>> permissions = new EnumMap<>(FactionRole.class);
+    private final EnumMap<FactionRole, String> rankNames = new EnumMap<>(FactionRole.class);
+    private String colorName;
+    private String motd;
+    private String description;
 
     public Faction(UUID id, String name, UUID owner) {
         this.id = id;
         this.name = name;
         this.owner = owner;
         members.put(owner, FactionRole.OWNER);
+        applyDefaults();
         permissions.put(FactionRole.OWNER, EnumSet.allOf(FactionPermission.class));
         permissions.put(FactionRole.OFFICER, EnumSet.allOf(FactionPermission.class));
         permissions.put(FactionRole.MEMBER, EnumSet.of(
@@ -84,5 +92,52 @@ public class Faction {
 
     public void setPermissions(FactionRole role, EnumSet<FactionPermission> perms) {
         permissions.put(role, perms);
+    }
+
+    public String getRankName(FactionRole role) {
+        return rankNames.getOrDefault(role, role.name());
+    }
+
+    public void setRankName(FactionRole role, String name) {
+        rankNames.put(role, name);
+    }
+
+    public EnumMap<FactionRole, String> getRankNames() {
+        return rankNames;
+    }
+
+    public String getColorName() {
+        return colorName;
+    }
+
+    public ChatFormatting getColor() {
+        return FactionConfig.parseColor(colorName);
+    }
+
+    public void setColorName(String colorName) {
+        this.colorName = colorName;
+    }
+
+    public String getMotd() {
+        return motd;
+    }
+
+    public void setMotd(String motd) {
+        this.motd = motd;
+    }
+
+    public String getDescription() {
+        return description;
+    }
+
+    public void setDescription(String description) {
+        this.description = description;
+    }
+
+    private void applyDefaults() {
+        colorName = FactionConfig.getDefaultColorName();
+        motd = FactionConfig.getDefaultMotd();
+        description = FactionConfig.getDefaultDescription();
+        rankNames.putAll(FactionConfig.getDefaultRankNames());
     }
 }
