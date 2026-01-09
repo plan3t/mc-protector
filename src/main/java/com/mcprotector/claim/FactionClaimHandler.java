@@ -16,6 +16,7 @@ import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 
 import java.util.Optional;
+import java.util.UUID;
 
 public class FactionClaimHandler {
     @SubscribeEvent
@@ -76,18 +77,24 @@ public class FactionClaimHandler {
         FactionData data = FactionData.get(level);
         BlockPos pos = player.blockPosition();
         Optional<Faction> owner = data.getFactionAt(pos);
+        Optional<UUID> ownerId = owner.map(Faction::getId);
+        Optional<UUID> lastOwner = FactionClaimManager.getLastTerritory(player.getUUID());
         if (owner.isEmpty()) {
-            player.displayClientMessage(Component.literal("Entering wilderness").withStyle(ChatFormatting.GRAY), true);
+            if (lastOwner.isPresent()) {
+                player.displayClientMessage(Component.literal("Entering wilderness").withStyle(ChatFormatting.GRAY), true);
+            }
+            FactionClaimManager.setLastTerritory(player.getUUID(), Optional.empty());
             return;
         }
         Optional<Faction> playerFaction = data.getFactionByPlayer(player.getUUID());
-        if (playerFaction.isPresent() && playerFaction.get().getId().equals(owner.get().getId())) {
-            return;
+        boolean isSameFaction = playerFaction.isPresent() && playerFaction.get().getId().equals(owner.get().getId());
+        if (!lastOwner.equals(ownerId) && !isSameFaction) {
+            player.displayClientMessage(
+                Component.literal("Entering " + owner.get().getName() + " territory").withStyle(owner.get().getColor()),
+                true
+            );
         }
-        player.displayClientMessage(
-            Component.literal("Entering " + owner.get().getName() + " territory").withStyle(owner.get().getColor()),
-            true
-        );
+        FactionClaimManager.setLastTerritory(player.getUUID(), ownerId);
         spawnBorderParticles(level, player, chunkPos);
     }
 
@@ -99,12 +106,12 @@ public class FactionClaimHandler {
         double y = player.getY() + 1.0;
         int step = 4;
         for (int x = minX; x <= maxX; x += step) {
-            level.sendParticles(player, ParticleTypes.END_ROD, true, x + 0.5, y, minZ + 0.5, 1, 0, 0.1, 0, 0.01);
-            level.sendParticles(player, ParticleTypes.END_ROD, true, x + 0.5, y, maxZ + 0.5, 1, 0, 0.1, 0, 0.01);
+            level.sendParticles(player, ParticleTypes.FLAME, true, x + 0.5, y, minZ + 0.5, 2, 0.05, 0.05, 0.05, 0);
+            level.sendParticles(player, ParticleTypes.FLAME, true, x + 0.5, y, maxZ + 0.5, 2, 0.05, 0.05, 0.05, 0);
         }
         for (int z = minZ; z <= maxZ; z += step) {
-            level.sendParticles(player, ParticleTypes.END_ROD, true, minX + 0.5, y, z + 0.5, 1, 0.1, 0, 0, 0.01);
-            level.sendParticles(player, ParticleTypes.END_ROD, true, maxX + 0.5, y, z + 0.5, 1, 0.1, 0, 0, 0.01);
+            level.sendParticles(player, ParticleTypes.FLAME, true, minX + 0.5, y, z + 0.5, 2, 0.05, 0.05, 0.05, 0);
+            level.sendParticles(player, ParticleTypes.FLAME, true, maxX + 0.5, y, z + 0.5, 2, 0.05, 0.05, 0.05, 0);
         }
     }
 }
