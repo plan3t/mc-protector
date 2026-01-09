@@ -184,7 +184,15 @@ public class FactionMainScreen extends Screen {
                 this.width, this.height, PANEL_PADDING);
             ChunkPos clicked = FactionMapRenderer.getChunkFromMouse(region, mouseX, mouseY, mapSnapshot);
             if (clicked != null) {
-                handleMapClick(mapSnapshot, clicked);
+                long key = clicked.toLong();
+                com.mcprotector.network.FactionClaimMapPacket.ClaimEntry entry = mapSnapshot.claims().get(key);
+                FactionClaimMapActionPacket.ActionType action = entry == null
+                    ? FactionClaimMapActionPacket.ActionType.CLAIM
+                    : "OWN".equals(entry.relation())
+                    ? FactionClaimMapActionPacket.ActionType.UNCLAIM
+                    : FactionClaimMapActionPacket.ActionType.OVERTAKE;
+                NetworkHandler.CHANNEL.sendToServer(new FactionClaimMapActionPacket(clicked.x, clicked.z, action));
+                FactionMapClientData.requestUpdate();
                 return true;
             }
         }
@@ -372,65 +380,6 @@ public class FactionMainScreen extends Screen {
         if (claims.size() > visibleLines) {
             guiGraphics.drawString(this.font, "Scroll to view more...", PANEL_PADDING, this.height - 25, 0x777777);
         }
-    }
-
-    private void handleMapClick(FactionMapClientData.MapSnapshot mapSnapshot, ChunkPos clicked) {
-        long key = clicked.toLong();
-        com.mcprotector.network.FactionClaimMapPacket.ClaimEntry entry = mapSnapshot.claims().get(key);
-        FactionClaimMapActionPacket.ActionType action = entry == null
-            ? FactionClaimMapActionPacket.ActionType.CLAIM
-            : "OWN".equals(entry.relation())
-            ? FactionClaimMapActionPacket.ActionType.UNCLAIM
-            : FactionClaimMapActionPacket.ActionType.OVERTAKE;
-        NetworkHandler.CHANNEL.sendToServer(new FactionClaimMapActionPacket(clicked.x, clicked.z, action));
-        FactionMapClientData.requestUpdate();
-    }
-
-    private void renderMapGrid(GuiGraphics guiGraphics, FactionMapClientData.MapSnapshot mapSnapshot, MapRegion region) {
-        int radius = region.radius();
-        for (int dz = -radius; dz <= radius; dz++) {
-            for (int dx = -radius; dx <= radius; dx++) {
-                int chunkX = mapSnapshot.centerChunkX() + dx;
-                int chunkZ = mapSnapshot.centerChunkZ() + dz;
-                int x = region.originX() + (dx + radius) * region.cellSize();
-                int y = region.originY() + (dz + radius) * region.cellSize();
-                long key = new ChunkPos(chunkX, chunkZ).toLong();
-                com.mcprotector.network.FactionClaimMapPacket.ClaimEntry entry = mapSnapshot.claims().get(key);
-                int color = getMapColor(entry);
-                guiGraphics.fill(x, y, x + region.cellSize(), y + region.cellSize(), color);
-            }
-        }
-        int centerX = region.originX() + radius * region.cellSize();
-        int centerY = region.originY() + radius * region.cellSize();
-        guiGraphics.renderOutline(centerX, centerY, region.cellSize(), region.cellSize(), 0xFFFFFFFF);
-    }
-
-    private int getMapColor(com.mcprotector.network.FactionClaimMapPacket.ClaimEntry entry) {
-        if (entry == null) {
-            return 0xFF3A3A3A;
-        }
-        return switch (entry.relation()) {
-            case "OWN" -> 0xFF4CAF50;
-            case "ALLY" -> 0xFF4FC3F7;
-            case "WAR" -> 0xFFEF5350;
-            default -> 0xFF8D8D8D;
-        };
-    }
-
-    private void renderMapTooltip(GuiGraphics guiGraphics, FactionMapClientData.MapSnapshot mapSnapshot, ChunkPos hovered,
-                                  int mouseX, int mouseY) {
-        long key = hovered.toLong();
-        com.mcprotector.network.FactionClaimMapPacket.ClaimEntry entry = mapSnapshot.claims().get(key);
-        List<Component> lines;
-        if (entry == null) {
-            lines = List.of(Component.literal("Wilderness"));
-        } else {
-            String relation = entry.relation().equals("OWN") ? "Your faction" : entry.relation();
-            lines = List.of(
-                Component.literal(entry.factionName()),
-                Component.literal(relation)
-            );
-        }
         List<net.minecraft.util.FormattedCharSequence> tooltip = lines.stream()
             .map(Component::getVisualOrderText)
             .toList();
@@ -481,4 +430,5 @@ public class FactionMainScreen extends Screen {
 
     private record MapRegion(int originX, int originY, int cellSize, int radius) {
     }
+
 }
