@@ -20,6 +20,22 @@ A NeoForge mod scaffold for faction creation, chunk claiming, and claim protecti
 - `/faction war declare <faction>`
 - `/faction war end <faction>`
 
+## Faction UI
+The mod includes a client-side faction UI with tabs for members, invites, permissions, relations, and claims.
+
+### Open the UI
+1. Join a world with the mod loaded.
+2. Press the **G** key (default keybind: `Faction UI`) to open the screen.
+
+### UI actions
+- **Members:** view member list and roles.
+- **Invites:** send faction invites by player name and view outgoing invites.
+- **Permissions:** cycle roles/permissions and grant or revoke permissions.
+- **Relations:** view active ally/war relations.
+- **Claims:** view claimed chunks and claim/unclaim the current chunk.
+
+The UI requests fresh data from the server when it opens and can be refreshed with the **Refresh** button.
+
 ## Dynmap Integration
 Dynmap markers are enabled automatically when the Dynmap API is available. Claims are mapped to area markers in the `Faction Claims` marker set.
 
