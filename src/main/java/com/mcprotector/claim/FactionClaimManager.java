@@ -11,6 +11,7 @@ public final class FactionClaimManager {
     private static final Map<UUID, Boolean> AUTO_CLAIM = new ConcurrentHashMap<>();
     private static final Map<UUID, Boolean> BORDER_ENABLED = new ConcurrentHashMap<>();
     private static final Map<UUID, Long> LAST_AUTO_CLAIM = new ConcurrentHashMap<>();
+    private static final Map<UUID, Long> LAST_BORDER_PARTICLE = new ConcurrentHashMap<>();
     private static final Map<UUID, ChunkPos> LAST_CHUNK = new ConcurrentHashMap<>();
     private static final Map<UUID, Optional<UUID>> LAST_TERRITORY = new ConcurrentHashMap<>();
 
@@ -31,6 +32,9 @@ public final class FactionClaimManager {
 
     public static void setBorderEnabled(UUID playerId, boolean enabled) {
         BORDER_ENABLED.put(playerId, enabled);
+        if (!enabled) {
+            LAST_BORDER_PARTICLE.remove(playerId);
+        }
     }
 
     public static long getLastAutoClaim(UUID playerId) {
@@ -39,6 +43,14 @@ public final class FactionClaimManager {
 
     public static void setLastAutoClaim(UUID playerId, long timestamp) {
         LAST_AUTO_CLAIM.put(playerId, timestamp);
+    }
+
+    public static long getLastBorderParticle(UUID playerId) {
+        return LAST_BORDER_PARTICLE.getOrDefault(playerId, 0L);
+    }
+
+    public static void setLastBorderParticle(UUID playerId, long timestamp) {
+        LAST_BORDER_PARTICLE.put(playerId, timestamp);
     }
 
     public static ChunkPos getLastChunk(UUID playerId) {

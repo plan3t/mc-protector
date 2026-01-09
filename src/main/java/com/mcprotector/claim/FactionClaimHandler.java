@@ -29,11 +29,12 @@ public class FactionClaimHandler {
         }
         ChunkPos currentChunk = new ChunkPos(player.blockPosition());
         ChunkPos lastChunk = FactionClaimManager.getLastChunk(player.getUUID());
-        if (lastChunk != null && lastChunk.equals(currentChunk)) {
-            return;
+        boolean chunkChanged = lastChunk == null || !lastChunk.equals(currentChunk);
+        if (chunkChanged) {
+            FactionClaimManager.setLastChunk(player.getUUID(), currentChunk);
+            handleAutoClaim(player, currentChunk);
+            handleTerritoryOverlay(player);
         }
-        FactionClaimManager.setLastChunk(player.getUUID(), currentChunk);
-        handleAutoClaim(player, currentChunk);
         handleClaimBorder(player, currentChunk);
     }
 
@@ -69,32 +70,37 @@ public class FactionClaimHandler {
         }
     }
 
-    private void handleClaimBorder(ServerPlayer player, ChunkPos chunkPos) {
-        if (!FactionClaimManager.isBorderEnabled(player.getUUID())) {
-            return;
-        }
+    private void handleTerritoryOverlay(ServerPlayer player) {
         ServerLevel level = player.serverLevel();
         FactionData data = FactionData.get(level);
         BlockPos pos = player.blockPosition();
         Optional<Faction> owner = data.getFactionAt(pos);
         Optional<UUID> ownerId = owner.map(Faction::getId);
         Optional<UUID> lastOwner = FactionClaimManager.getLastTerritory(player.getUUID());
-        if (owner.isEmpty()) {
-            if (lastOwner.isPresent()) {
+        if (!lastOwner.equals(ownerId)) {
+            if (owner.isEmpty()) {
                 player.displayClientMessage(Component.literal("Entering wilderness").withStyle(ChatFormatting.GRAY), true);
+            } else {
+                player.displayClientMessage(
+                    Component.literal("Entering " + owner.get().getName() + " territory").withStyle(owner.get().getColor()),
+                    true
+                );
             }
-            FactionClaimManager.setLastTerritory(player.getUUID(), Optional.empty());
-            return;
-        }
-        Optional<Faction> playerFaction = data.getFactionByPlayer(player.getUUID());
-        boolean isSameFaction = playerFaction.isPresent() && playerFaction.get().getId().equals(owner.get().getId());
-        if (!lastOwner.equals(ownerId) && !isSameFaction) {
-            player.displayClientMessage(
-                Component.literal("Entering " + owner.get().getName() + " territory").withStyle(owner.get().getColor()),
-                true
-            );
         }
         FactionClaimManager.setLastTerritory(player.getUUID(), ownerId);
+    }
+
+    private void handleClaimBorder(ServerPlayer player, ChunkPos chunkPos) {
+        if (!FactionClaimManager.isBorderEnabled(player.getUUID())) {
+            return;
+        }
+        long now = System.currentTimeMillis();
+        long lastParticle = FactionClaimManager.getLastBorderParticle(player.getUUID());
+        if (now - lastParticle < 1000L) {
+            return;
+        }
+        FactionClaimManager.setLastBorderParticle(player.getUUID(), now);
+        ServerLevel level = player.serverLevel();
         spawnBorderParticles(level, player, chunkPos);
     }
 
