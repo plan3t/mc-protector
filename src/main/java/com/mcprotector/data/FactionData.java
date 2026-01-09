@@ -1,5 +1,6 @@
 package com.mcprotector.data;
 
+import com.mcprotector.config.FactionConfig;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
@@ -37,6 +38,21 @@ public class FactionData extends SavedData {
             UUID owner = factionTag.getUUID("Owner");
             String name = factionTag.getString("Name");
             Faction faction = new Faction(id, name, owner);
+            if (factionTag.contains("Color")) {
+                faction.setColorName(factionTag.getString("Color"));
+            }
+            if (factionTag.contains("Motd")) {
+                faction.setMotd(factionTag.getString("Motd"));
+            }
+            if (factionTag.contains("Description")) {
+                faction.setDescription(factionTag.getString("Description"));
+            }
+            CompoundTag ranksTag = factionTag.getCompound("RankNames");
+            for (FactionRole role : FactionRole.values()) {
+                if (ranksTag.contains(role.name())) {
+                    faction.setRankName(role, ranksTag.getString(role.name()));
+                }
+            }
             ListTag members = factionTag.getList("Members", Tag.TAG_COMPOUND);
             for (Tag memberTag : members) {
                 CompoundTag member = (CompoundTag) memberTag;
@@ -85,6 +101,14 @@ public class FactionData extends SavedData {
             factionTag.putUUID("Id", faction.getId());
             factionTag.putUUID("Owner", faction.getOwner());
             factionTag.putString("Name", faction.getName());
+            factionTag.putString("Color", faction.getColorName());
+            factionTag.putString("Motd", faction.getMotd());
+            factionTag.putString("Description", faction.getDescription());
+            CompoundTag ranksTag = new CompoundTag();
+            for (Map.Entry<FactionRole, String> entry : faction.getRankNames().entrySet()) {
+                ranksTag.putString(entry.getKey().name(), entry.getValue());
+            }
+            factionTag.put("RankNames", ranksTag);
             ListTag membersTag = new ListTag();
             for (Map.Entry<UUID, FactionRole> member : faction.getMembers().entrySet()) {
                 CompoundTag memberTag = new CompoundTag();
@@ -307,7 +331,9 @@ public class FactionData extends SavedData {
         if (faction == null) {
             return 0;
         }
-        return Math.max(10, faction.getMemberCount() * 10);
+        int base = FactionConfig.SERVER.baseClaims.get();
+        int perMember = FactionConfig.SERVER.claimsPerMember.get();
+        return Math.max(base, base + (faction.getMemberCount() * perMember));
     }
 
     public Map<Long, UUID> getClaims() {

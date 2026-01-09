@@ -1,7 +1,9 @@
 package com.mcprotector;
 
+import com.mcprotector.chat.FactionChatHandler;
 import com.mcprotector.command.FactionCommands;
 import com.mcprotector.command.FactionRelationCommands;
+import com.mcprotector.config.FactionConfig;
 import com.mcprotector.data.FactionData;
 import com.mcprotector.dynmap.DynmapBridge;
 import com.mcprotector.protection.ClaimProtectionHandler;
@@ -12,6 +14,8 @@ import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
+import net.minecraftforge.fml.config.ModConfig;
+import net.minecraftforge.fml.ModLoadingContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -23,9 +27,11 @@ public class McProtectorMod {
     public McProtectorMod() {
         IEventBus modBus = FMLJavaModLoadingContext.get().getModEventBus();
         modBus.addListener(this::onCommonSetup);
+        ModLoadingContext.get().registerConfig(ModConfig.Type.SERVER, FactionConfig.SERVER_SPEC);
         MinecraftForge.EVENT_BUS.addListener(this::registerCommands);
         MinecraftForge.EVENT_BUS.addListener(this::onServerStarted);
         MinecraftForge.EVENT_BUS.register(new ClaimProtectionHandler());
+        MinecraftForge.EVENT_BUS.register(new FactionChatHandler());
     }
 
     private void onCommonSetup(FMLCommonSetupEvent event) {
