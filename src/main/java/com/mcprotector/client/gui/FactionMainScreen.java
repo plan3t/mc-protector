@@ -415,7 +415,10 @@ public class FactionMainScreen extends Screen {
                 Component.literal(relation)
             );
         }
-        guiGraphics.renderTooltip(this.font, lines, mouseX, mouseY);
+        List<net.minecraft.util.FormattedCharSequence> tooltip = lines.stream()
+            .map(Component::getVisualOrderText)
+            .toList();
+        guiGraphics.renderTooltip(this.font, tooltip, mouseX, mouseY);
     }
 
     private void handleMapClick(FactionMapClientData.MapSnapshot mapSnapshot, ChunkPos clicked) {
