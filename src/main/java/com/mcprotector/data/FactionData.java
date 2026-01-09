@@ -25,7 +25,7 @@ import java.util.UUID;
 
 public class FactionData extends SavedData {
     private static final String DATA_NAME = "mcprotector_factions";
-    private static final int DATA_VERSION = 2;
+    private static final int DATA_VERSION = 3;
 
     private final Map<UUID, Faction> factions = new HashMap<>();
     private final Map<UUID, UUID> playerFaction = new HashMap<>();
@@ -33,6 +33,9 @@ public class FactionData extends SavedData {
     private final Map<UUID, Map<UUID, FactionRelation>> relations = new HashMap<>();
     private final Map<UUID, FactionInvite> pendingInvites = new HashMap<>();
     private final Map<Long, Deque<FactionAccessLog>> accessLogs = new HashMap<>();
+    private final Map<UUID, Boolean> autoClaimSettings = new HashMap<>();
+    private final Map<UUID, Boolean> borderSettings = new HashMap<>();
+    private final Map<UUID, FactionHome> factionHomes = new HashMap<>();
 
     public static FactionData get(ServerLevel level) {
         return level.getDataStorage().computeIfAbsent(FactionData::load, FactionData::new, DATA_NAME);
@@ -122,6 +125,52 @@ public class FactionData extends SavedData {
                 data.pendingInvites.put(playerId, new FactionInvite(factionId, expiresAt));
             }
         }
+        if (dataVersion >= 3 && tag.contains("AccessLogs")) {
+            ListTag logsTag = tag.getList("AccessLogs", Tag.TAG_COMPOUND);
+            for (Tag logEntry : logsTag) {
+                CompoundTag logTag = (CompoundTag) logEntry;
+                long chunkKey = logTag.getLong("Chunk");
+                ListTag entries = logTag.getList("Entries", Tag.TAG_COMPOUND);
+                Deque<FactionAccessLog> logs = new ArrayDeque<>();
+                for (Tag entryTag : entries) {
+                    CompoundTag entry = (CompoundTag) entryTag;
+                    long timestamp = entry.getLong("Timestamp");
+                    UUID playerId = entry.getUUID("PlayerId");
+                    String playerName = entry.getString("PlayerName");
+                    String action = entry.getString("Action");
+                    boolean allowed = entry.getBoolean("Allowed");
+                    String blockName = entry.getString("BlockName");
+                    BlockPos pos = new BlockPos(entry.getInt("X"), entry.getInt("Y"), entry.getInt("Z"));
+                    logs.addLast(new FactionAccessLog(timestamp, playerId, playerName, pos, action, allowed, blockName));
+                }
+                if (!logs.isEmpty()) {
+                    data.accessLogs.put(chunkKey, logs);
+                }
+            }
+        }
+        if (dataVersion >= 3 && tag.contains("PlayerSettings")) {
+            ListTag settingsTag = tag.getList("PlayerSettings", Tag.TAG_COMPOUND);
+            for (Tag entry : settingsTag) {
+                CompoundTag setting = (CompoundTag) entry;
+                UUID playerId = setting.getUUID("Player");
+                if (setting.contains("AutoClaim")) {
+                    data.autoClaimSettings.put(playerId, setting.getBoolean("AutoClaim"));
+                }
+                if (setting.contains("BorderEnabled")) {
+                    data.borderSettings.put(playerId, setting.getBoolean("BorderEnabled"));
+                }
+            }
+        }
+        if (dataVersion >= 3 && tag.contains("Homes")) {
+            ListTag homesTag = tag.getList("Homes", Tag.TAG_COMPOUND);
+            for (Tag entry : homesTag) {
+                CompoundTag homeTag = (CompoundTag) entry;
+                UUID factionId = homeTag.getUUID("Faction");
+                String dimension = homeTag.getString("Dimension");
+                BlockPos pos = new BlockPos(homeTag.getInt("X"), homeTag.getInt("Y"), homeTag.getInt("Z"));
+                data.factionHomes.put(factionId, new FactionHome(dimension, pos));
+            }
+        }
         return data;
     }
 
@@ -133,11 +182,18 @@ public class FactionData extends SavedData {
         relations.clear();
         pendingInvites.clear();
         accessLogs.clear();
+        autoClaimSettings.clear();
+        borderSettings.clear();
+        factionHomes.clear();
         factions.putAll(loaded.factions);
         playerFaction.putAll(loaded.playerFaction);
         claims.putAll(loaded.claims);
         relations.putAll(loaded.relations);
         pendingInvites.putAll(loaded.pendingInvites);
+        accessLogs.putAll(loaded.accessLogs);
+        autoClaimSettings.putAll(loaded.autoClaimSettings);
+        borderSettings.putAll(loaded.borderSettings);
+        factionHomes.putAll(loaded.factionHomes);
         setDirty();
     }
 
@@ -213,6 +269,58 @@ public class FactionData extends SavedData {
             invitesTag.add(invite);
         }
         tag.put("Invites", invitesTag);
+        ListTag logsTag = new ListTag();
+        for (Map.Entry<Long, Deque<FactionAccessLog>> entry : accessLogs.entrySet()) {
+            CompoundTag logTag = new CompoundTag();
+            logTag.putLong("Chunk", entry.getKey());
+            ListTag entries = new ListTag();
+            for (FactionAccessLog log : entry.getValue()) {
+                CompoundTag entryTag = new CompoundTag();
+                entryTag.putLong("Timestamp", log.timestamp());
+                entryTag.putUUID("PlayerId", log.playerId());
+                entryTag.putString("PlayerName", log.playerName());
+                entryTag.putString("Action", log.action());
+                entryTag.putBoolean("Allowed", log.allowed());
+                entryTag.putString("BlockName", log.blockName());
+                entryTag.putInt("X", log.pos().getX());
+                entryTag.putInt("Y", log.pos().getY());
+                entryTag.putInt("Z", log.pos().getZ());
+                entries.add(entryTag);
+            }
+            logTag.put("Entries", entries);
+            logsTag.add(logTag);
+        }
+        tag.put("AccessLogs", logsTag);
+        ListTag settingsTag = new ListTag();
+        for (UUID playerId : autoClaimSettings.keySet()) {
+            CompoundTag setting = new CompoundTag();
+            setting.putUUID("Player", playerId);
+            setting.putBoolean("AutoClaim", autoClaimSettings.getOrDefault(playerId, false));
+            setting.putBoolean("BorderEnabled", borderSettings.getOrDefault(playerId, true));
+            settingsTag.add(setting);
+        }
+        for (UUID playerId : borderSettings.keySet()) {
+            if (autoClaimSettings.containsKey(playerId)) {
+                continue;
+            }
+            CompoundTag setting = new CompoundTag();
+            setting.putUUID("Player", playerId);
+            setting.putBoolean("AutoClaim", autoClaimSettings.getOrDefault(playerId, false));
+            setting.putBoolean("BorderEnabled", borderSettings.getOrDefault(playerId, true));
+            settingsTag.add(setting);
+        }
+        tag.put("PlayerSettings", settingsTag);
+        ListTag homesTag = new ListTag();
+        for (Map.Entry<UUID, FactionHome> entry : factionHomes.entrySet()) {
+            CompoundTag homeTag = new CompoundTag();
+            homeTag.putUUID("Faction", entry.getKey());
+            homeTag.putString("Dimension", entry.getValue().dimension());
+            homeTag.putInt("X", entry.getValue().pos().getX());
+            homeTag.putInt("Y", entry.getValue().pos().getY());
+            homeTag.putInt("Z", entry.getValue().pos().getZ());
+            homesTag.add(homeTag);
+        }
+        tag.put("Homes", homesTag);
         return tag;
     }
 
@@ -304,6 +412,12 @@ public class FactionData extends SavedData {
             }
         }
         return invites;
+    }
+
+    public void clearInvite(UUID playerId) {
+        if (pendingInvites.remove(playerId) != null) {
+            setDirty();
+        }
     }
 
     public void disbandFaction(UUID factionId) {
@@ -538,10 +652,38 @@ public class FactionData extends SavedData {
         while (logs.size() > maxSize) {
             logs.removeLast();
         }
+        setDirty();
     }
 
     public Deque<FactionAccessLog> getAccessLogs(BlockPos pos) {
         return accessLogs.getOrDefault(ChunkPos.asLong(pos), new ArrayDeque<>());
+    }
+
+    public boolean isAutoClaimEnabled(UUID playerId) {
+        return autoClaimSettings.getOrDefault(playerId, false);
+    }
+
+    public void setAutoClaimEnabled(UUID playerId, boolean enabled) {
+        autoClaimSettings.put(playerId, enabled);
+        setDirty();
+    }
+
+    public boolean isBorderEnabled(UUID playerId) {
+        return borderSettings.getOrDefault(playerId, true);
+    }
+
+    public void setBorderEnabled(UUID playerId, boolean enabled) {
+        borderSettings.put(playerId, enabled);
+        setDirty();
+    }
+
+    public Optional<FactionHome> getFactionHome(UUID factionId) {
+        return Optional.ofNullable(factionHomes.get(factionId));
+    }
+
+    public void setFactionHome(UUID factionId, String dimension, BlockPos pos) {
+        factionHomes.put(factionId, new FactionHome(dimension, pos));
+        setDirty();
     }
 
     public boolean canUseProtectionTier(UUID factionId, FactionProtectionTier tier) {
@@ -556,5 +698,8 @@ public class FactionData extends SavedData {
 
     public record FactionAccessLog(long timestamp, UUID playerId, String playerName, BlockPos pos, String action,
                                    boolean allowed, String blockName) {
+    }
+
+    public record FactionHome(String dimension, BlockPos pos) {
     }
 }

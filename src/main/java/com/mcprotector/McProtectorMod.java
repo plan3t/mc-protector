@@ -52,7 +52,7 @@ public class McProtectorMod {
     private void onServerStarted(ServerStartedEvent event) {
         for (var level : event.getServer().getAllLevels()) {
             if (FactionConfig.SERVER.dynmapFullSyncOnStart.get()) {
-                DynmapBridge.syncClaims(FactionData.get(level));
+                DynmapBridge.syncClaims(level, FactionData.get(level));
             }
         }
     }

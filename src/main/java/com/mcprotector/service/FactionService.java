@@ -64,7 +64,7 @@ public final class FactionService {
             }
             return 0;
         }
-        DynmapBridge.updateClaim(chunk, faction);
+        DynmapBridge.updateClaim(chunk, faction, player.level().dimension().location().toString());
         LAST_CLAIM.put(player.getUUID(), now);
         source.sendSuccess(() -> Component.literal("Chunk claimed for " + faction.get().getName()), false);
         return 1;
@@ -103,7 +103,7 @@ public final class FactionService {
             source.sendFailure(Component.literal("Your faction does not own this chunk."));
             return 0;
         }
-        DynmapBridge.updateClaim(chunk, Optional.empty());
+        DynmapBridge.updateClaim(chunk, Optional.empty(), player.level().dimension().location().toString());
         LAST_UNCLAIM.put(player.getUUID(), now);
         source.sendSuccess(() -> Component.literal("Chunk unclaimed."), false);
         return 1;
@@ -201,15 +201,129 @@ public final class FactionService {
             }
             return 0;
         }
-        DynmapBridge.updateClaim(chunk, faction);
+        DynmapBridge.updateClaim(chunk, faction, player.level().dimension().location().toString());
         source.sendSuccess(() -> Component.literal("Chunk overtaken for " + faction.get().getName()), false);
         return 1;
     }
 
     public static int syncDynmap(CommandSourceStack source) throws CommandSyntaxException {
         ServerPlayer player = source.getPlayerOrException();
-        DynmapBridge.syncClaims(FactionData.get(player.serverLevel()));
+        DynmapBridge.syncClaims(player.serverLevel(), FactionData.get(player.serverLevel()));
         source.sendSuccess(() -> Component.literal("Synced faction claims to Dynmap."), false);
+        return 1;
+    }
+
+    public static int joinFaction(CommandSourceStack source, String name) throws CommandSyntaxException {
+        ServerPlayer player = source.getPlayerOrException();
+        FactionData data = FactionData.get(player.serverLevel());
+        if (data.getFactionByPlayer(player.getUUID()).isPresent()) {
+            source.sendFailure(Component.literal("You already belong to a faction."));
+            return 0;
+        }
+        Optional<Faction> faction = data.findFactionByName(name);
+        if (faction.isEmpty()) {
+            source.sendFailure(Component.literal("Faction not found."));
+            return 0;
+        }
+        Optional<FactionData.FactionInvite> invite = data.getInvite(player.getUUID());
+        if (invite.isEmpty() || !invite.get().factionId().equals(faction.get().getId())) {
+            source.sendFailure(Component.literal("You do not have an invite to that faction."));
+            return 0;
+        }
+        if (!data.addMember(faction.get().getId(), player.getUUID(), FactionRole.MEMBER)) {
+            source.sendFailure(Component.literal("Failed to join faction."));
+            return 0;
+        }
+        source.sendSuccess(() -> Component.literal("Joined faction " + faction.get().getName()), true);
+        return 1;
+    }
+
+    public static int declineInvite(CommandSourceStack source) throws CommandSyntaxException {
+        ServerPlayer player = source.getPlayerOrException();
+        FactionData data = FactionData.get(player.serverLevel());
+        if (data.getInvite(player.getUUID()).isEmpty()) {
+            source.sendFailure(Component.literal("You have no pending invites."));
+            return 0;
+        }
+        data.clearInvite(player.getUUID());
+        source.sendSuccess(() -> Component.literal("Invite declined."), true);
+        return 1;
+    }
+
+    public static int leaveFaction(CommandSourceStack source) throws CommandSyntaxException {
+        ServerPlayer player = source.getPlayerOrException();
+        FactionData data = FactionData.get(player.serverLevel());
+        Optional<Faction> faction = data.getFactionByPlayer(player.getUUID());
+        if (faction.isEmpty()) {
+            source.sendFailure(Component.literal("You are not in a faction."));
+            return 0;
+        }
+        if (faction.get().getOwner().equals(player.getUUID())) {
+            source.sendFailure(Component.literal("The owner must disband the faction."));
+            return 0;
+        }
+        if (!data.removeMember(player.getUUID())) {
+            source.sendFailure(Component.literal("Failed to leave the faction."));
+            return 0;
+        }
+        source.sendSuccess(() -> Component.literal("You left the faction."), true);
+        return 1;
+    }
+
+    public static int kickMember(CommandSourceStack source, ServerPlayer target) throws CommandSyntaxException {
+        ServerPlayer player = source.getPlayerOrException();
+        FactionData data = FactionData.get(player.serverLevel());
+        Optional<Faction> faction = data.getFactionByPlayer(player.getUUID());
+        if (faction.isEmpty()) {
+            source.sendFailure(Component.literal("You are not in a faction."));
+            return 0;
+        }
+        if (!faction.get().hasPermission(player.getUUID(), FactionPermission.MANAGE_MEMBERS)) {
+            source.sendFailure(Component.literal("You lack permission to manage members."));
+            return 0;
+        }
+        Optional<UUID> targetFactionId = data.getFactionIdByPlayer(target.getUUID());
+        if (targetFactionId.isEmpty() || !targetFactionId.get().equals(faction.get().getId())) {
+            source.sendFailure(Component.literal("That player is not in your faction."));
+            return 0;
+        }
+        if (faction.get().getOwner().equals(target.getUUID())) {
+            source.sendFailure(Component.literal("You cannot kick the owner."));
+            return 0;
+        }
+        if (!data.removeMember(target.getUUID())) {
+            source.sendFailure(Component.literal("Failed to remove member."));
+            return 0;
+        }
+        source.sendSuccess(() -> Component.literal("Removed " + target.getName().getString() + " from the faction."), true);
+        target.sendSystemMessage(Component.literal("You were removed from " + faction.get().getName() + "."));
+        return 1;
+    }
+
+    public static int setRole(CommandSourceStack source, ServerPlayer target, FactionRole role) throws CommandSyntaxException {
+        ServerPlayer player = source.getPlayerOrException();
+        FactionData data = FactionData.get(player.serverLevel());
+        Optional<Faction> faction = data.getFactionByPlayer(player.getUUID());
+        if (faction.isEmpty()) {
+            source.sendFailure(Component.literal("You are not in a faction."));
+            return 0;
+        }
+        if (!faction.get().hasPermission(player.getUUID(), FactionPermission.MANAGE_MEMBERS)) {
+            source.sendFailure(Component.literal("You lack permission to manage members."));
+            return 0;
+        }
+        if (faction.get().getOwner().equals(target.getUUID())) {
+            source.sendFailure(Component.literal("You cannot change the owner's role."));
+            return 0;
+        }
+        Optional<UUID> targetFactionId = data.getFactionIdByPlayer(target.getUUID());
+        if (targetFactionId.isEmpty() || !targetFactionId.get().equals(faction.get().getId())) {
+            source.sendFailure(Component.literal("That player is not in your faction."));
+            return 0;
+        }
+        faction.get().setRole(target.getUUID(), role);
+        data.setDirty();
+        source.sendSuccess(() -> Component.literal("Set " + target.getName().getString() + " to " + role.name()), true);
         return 1;
     }
 

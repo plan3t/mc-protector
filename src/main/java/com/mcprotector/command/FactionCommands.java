@@ -24,6 +24,7 @@ import net.minecraft.commands.Commands;
 import net.minecraft.commands.arguments.EntityArgument;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.core.BlockPos;
 
@@ -154,6 +155,10 @@ public final class FactionCommands {
                     .executes(context -> claimInfo(context.getSource())))
                 .then(Commands.literal("logs")
                     .executes(context -> showClaimLogs(context.getSource())))
+                .then(Commands.literal("home")
+                    .executes(context -> goHome(context.getSource())))
+                .then(Commands.literal("sethome")
+                    .executes(context -> setHome(context.getSource())))
                 .then(Commands.literal("map")
                     .executes(context -> factionMap(context.getSource(), 4))
                     .then(Commands.argument("radius", IntegerArgumentType.integer(1, 8))
@@ -223,7 +228,7 @@ public final class FactionCommands {
         for (var entry : data.getClaims().entrySet()) {
             if (factionId.equals(entry.getValue())) {
                 ChunkPos chunkPos = new ChunkPos(entry.getKey());
-                DynmapBridge.updateClaim(chunkPos, Optional.empty());
+                DynmapBridge.updateClaim(chunkPos, Optional.empty(), player.level().dimension().location().toString());
             }
         }
         data.disbandFaction(factionId);
@@ -797,6 +802,7 @@ public final class FactionCommands {
             enabled = !enabled;
         }
         FactionClaimManager.setAutoClaimEnabled(player.getUUID(), enabled);
+        FactionData.get(player.serverLevel()).setAutoClaimEnabled(player.getUUID(), enabled);
         String message = "Auto-claim " + (enabled ? "enabled" : "disabled") + ".";
         source.sendSuccess(() -> Component.literal(message), false);
         return 1;
@@ -811,8 +817,63 @@ public final class FactionCommands {
             enabled = !enabled;
         }
         FactionClaimManager.setBorderEnabled(player.getUUID(), enabled);
+        FactionData.get(player.serverLevel()).setBorderEnabled(player.getUUID(), enabled);
         String message = "Claim borders " + (enabled ? "enabled" : "disabled") + ".";
         source.sendSuccess(() -> Component.literal(message), false);
+        return 1;
+    }
+
+    private static int setHome(CommandSourceStack source) throws CommandSyntaxException {
+        ServerPlayer player = source.getPlayerOrException();
+        FactionData data = FactionData.get(player.serverLevel());
+        Optional<Faction> faction = data.getFactionByPlayer(player.getUUID());
+        if (faction.isEmpty()) {
+            source.sendFailure(Component.literal("You are not in a faction."));
+            return 0;
+        }
+        if (!faction.get().hasPermission(player.getUUID(), FactionPermission.MANAGE_SETTINGS)) {
+            source.sendFailure(Component.literal("You lack permission to set the faction home."));
+            return 0;
+        }
+        String dimension = player.level().dimension().location().toString();
+        data.setFactionHome(faction.get().getId(), dimension, player.blockPosition());
+        source.sendSuccess(() -> Component.literal("Faction home set."), true);
+        return 1;
+    }
+
+    private static int goHome(CommandSourceStack source) throws CommandSyntaxException {
+        ServerPlayer player = source.getPlayerOrException();
+        FactionData data = FactionData.get(player.serverLevel());
+        Optional<Faction> faction = data.getFactionByPlayer(player.getUUID());
+        if (faction.isEmpty()) {
+            source.sendFailure(Component.literal("You are not in a faction."));
+            return 0;
+        }
+        Optional<FactionData.FactionHome> home = data.getFactionHome(faction.get().getId());
+        if (home.isEmpty()) {
+            source.sendFailure(Component.literal("Your faction does not have a home set."));
+            return 0;
+        }
+        String dimension = home.get().dimension();
+        var server = player.getServer();
+        if (server == null) {
+            source.sendFailure(Component.literal("Server not available."));
+            return 0;
+        }
+        net.minecraft.resources.ResourceLocation dimensionId = net.minecraft.resources.ResourceLocation.tryParse(dimension);
+        if (dimensionId == null) {
+            source.sendFailure(Component.literal("Faction home dimension is invalid."));
+            return 0;
+        }
+        ServerLevel level = server.getLevel(net.minecraft.resources.ResourceKey.create(net.minecraft.core.registries.Registries.DIMENSION,
+            dimensionId));
+        if (level == null) {
+            source.sendFailure(Component.literal("Faction home dimension is not available."));
+            return 0;
+        }
+        BlockPos pos = home.get().pos();
+        player.teleportTo(level, pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5, player.getYRot(), player.getXRot());
+        source.sendSuccess(() -> Component.literal("Teleported to faction home."), true);
         return 1;
     }
 
@@ -821,7 +882,7 @@ public final class FactionCommands {
             source.sendFailure(Component.literal("You lack permission to sync Dynmap."));
             return 0;
         }
-        DynmapBridge.syncClaims(FactionData.get(source.getLevel()));
+        DynmapBridge.syncClaims(source.getLevel(), FactionData.get(source.getLevel()));
         source.sendSuccess(() -> Component.literal("Dynmap claims synced."), true);
         return 1;
     }

@@ -30,10 +30,15 @@ public class FactionStatePacket {
     private final List<RelationEntry> relations;
     private final List<ClaimEntry> claims;
     private final String pendingInviteFaction;
+    private final int claimCount;
+    private final int maxClaims;
+    private final String protectionTier;
+    private final int factionLevel;
 
     public FactionStatePacket(boolean inFaction, String factionName, String roleName, List<MemberEntry> members,
                               List<InviteEntry> invites, List<PermissionEntry> permissions, List<RelationEntry> relations,
-                              List<ClaimEntry> claims, String pendingInviteFaction) {
+                              List<ClaimEntry> claims, String pendingInviteFaction, int claimCount, int maxClaims,
+                              String protectionTier, int factionLevel) {
         this.inFaction = inFaction;
         this.factionName = factionName;
         this.roleName = roleName;
@@ -43,6 +48,10 @@ public class FactionStatePacket {
         this.relations = relations;
         this.claims = claims;
         this.pendingInviteFaction = pendingInviteFaction;
+        this.claimCount = claimCount;
+        this.maxClaims = maxClaims;
+        this.protectionTier = protectionTier;
+        this.factionLevel = factionLevel;
     }
 
     public static FactionStatePacket fromPlayer(ServerPlayer player) {
@@ -53,7 +62,8 @@ public class FactionStatePacket {
                 .flatMap(invite -> data.getFaction(invite.factionId()))
                 .map(Faction::getName)
                 .orElse("");
-            return new FactionStatePacket(false, "", "", List.of(), List.of(), List.of(), List.of(), List.of(), inviteFactionName);
+            return new FactionStatePacket(false, "", "", List.of(), List.of(), List.of(), List.of(), List.of(),
+                inviteFactionName, 0, 0, "", 0);
         }
         Faction factionData = faction.get();
         MinecraftServer server = player.getServer();
@@ -94,7 +104,12 @@ public class FactionStatePacket {
             claims.add(new ClaimEntry(x, z));
         }
         String roleName = factionData.getRole(player.getUUID()).name();
-        return new FactionStatePacket(true, factionData.getName(), roleName, members, invites, permissions, relations, claims, "");
+        int claimCount = data.getClaimCount(factionData.getId());
+        int maxClaims = data.getMaxClaims(factionData.getId());
+        int factionLevel = data.getFactionLevel(factionData.getId());
+        String protectionTier = factionData.getProtectionTier().name();
+        return new FactionStatePacket(true, factionData.getName(), roleName, members, invites, permissions, relations, claims, "",
+            claimCount, maxClaims, protectionTier, factionLevel);
     }
 
     private static String resolveName(MinecraftServer server, UUID playerId) {
@@ -144,6 +159,10 @@ public class FactionStatePacket {
             buffer.writeInt(entry.chunkX());
             buffer.writeInt(entry.chunkZ());
         }
+        buffer.writeVarInt(packet.claimCount);
+        buffer.writeVarInt(packet.maxClaims);
+        buffer.writeUtf(packet.protectionTier);
+        buffer.writeVarInt(packet.factionLevel);
     }
 
     public static FactionStatePacket decode(FriendlyByteBuf buffer) {
@@ -182,7 +201,12 @@ public class FactionStatePacket {
         for (int i = 0; i < claimCount; i++) {
             claims.add(new ClaimEntry(buffer.readInt(), buffer.readInt()));
         }
-        return new FactionStatePacket(inFaction, factionName, roleName, members, invites, permissions, relations, claims, pendingInviteFaction);
+        int factionClaimCount = buffer.readVarInt();
+        int maxClaims = buffer.readVarInt();
+        String protectionTier = buffer.readUtf();
+        int factionLevel = buffer.readVarInt();
+        return new FactionStatePacket(inFaction, factionName, roleName, members, invites, permissions, relations, claims,
+            pendingInviteFaction, factionClaimCount, maxClaims, protectionTier, factionLevel);
     }
 
     public static void handle(FactionStatePacket packet, Supplier<NetworkEvent.Context> context) {
@@ -227,6 +251,22 @@ public class FactionStatePacket {
 
     public String pendingInviteFaction() {
         return pendingInviteFaction;
+    }
+
+    public int claimCount() {
+        return claimCount;
+    }
+
+    public int maxClaims() {
+        return maxClaims;
+    }
+
+    public String protectionTier() {
+        return protectionTier;
+    }
+
+    public int factionLevel() {
+        return factionLevel;
     }
 
     public record MemberEntry(UUID playerId, String name, String role) {

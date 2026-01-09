@@ -27,6 +27,7 @@ public class FactionClaimHandler {
         if (!(event.player instanceof ServerPlayer player)) {
             return;
         }
+        ensureSettingsLoaded(player);
         ChunkPos currentChunk = new ChunkPos(player.blockPosition());
         ChunkPos lastChunk = FactionClaimManager.getLastChunk(player.getUUID());
         boolean chunkChanged = lastChunk == null || !lastChunk.equals(currentChunk);
@@ -65,7 +66,7 @@ public class FactionClaimHandler {
         }
         if (data.claimChunk(chunkPos, faction.get().getId())) {
             FactionClaimManager.setLastAutoClaim(player.getUUID(), now);
-            DynmapBridge.updateClaim(chunkPos, faction);
+            DynmapBridge.updateClaim(chunkPos, faction, player.level().dimension().location().toString());
             player.sendSystemMessage(Component.literal("Auto-claimed chunk for " + faction.get().getName()));
         }
     }
@@ -118,6 +119,17 @@ public class FactionClaimHandler {
         for (int z = minZ; z <= maxZ; z += step) {
             level.sendParticles(player, ParticleTypes.FLAME, true, minX + 0.5, y, z + 0.5, 2, 0.05, 0.05, 0.05, 0);
             level.sendParticles(player, ParticleTypes.FLAME, true, maxX + 0.5, y, z + 0.5, 2, 0.05, 0.05, 0.05, 0);
+        }
+    }
+
+    private void ensureSettingsLoaded(ServerPlayer player) {
+        FactionData data = FactionData.get(player.serverLevel());
+        UUID playerId = player.getUUID();
+        if (!FactionClaimManager.hasAutoClaimSetting(playerId)) {
+            FactionClaimManager.setAutoClaimEnabled(playerId, data.isAutoClaimEnabled(playerId));
+        }
+        if (!FactionClaimManager.hasBorderSetting(playerId)) {
+            FactionClaimManager.setBorderEnabled(playerId, data.isBorderEnabled(playerId));
         }
     }
 }
