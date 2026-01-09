@@ -21,8 +21,8 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 public class FactionMainScreen extends Screen {
-    private static final int TAB_BUTTON_HEIGHT = 20;
-    private static final int TAB_BUTTON_WIDTH = 90;
+    private static final int TAB_BUTTON_HEIGHT = 18;
+    private static final int TAB_BUTTON_WIDTH = 72;
     private static final int PANEL_PADDING = 16;
     private static final DateTimeFormatter INVITE_TIME_FORMAT = DateTimeFormatter.ofPattern("HH:mm")
         .withZone(ZoneId.systemDefault());

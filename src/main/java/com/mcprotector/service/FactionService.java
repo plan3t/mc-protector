@@ -47,8 +47,10 @@ public final class FactionService {
         }
         long now = System.currentTimeMillis();
         int level = data.getFactionLevel(faction.get().getId());
-        int cooldownSeconds = Math.max(0, FactionConfig.SERVER.claimCooldownSeconds.get()
+        int baseCooldownSeconds = Math.max(0, FactionConfig.SERVER.claimCooldownSeconds.get()
             - (level - 1) * FactionConfig.SERVER.claimCooldownReductionPerLevel.get());
+        int cooldownSeconds = applyOwnerCooldownMultiplier(baseCooldownSeconds, faction.get(), player.getUUID(),
+            FactionConfig.SERVER.claimCooldownOwnerMultiplier.get());
         long lastClaim = LAST_CLAIM.getOrDefault(player.getUUID(), 0L);
         if (now - lastClaim < cooldownSeconds * 1000L) {
             source.sendFailure(Component.literal("You must wait before claiming again."));
@@ -88,8 +90,10 @@ public final class FactionService {
         }
         long now = System.currentTimeMillis();
         int level = data.getFactionLevel(faction.get().getId());
-        int cooldownSeconds = Math.max(0, FactionConfig.SERVER.unclaimCooldownSeconds.get()
+        int baseCooldownSeconds = Math.max(0, FactionConfig.SERVER.unclaimCooldownSeconds.get()
             - (level - 1) * FactionConfig.SERVER.unclaimCooldownReductionPerLevel.get());
+        int cooldownSeconds = applyOwnerCooldownMultiplier(baseCooldownSeconds, faction.get(), player.getUUID(),
+            FactionConfig.SERVER.unclaimCooldownOwnerMultiplier.get());
         long lastUnclaim = LAST_UNCLAIM.getOrDefault(player.getUUID(), 0L);
         if (now - lastUnclaim < cooldownSeconds * 1000L) {
             source.sendFailure(Component.literal("You must wait before unclaiming again."));
@@ -220,5 +224,12 @@ public final class FactionService {
             return false;
         }
         return true;
+    }
+
+    private static int applyOwnerCooldownMultiplier(int baseSeconds, Faction faction, UUID playerId, double multiplier) {
+        if (faction.getRole(playerId) == FactionRole.OWNER) {
+            return Math.max(0, (int) Math.ceil(baseSeconds * Math.max(0.0, multiplier)));
+        }
+        return baseSeconds;
     }
 }

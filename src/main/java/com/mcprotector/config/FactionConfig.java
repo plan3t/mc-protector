@@ -134,8 +134,10 @@ public final class FactionConfig {
         public final ForgeConfigSpec.ConfigValue<Integer> bonusClaimsPerLevel;
         public final ForgeConfigSpec.ConfigValue<Integer> claimCooldownSeconds;
         public final ForgeConfigSpec.ConfigValue<Integer> claimCooldownReductionPerLevel;
+        public final ForgeConfigSpec.ConfigValue<Double> claimCooldownOwnerMultiplier;
         public final ForgeConfigSpec.ConfigValue<Integer> unclaimCooldownSeconds;
         public final ForgeConfigSpec.ConfigValue<Integer> unclaimCooldownReductionPerLevel;
+        public final ForgeConfigSpec.ConfigValue<Double> unclaimCooldownOwnerMultiplier;
         public final ForgeConfigSpec.ConfigValue<Integer> inviteExpirationMinutes;
         public final ForgeConfigSpec.ConfigValue<Integer> autoClaimCooldownSeconds;
         public final ForgeConfigSpec.ConfigValue<Boolean> allowPvpInClaims;
@@ -195,12 +197,18 @@ public final class FactionConfig {
             claimCooldownReductionPerLevel = builder
                 .comment("Cooldown reduction per faction level for claims.")
                 .define("claimCooldownReductionPerLevel", 1);
+            claimCooldownOwnerMultiplier = builder
+                .comment("Cooldown multiplier for faction owners when claiming.")
+                .defineInRange("claimCooldownOwnerMultiplier", 0.25, 0.0, 1.0);
             unclaimCooldownSeconds = builder
                 .comment("Cooldown in seconds between unclaim actions.")
                 .define("unclaimCooldownSeconds", 5);
             unclaimCooldownReductionPerLevel = builder
                 .comment("Cooldown reduction per faction level for unclaims.")
                 .define("unclaimCooldownReductionPerLevel", 1);
+            unclaimCooldownOwnerMultiplier = builder
+                .comment("Cooldown multiplier for faction owners when unclaiming.")
+                .defineInRange("unclaimCooldownOwnerMultiplier", 0.25, 0.0, 1.0);
             defaultProtectionTier = builder
                 .comment("Default protection tier (relaxed, standard, strict).")
                 .define("defaultProtectionTier", "standard");
