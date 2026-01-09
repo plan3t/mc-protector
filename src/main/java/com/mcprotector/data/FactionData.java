@@ -13,6 +13,7 @@ import net.minecraft.world.level.saveddata.SavedData;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayDeque;
+import java.util.Collections;
 import java.util.Deque;
 import java.util.EnumSet;
 import java.util.HashMap;
@@ -219,6 +220,10 @@ public class FactionData extends SavedData {
         return Optional.ofNullable(factions.get(id));
     }
 
+    public Map<UUID, Faction> getFactions() {
+        return Collections.unmodifiableMap(factions);
+    }
+
     public Optional<Faction> findFactionByName(String name) {
         return factions.values().stream()
             .filter(faction -> faction.getName().equalsIgnoreCase(name))
@@ -289,6 +294,16 @@ public class FactionData extends SavedData {
             return Optional.empty();
         }
         return Optional.of(invite);
+    }
+
+    public Map<UUID, FactionInvite> getInvitesForFaction(UUID factionId) {
+        Map<UUID, FactionInvite> invites = new HashMap<>();
+        for (Map.Entry<UUID, FactionInvite> entry : pendingInvites.entrySet()) {
+            if (factionId.equals(entry.getValue().factionId())) {
+                invites.put(entry.getKey(), entry.getValue());
+            }
+        }
+        return invites;
     }
 
     public void disbandFaction(UUID factionId) {
