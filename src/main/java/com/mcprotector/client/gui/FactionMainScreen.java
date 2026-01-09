@@ -36,6 +36,7 @@ public class FactionMainScreen extends Screen {
     private Button refreshButton;
     private int roleIndex;
     private int permissionIndex;
+    private int panelTop;
 
     public FactionMainScreen() {
         super(Component.literal("Faction"));
@@ -53,34 +54,34 @@ public class FactionMainScreen extends Screen {
                 updateVisibility();
             }).bounds(x, y, TAB_BUTTON_WIDTH, TAB_BUTTON_HEIGHT).build());
         }
-        int panelY = y + TAB_BUTTON_HEIGHT + 10;
-        inviteNameField = new EditBox(this.font, PANEL_PADDING, panelY + 20, 140, 18, Component.literal("Player name"));
+        panelTop = y + TAB_BUTTON_HEIGHT + 10;
+        inviteNameField = new EditBox(this.font, PANEL_PADDING, panelTop + 30, 140, 18, Component.literal("Player name"));
         inviteNameField.setMaxLength(32);
         this.addRenderableWidget(inviteNameField);
         inviteButton = this.addRenderableWidget(Button.builder(Component.literal("Send Invite"), button -> sendInvite())
-            .bounds(PANEL_PADDING + 150, panelY + 18, 100, 20)
+            .bounds(PANEL_PADDING + 150, panelTop + 28, 100, 20)
             .build());
 
         claimButton = this.addRenderableWidget(Button.builder(Component.literal("Claim Chunk"), button -> sendClaim())
-            .bounds(PANEL_PADDING, panelY + 20, 110, 20)
+            .bounds(PANEL_PADDING, panelTop + 30, 110, 20)
             .build());
         unclaimButton = this.addRenderableWidget(Button.builder(Component.literal("Unclaim Chunk"), button -> sendUnclaim())
-            .bounds(PANEL_PADDING + 120, panelY + 20, 120, 20)
+            .bounds(PANEL_PADDING + 120, panelTop + 30, 120, 20)
             .build());
 
         roleButton = this.addRenderableWidget(Button.builder(Component.literal("Role: " + currentRole().name()), button -> {
             roleIndex = (roleIndex + 1) % FactionRole.values().length;
             updatePermissionLabels();
-        }).bounds(PANEL_PADDING, panelY + 20, 140, 20).build());
+        }).bounds(PANEL_PADDING, panelTop + 30, 140, 20).build());
         permissionButton = this.addRenderableWidget(Button.builder(Component.literal("Perm: " + currentPermission().name()), button -> {
             permissionIndex = (permissionIndex + 1) % FactionPermission.values().length;
             updatePermissionLabels();
-        }).bounds(PANEL_PADDING + 150, panelY + 20, 140, 20).build());
+        }).bounds(PANEL_PADDING + 150, panelTop + 30, 140, 20).build());
         grantButton = this.addRenderableWidget(Button.builder(Component.literal("Grant"), button -> sendPermission(true))
-            .bounds(PANEL_PADDING, panelY + 45, 70, 20)
+            .bounds(PANEL_PADDING, panelTop + 55, 70, 20)
             .build());
         revokeButton = this.addRenderableWidget(Button.builder(Component.literal("Revoke"), button -> sendPermission(false))
-            .bounds(PANEL_PADDING + 80, panelY + 45, 70, 20)
+            .bounds(PANEL_PADDING + 80, panelTop + 55, 70, 20)
             .build());
 
         refreshButton = this.addRenderableWidget(Button.builder(Component.literal("Refresh"), button -> FactionClientData.requestUpdate())
@@ -122,7 +123,11 @@ public class FactionMainScreen extends Screen {
         guiGraphics.drawCenteredString(this.font, this.title, this.width / 2, 6, 0xFFFFFF);
         guiGraphics.drawString(this.font, snapshot.inFaction() ? "Faction: " + snapshot.factionName() + " (" + snapshot.roleName() + ")"
             : "No faction", PANEL_PADDING, 48, 0xCCCCCC);
-        int contentStart = 80;
+        int contentStart = selectedTab == FactionTab.INVITES
+            || selectedTab == FactionTab.PERMISSIONS
+            || selectedTab == FactionTab.CLAIMS
+            ? panelTop + 85
+            : 80;
         switch (selectedTab) {
             case MEMBERS -> renderMembers(guiGraphics, snapshot.members(), contentStart);
             case INVITES -> renderInvites(guiGraphics, snapshot, contentStart);
