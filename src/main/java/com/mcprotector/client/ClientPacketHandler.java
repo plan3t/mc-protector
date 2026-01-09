@@ -9,4 +9,8 @@ public final class ClientPacketHandler {
     public static void handleFactionState(FactionStatePacket packet) {
         FactionClientData.applyState(packet);
     }
+
+    public static void handleClaimMap(com.mcprotector.network.FactionClaimMapPacket packet) {
+        FactionMapClientData.applyMap(packet);
+    }
 }

@@ -39,6 +39,10 @@ public class FactionActionPacket {
         return new FactionActionPacket(ActionType.SET_PERMISSION, "", role, permission, grant);
     }
 
+    public static FactionActionPacket syncDynmap() {
+        return new FactionActionPacket(ActionType.SYNC_DYNMAP, "", "", "", false);
+    }
+
     public static void encode(FactionActionPacket packet, FriendlyByteBuf buffer) {
         buffer.writeEnum(packet.action);
         buffer.writeUtf(packet.targetName);
@@ -98,8 +102,16 @@ public class FactionActionPacket {
                         player.sendSystemMessage(Component.literal("Failed to update permissions: " + ex.getMessage()));
                     }
                 }
+                case SYNC_DYNMAP -> {
+                    try {
+                        FactionService.syncDynmap(player.createCommandSourceStack());
+                    } catch (Exception ex) {
+                        player.sendSystemMessage(Component.literal("Failed to sync Dynmap: " + ex.getMessage()));
+                    }
+                }
             }
             NetworkHandler.sendToPlayer(player, FactionStatePacket.fromPlayer(player));
+            NetworkHandler.sendToPlayer(player, FactionClaimMapPacket.fromPlayer(player));
         });
         ctx.setPacketHandled(true);
     }
@@ -108,6 +120,7 @@ public class FactionActionPacket {
         INVITE,
         CLAIM,
         UNCLAIM,
-        SET_PERMISSION
+        SET_PERMISSION,
+        SYNC_DYNMAP
     }
 }
