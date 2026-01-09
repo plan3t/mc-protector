@@ -1,0 +1,53 @@
+package com.mcprotector.claim;
+
+import net.minecraft.world.level.ChunkPos;
+
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+
+public final class FactionClaimManager {
+    private static final Map<UUID, Boolean> AUTO_CLAIM = new ConcurrentHashMap<>();
+    private static final Map<UUID, Boolean> BORDER_ENABLED = new ConcurrentHashMap<>();
+    private static final Map<UUID, Long> LAST_AUTO_CLAIM = new ConcurrentHashMap<>();
+    private static final Map<UUID, ChunkPos> LAST_CHUNK = new ConcurrentHashMap<>();
+
+    private FactionClaimManager() {
+    }
+
+    public static boolean isAutoClaimEnabled(UUID playerId) {
+        return AUTO_CLAIM.getOrDefault(playerId, false);
+    }
+
+    public static void setAutoClaimEnabled(UUID playerId, boolean enabled) {
+        AUTO_CLAIM.put(playerId, enabled);
+    }
+
+    public static boolean isBorderEnabled(UUID playerId) {
+        return BORDER_ENABLED.getOrDefault(playerId, true);
+    }
+
+    public static void setBorderEnabled(UUID playerId, boolean enabled) {
+        BORDER_ENABLED.put(playerId, enabled);
+    }
+
+    public static long getLastAutoClaim(UUID playerId) {
+        return LAST_AUTO_CLAIM.getOrDefault(playerId, 0L);
+    }
+
+    public static void setLastAutoClaim(UUID playerId, long timestamp) {
+        LAST_AUTO_CLAIM.put(playerId, timestamp);
+    }
+
+    public static ChunkPos getLastChunk(UUID playerId) {
+        return LAST_CHUNK.get(playerId);
+    }
+
+    public static void setLastChunk(UUID playerId, ChunkPos chunkPos) {
+        if (chunkPos == null) {
+            LAST_CHUNK.remove(playerId);
+            return;
+        }
+        LAST_CHUNK.put(playerId, chunkPos);
+    }
+}

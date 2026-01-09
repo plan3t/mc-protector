@@ -1,6 +1,7 @@
 package com.mcprotector.config;
 
 import com.mcprotector.data.FactionRole;
+import com.mcprotector.data.FactionProtectionTier;
 import net.minecraft.ChatFormatting;
 import net.minecraftforge.common.ForgeConfigSpec;
 
@@ -32,6 +33,19 @@ public final class FactionConfig {
 
     public static String getDefaultDescription() {
         return SERVER.defaultDescription.get();
+    }
+
+    public static String getDefaultBannerColor() {
+        return SERVER.defaultBannerColor.get();
+    }
+
+    public static FactionProtectionTier getDefaultProtectionTier() {
+        String name = SERVER.defaultProtectionTier.get();
+        try {
+            return FactionProtectionTier.valueOf(name.toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException ex) {
+            return FactionProtectionTier.STANDARD;
+        }
     }
 
     public static EnumMap<FactionRole, String> getDefaultRankNames() {
@@ -101,8 +115,11 @@ public final class FactionConfig {
         public final ForgeConfigSpec.ConfigValue<String> defaultFactionColor;
         public final ForgeConfigSpec.ConfigValue<String> defaultMotd;
         public final ForgeConfigSpec.ConfigValue<String> defaultDescription;
+        public final ForgeConfigSpec.ConfigValue<String> defaultBannerColor;
         public final ForgeConfigSpec.ConfigValue<String> defaultRankPreset;
         public final ForgeConfigSpec.ConfigValue<List<? extends String>> rankPresets;
+        public final ForgeConfigSpec.ConfigValue<String> defaultProtectionTier;
+        public final ForgeConfigSpec.ConfigValue<Integer> strictProtectionMinLevel;
         public final ForgeConfigSpec.ConfigValue<Boolean> enableFactionChat;
         public final ForgeConfigSpec.ConfigValue<Boolean> enableAllyChat;
         public final ForgeConfigSpec.ConfigValue<Boolean> usePublicChatFormat;
@@ -112,6 +129,24 @@ public final class FactionConfig {
         public final ForgeConfigSpec.ConfigValue<String> tabListFormat;
         public final ForgeConfigSpec.ConfigValue<Integer> baseClaims;
         public final ForgeConfigSpec.ConfigValue<Integer> claimsPerMember;
+        public final ForgeConfigSpec.ConfigValue<Integer> membersPerLevel;
+        public final ForgeConfigSpec.ConfigValue<Integer> maxFactionLevel;
+        public final ForgeConfigSpec.ConfigValue<Integer> bonusClaimsPerLevel;
+        public final ForgeConfigSpec.ConfigValue<Integer> claimCooldownSeconds;
+        public final ForgeConfigSpec.ConfigValue<Integer> claimCooldownReductionPerLevel;
+        public final ForgeConfigSpec.ConfigValue<Integer> unclaimCooldownSeconds;
+        public final ForgeConfigSpec.ConfigValue<Integer> unclaimCooldownReductionPerLevel;
+        public final ForgeConfigSpec.ConfigValue<Integer> inviteExpirationMinutes;
+        public final ForgeConfigSpec.ConfigValue<Integer> autoClaimCooldownSeconds;
+        public final ForgeConfigSpec.ConfigValue<Boolean> allowPvpInClaims;
+        public final ForgeConfigSpec.ConfigValue<Boolean> allowRedstoneInClaims;
+        public final ForgeConfigSpec.ConfigValue<Boolean> allowDoorUseInClaims;
+        public final ForgeConfigSpec.ConfigValue<Boolean> trustedAllowBuild;
+        public final ForgeConfigSpec.ConfigValue<Integer> adminBypassPermissionLevel;
+        public final ForgeConfigSpec.ConfigValue<Integer> accessLogSize;
+        public final ForgeConfigSpec.ConfigValue<Boolean> dynmapFullSyncOnStart;
+        public final ForgeConfigSpec.ConfigValue<List<? extends String>> safeZoneDimensions;
+        public final ForgeConfigSpec.ConfigValue<List<? extends String>> warZoneDimensions;
 
         private Server(ForgeConfigSpec.Builder builder) {
             builder.push("factions");
@@ -124,6 +159,9 @@ public final class FactionConfig {
             defaultDescription = builder
                 .comment("Default description for new factions.")
                 .define("defaultDescription", "A brave new faction.");
+            defaultBannerColor = builder
+                .comment("Default banner color name for new factions.")
+                .define("defaultBannerColor", "white");
             defaultRankPreset = builder
                 .comment("Preset name to apply for new factions.")
                 .define("defaultRankPreset", "default");
@@ -140,6 +178,66 @@ public final class FactionConfig {
             claimsPerMember = builder
                 .comment("Additional claims per faction member.")
                 .define("claimsPerMember", 10);
+            membersPerLevel = builder
+                .comment("Members required per faction level increase.")
+                .define("membersPerLevel", 3);
+            maxFactionLevel = builder
+                .comment("Maximum faction level.")
+                .define("maxFactionLevel", 10);
+            bonusClaimsPerLevel = builder
+                .comment("Extra claims granted per faction level.")
+                .define("bonusClaimsPerLevel", 5);
+            claimCooldownSeconds = builder
+                .comment("Cooldown in seconds between claim actions.")
+                .define("claimCooldownSeconds", 10);
+            claimCooldownReductionPerLevel = builder
+                .comment("Cooldown reduction per faction level for claims.")
+                .define("claimCooldownReductionPerLevel", 1);
+            unclaimCooldownSeconds = builder
+                .comment("Cooldown in seconds between unclaim actions.")
+                .define("unclaimCooldownSeconds", 5);
+            unclaimCooldownReductionPerLevel = builder
+                .comment("Cooldown reduction per faction level for unclaims.")
+                .define("unclaimCooldownReductionPerLevel", 1);
+            defaultProtectionTier = builder
+                .comment("Default protection tier (relaxed, standard, strict).")
+                .define("defaultProtectionTier", "standard");
+            strictProtectionMinLevel = builder
+                .comment("Minimum faction level required to use strict protection.")
+                .define("strictProtectionMinLevel", 3);
+            inviteExpirationMinutes = builder
+                .comment("Minutes before faction invites expire.")
+                .define("inviteExpirationMinutes", 10);
+            autoClaimCooldownSeconds = builder
+                .comment("Cooldown in seconds between auto-claim attempts.")
+                .define("autoClaimCooldownSeconds", 5);
+            allowPvpInClaims = builder
+                .comment("Allow player-versus-player combat inside claimed chunks.")
+                .define("allowPvpInClaims", false);
+            allowRedstoneInClaims = builder
+                .comment("Allow redstone toggles by non-members when otherwise permitted.")
+                .define("allowRedstoneInClaims", true);
+            allowDoorUseInClaims = builder
+                .comment("Allow door/trapdoor/fence gate use by non-members when otherwise permitted.")
+                .define("allowDoorUseInClaims", true);
+            trustedAllowBuild = builder
+                .comment("Allow trusted outsiders to place and break blocks.")
+                .define("trustedAllowBuild", false);
+            adminBypassPermissionLevel = builder
+                .comment("Permission level required to bypass claim protections (default 2).")
+                .define("adminBypassPermissionLevel", 2);
+            accessLogSize = builder
+                .comment("Number of access log entries to keep per claim.")
+                .define("accessLogSize", 20);
+            dynmapFullSyncOnStart = builder
+                .comment("Run a full Dynmap claim sync on server start.")
+                .define("dynmapFullSyncOnStart", true);
+            safeZoneDimensions = builder
+                .comment("Dimensions treated as safe zones (no PvP, no claim interactions).")
+                .defineListAllowEmpty("safeZoneDimensions", List.of(), value -> value instanceof String);
+            warZoneDimensions = builder
+                .comment("Dimensions treated as war zones (claims ignored, PvP allowed).")
+                .defineListAllowEmpty("warZoneDimensions", List.of(), value -> value instanceof String);
             builder.pop();
 
             builder.push("chat");
