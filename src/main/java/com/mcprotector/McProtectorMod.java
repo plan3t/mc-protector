@@ -7,6 +7,7 @@ import com.mcprotector.command.FactionRelationCommands;
 import com.mcprotector.config.FactionConfig;
 import com.mcprotector.data.FactionData;
 import com.mcprotector.dynmap.DynmapBridge;
+import com.mcprotector.network.NetworkHandler;
 import com.mcprotector.protection.ClaimProtectionHandler;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.RegisterCommandsEvent;
@@ -37,7 +38,10 @@ public class McProtectorMod {
     }
 
     private void onCommonSetup(FMLCommonSetupEvent event) {
-        event.enqueueWork(DynmapBridge::init);
+        event.enqueueWork(() -> {
+            DynmapBridge.init();
+            NetworkHandler.register();
+        });
     }
 
     private void registerCommands(RegisterCommandsEvent event) {
