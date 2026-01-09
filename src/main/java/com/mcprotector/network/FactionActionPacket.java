@@ -43,6 +43,30 @@ public class FactionActionPacket {
         return new FactionActionPacket(ActionType.SYNC_DYNMAP, "", "", "", false);
     }
 
+    public static FactionActionPacket joinFaction(String factionName) {
+        return new FactionActionPacket(ActionType.JOIN_FACTION, factionName, "", "", false);
+    }
+
+    public static FactionActionPacket declineInvite() {
+        return new FactionActionPacket(ActionType.DECLINE_INVITE, "", "", "", false);
+    }
+
+    public static FactionActionPacket leaveFaction() {
+        return new FactionActionPacket(ActionType.LEAVE_FACTION, "", "", "", false);
+    }
+
+    public static FactionActionPacket kickMember(String targetName) {
+        return new FactionActionPacket(ActionType.KICK_MEMBER, targetName, "", "", false);
+    }
+
+    public static FactionActionPacket promoteMember(String targetName) {
+        return new FactionActionPacket(ActionType.PROMOTE_MEMBER, targetName, "", "", false);
+    }
+
+    public static FactionActionPacket demoteMember(String targetName) {
+        return new FactionActionPacket(ActionType.DEMOTE_MEMBER, targetName, "", "", false);
+    }
+
     public static void encode(FactionActionPacket packet, FriendlyByteBuf buffer) {
         buffer.writeEnum(packet.action);
         buffer.writeUtf(packet.targetName);
@@ -109,6 +133,63 @@ public class FactionActionPacket {
                         player.sendSystemMessage(Component.literal("Failed to sync Dynmap: " + ex.getMessage()));
                     }
                 }
+                case JOIN_FACTION -> {
+                    try {
+                        FactionService.joinFaction(player.createCommandSourceStack(), packet.targetName);
+                    } catch (Exception ex) {
+                        player.sendSystemMessage(Component.literal("Failed to join faction: " + ex.getMessage()));
+                    }
+                }
+                case DECLINE_INVITE -> {
+                    try {
+                        FactionService.declineInvite(player.createCommandSourceStack());
+                    } catch (Exception ex) {
+                        player.sendSystemMessage(Component.literal("Failed to decline invite: " + ex.getMessage()));
+                    }
+                }
+                case LEAVE_FACTION -> {
+                    try {
+                        FactionService.leaveFaction(player.createCommandSourceStack());
+                    } catch (Exception ex) {
+                        player.sendSystemMessage(Component.literal("Failed to leave faction: " + ex.getMessage()));
+                    }
+                }
+                case KICK_MEMBER -> {
+                    ServerPlayer target = player.getServer().getPlayerList().getPlayerByName(packet.targetName);
+                    if (target == null) {
+                        player.sendSystemMessage(Component.literal("Player not found."));
+                        return;
+                    }
+                    try {
+                        FactionService.kickMember(player.createCommandSourceStack(), target);
+                    } catch (Exception ex) {
+                        player.sendSystemMessage(Component.literal("Failed to kick member: " + ex.getMessage()));
+                    }
+                }
+                case PROMOTE_MEMBER -> {
+                    ServerPlayer target = player.getServer().getPlayerList().getPlayerByName(packet.targetName);
+                    if (target == null) {
+                        player.sendSystemMessage(Component.literal("Player not found."));
+                        return;
+                    }
+                    try {
+                        FactionService.setRole(player.createCommandSourceStack(), target, com.mcprotector.data.FactionRole.OFFICER);
+                    } catch (Exception ex) {
+                        player.sendSystemMessage(Component.literal("Failed to promote member: " + ex.getMessage()));
+                    }
+                }
+                case DEMOTE_MEMBER -> {
+                    ServerPlayer target = player.getServer().getPlayerList().getPlayerByName(packet.targetName);
+                    if (target == null) {
+                        player.sendSystemMessage(Component.literal("Player not found."));
+                        return;
+                    }
+                    try {
+                        FactionService.setRole(player.createCommandSourceStack(), target, com.mcprotector.data.FactionRole.MEMBER);
+                    } catch (Exception ex) {
+                        player.sendSystemMessage(Component.literal("Failed to demote member: " + ex.getMessage()));
+                    }
+                }
             }
             NetworkHandler.sendToPlayer(player, FactionStatePacket.fromPlayer(player));
             NetworkHandler.sendToPlayer(player, FactionClaimMapPacket.fromPlayer(player));
@@ -121,6 +202,12 @@ public class FactionActionPacket {
         CLAIM,
         UNCLAIM,
         SET_PERMISSION,
-        SYNC_DYNMAP
+        SYNC_DYNMAP,
+        JOIN_FACTION,
+        DECLINE_INVITE,
+        LEAVE_FACTION,
+        KICK_MEMBER,
+        PROMOTE_MEMBER,
+        DEMOTE_MEMBER
     }
 }

@@ -22,12 +22,20 @@ public final class FactionClaimManager {
         return AUTO_CLAIM.getOrDefault(playerId, false);
     }
 
+    public static boolean hasAutoClaimSetting(UUID playerId) {
+        return AUTO_CLAIM.containsKey(playerId);
+    }
+
     public static void setAutoClaimEnabled(UUID playerId, boolean enabled) {
         AUTO_CLAIM.put(playerId, enabled);
     }
 
     public static boolean isBorderEnabled(UUID playerId) {
         return BORDER_ENABLED.getOrDefault(playerId, true);
+    }
+
+    public static boolean hasBorderSetting(UUID playerId) {
+        return BORDER_ENABLED.containsKey(playerId);
     }
 
     public static void setBorderEnabled(UUID playerId, boolean enabled) {

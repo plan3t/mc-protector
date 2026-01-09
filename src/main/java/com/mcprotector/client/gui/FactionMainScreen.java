@@ -30,10 +30,17 @@ public class FactionMainScreen extends Screen {
     private FactionTab selectedTab = FactionTab.MEMBERS;
     private EditBox inviteNameField;
     private Button inviteButton;
+    private Button joinInviteButton;
+    private Button declineInviteButton;
     private Button roleButton;
     private Button permissionButton;
     private Button grantButton;
     private Button revokeButton;
+    private EditBox memberNameField;
+    private Button kickMemberButton;
+    private Button promoteMemberButton;
+    private Button demoteMemberButton;
+    private Button leaveFactionButton;
     private Button refreshButton;
     private Button dynmapSyncButton;
     private int roleIndex;
@@ -65,6 +72,12 @@ public class FactionMainScreen extends Screen {
         inviteButton = this.addRenderableWidget(Button.builder(Component.literal("Send Invite"), button -> sendInvite())
             .bounds(PANEL_PADDING + 150, panelTop + 28, 100, 20)
             .build());
+        joinInviteButton = this.addRenderableWidget(Button.builder(Component.literal("Join Faction"), button -> acceptInvite())
+            .bounds(PANEL_PADDING, panelTop + 55, 110, 20)
+            .build());
+        declineInviteButton = this.addRenderableWidget(Button.builder(Component.literal("Decline"), button -> declineInvite())
+            .bounds(PANEL_PADDING + 120, panelTop + 55, 80, 20)
+            .build());
 
         roleButton = this.addRenderableWidget(Button.builder(Component.literal("Role: " + currentRole().name()), button -> {
             roleIndex = (roleIndex + 1) % FactionRole.values().length;
@@ -81,6 +94,19 @@ public class FactionMainScreen extends Screen {
             .bounds(PANEL_PADDING + 80, panelTop + 55, 70, 20)
             .build());
 
+        memberNameField = new EditBox(this.font, PANEL_PADDING, panelTop + 40, 140, 18, Component.literal("Member name"));
+        memberNameField.setMaxLength(32);
+        this.addRenderableWidget(memberNameField);
+        kickMemberButton = this.addRenderableWidget(Button.builder(Component.literal("Kick"), button -> sendMemberAction(MemberAction.KICK))
+            .bounds(PANEL_PADDING + 150, panelTop + 40, 60, 20)
+            .build());
+        promoteMemberButton = this.addRenderableWidget(Button.builder(Component.literal("Promote"), button -> sendMemberAction(MemberAction.PROMOTE))
+            .bounds(PANEL_PADDING + 215, panelTop + 40, 70, 20)
+            .build());
+        demoteMemberButton = this.addRenderableWidget(Button.builder(Component.literal("Demote"), button -> sendMemberAction(MemberAction.DEMOTE))
+            .bounds(PANEL_PADDING + 290, panelTop + 40, 70, 20)
+            .build());
+
         refreshButton = this.addRenderableWidget(Button.builder(Component.literal("Refresh"), button -> {
             FactionClientData.requestUpdate();
             FactionMapClientData.requestUpdate();
@@ -88,6 +114,9 @@ public class FactionMainScreen extends Screen {
             .bounds(this.width - PANEL_PADDING - 80, this.height - PANEL_PADDING - 20, 80, 20)
             .build());
         dynmapSyncButton = this.addRenderableWidget(Button.builder(Component.literal("Sync Dynmap"), button -> sendDynmapSync())
+            .bounds(PANEL_PADDING, this.height - PANEL_PADDING - 20, 110, 20)
+            .build());
+        leaveFactionButton = this.addRenderableWidget(Button.builder(Component.literal("Leave Faction"), button -> leaveFaction())
             .bounds(PANEL_PADDING, this.height - PANEL_PADDING - 20, 110, 20)
             .build());
 
@@ -102,12 +131,18 @@ public class FactionMainScreen extends Screen {
         if (inviteNameField != null) {
             inviteNameField.tick();
         }
+        if (memberNameField != null) {
+            memberNameField.tick();
+        }
     }
 
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
         if (inviteNameField != null && inviteNameField.isFocused()) {
             return inviteNameField.keyPressed(keyCode, scanCode, modifiers);
+        }
+        if (memberNameField != null && memberNameField.isFocused()) {
+            return memberNameField.keyPressed(keyCode, scanCode, modifiers);
         }
         return super.keyPressed(keyCode, scanCode, modifiers);
     }
@@ -117,6 +152,9 @@ public class FactionMainScreen extends Screen {
         if (inviteNameField != null && inviteNameField.isFocused()) {
             return inviteNameField.charTyped(codePoint, modifiers);
         }
+        if (memberNameField != null && memberNameField.isFocused()) {
+            return memberNameField.charTyped(codePoint, modifiers);
+        }
         return super.charTyped(codePoint, modifiers);
     }
 
@@ -124,14 +162,25 @@ public class FactionMainScreen extends Screen {
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
         this.renderBackground(guiGraphics);
         FactionClientData.FactionSnapshot snapshot = FactionClientData.getSnapshot();
+        updateDynamicVisibility(snapshot);
         guiGraphics.drawCenteredString(this.font, this.title, this.width / 2, 6, 0xFFFFFF);
-        guiGraphics.drawString(this.font, snapshot.inFaction() ? "Faction: " + snapshot.factionName() + " (" + snapshot.roleName() + ")"
-            : "No faction", PANEL_PADDING, 18, 0xCCCCCC);
+        String headline = snapshot.inFaction()
+            ? "Faction: " + snapshot.factionName() + " (" + snapshot.roleName() + ")"
+            : "No faction";
+        guiGraphics.drawString(this.font, headline, PANEL_PADDING, 18, 0xCCCCCC);
+        if (snapshot.inFaction()) {
+            String stats = "Level " + snapshot.factionLevel()
+                + " | Claims " + snapshot.claimCount() + "/" + snapshot.maxClaims()
+                + " | Protection " + snapshot.protectionTier();
+            guiGraphics.drawString(this.font, stats, PANEL_PADDING, 28, 0xAAAAAA);
+        }
         int contentStart = selectedTab == FactionTab.INVITES
             || selectedTab == FactionTab.PERMISSIONS
             ? panelTop + 85
             : selectedTab == FactionTab.FACTION_MAP
             ? panelTop + 40
+            : selectedTab == FactionTab.MEMBERS && snapshot.inFaction()
+            ? panelTop + 70
             : 80;
         switch (selectedTab) {
             case MEMBERS -> renderMembers(guiGraphics, snapshot.members(), contentStart);
@@ -216,17 +265,41 @@ public class FactionMainScreen extends Screen {
     private void updateVisibility() {
         boolean invites = selectedTab == FactionTab.INVITES;
         boolean permissions = selectedTab == FactionTab.PERMISSIONS;
+        boolean members = selectedTab == FactionTab.MEMBERS;
         inviteNameField.setVisible(invites);
         inviteButton.visible = invites;
+        joinInviteButton.visible = invites;
+        declineInviteButton.visible = invites;
         dynmapSyncButton.visible = selectedTab == FactionTab.FACTION_MAP;
         roleButton.visible = permissions;
         permissionButton.visible = permissions;
         grantButton.visible = permissions;
         revokeButton.visible = permissions;
+        memberNameField.setVisible(members);
+        kickMemberButton.visible = members;
+        promoteMemberButton.visible = members;
+        demoteMemberButton.visible = members;
+        leaveFactionButton.visible = members;
         if (selectedTab == FactionTab.FACTION_MAP) {
             mapClaimsScrollOffset = 0;
             FactionMapClientData.requestUpdate();
         }
+    }
+
+    private void updateDynamicVisibility(FactionClientData.FactionSnapshot snapshot) {
+        boolean invites = selectedTab == FactionTab.INVITES;
+        boolean inFaction = snapshot.inFaction();
+        inviteNameField.setVisible(invites && inFaction);
+        inviteButton.visible = invites && inFaction;
+        boolean hasInvite = invites && !snapshot.pendingInviteFaction().isEmpty() && !snapshot.inFaction();
+        joinInviteButton.visible = hasInvite;
+        declineInviteButton.visible = hasInvite;
+        boolean members = selectedTab == FactionTab.MEMBERS;
+        memberNameField.setVisible(members && inFaction);
+        kickMemberButton.visible = members && inFaction;
+        promoteMemberButton.visible = members && inFaction;
+        demoteMemberButton.visible = members && inFaction;
+        leaveFactionButton.visible = members && inFaction;
     }
 
     private void updatePermissionLabels() {
@@ -251,6 +324,17 @@ public class FactionMainScreen extends Screen {
         }
     }
 
+    private void acceptInvite() {
+        String factionName = FactionClientData.getSnapshot().pendingInviteFaction();
+        if (!factionName.isEmpty()) {
+            NetworkHandler.CHANNEL.sendToServer(FactionActionPacket.joinFaction(factionName));
+        }
+    }
+
+    private void declineInvite() {
+        NetworkHandler.CHANNEL.sendToServer(FactionActionPacket.declineInvite());
+    }
+
     private void sendPermission(boolean grant) {
         NetworkHandler.CHANNEL.sendToServer(
             FactionActionPacket.setPermission(currentRole().name(), currentPermission().name(), grant)
@@ -259,6 +343,23 @@ public class FactionMainScreen extends Screen {
 
     private void sendDynmapSync() {
         NetworkHandler.CHANNEL.sendToServer(FactionActionPacket.syncDynmap());
+    }
+
+    private void sendMemberAction(MemberAction action) {
+        String name = memberNameField.getValue().trim();
+        if (name.isEmpty()) {
+            return;
+        }
+        switch (action) {
+            case KICK -> NetworkHandler.CHANNEL.sendToServer(FactionActionPacket.kickMember(name));
+            case PROMOTE -> NetworkHandler.CHANNEL.sendToServer(FactionActionPacket.promoteMember(name));
+            case DEMOTE -> NetworkHandler.CHANNEL.sendToServer(FactionActionPacket.demoteMember(name));
+        }
+        memberNameField.setValue("");
+    }
+
+    private void leaveFaction() {
+        NetworkHandler.CHANNEL.sendToServer(FactionActionPacket.leaveFaction());
     }
 
     private void renderMembers(GuiGraphics guiGraphics, List<com.mcprotector.network.FactionStatePacket.MemberEntry> members, int startY) {
@@ -276,6 +377,7 @@ public class FactionMainScreen extends Screen {
         if (!snapshot.inFaction()) {
             if (!snapshot.pendingInviteFaction().isEmpty()) {
                 guiGraphics.drawString(this.font, "Pending invite to: " + snapshot.pendingInviteFaction(), PANEL_PADDING, y, 0xCCCCCC);
+                guiGraphics.drawString(this.font, "Use the buttons above to respond.", PANEL_PADDING, y + 12, 0x777777);
             } else {
                 guiGraphics.drawString(this.font, "No pending invites.", PANEL_PADDING, y, 0x777777);
             }
@@ -359,6 +461,12 @@ public class FactionMainScreen extends Screen {
         }
         mapClaimsScrollOffset = FactionMapRenderer.renderMapClaimsList(guiGraphics, snapshot.claims(), region,
             mapClaimsScrollOffset, this.height, PANEL_PADDING, this.font);
+    }
+
+    private enum MemberAction {
+        KICK,
+        PROMOTE,
+        DEMOTE
     }
 
 }

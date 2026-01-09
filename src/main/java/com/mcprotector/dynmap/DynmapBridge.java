@@ -12,7 +12,7 @@ import java.util.Optional;
 public final class DynmapBridge {
     private static boolean available;
     private static Object markerApi;
-    private static Object markerSet;
+    private static final Map<String, Object> markerSets = new HashMap<>();
     private static final Map<Long, Optional<Faction>> pendingUpdates = new HashMap<>();
 
     private DynmapBridge() {
@@ -34,13 +34,7 @@ public final class DynmapBridge {
                 McProtectorMod.LOGGER.warn("Dynmap MarkerAPI not available.");
                 return;
             }
-            Method getMarkerSet = markerApi.getClass().getMethod("getMarkerSet", String.class);
-            markerSet = getMarkerSet.invoke(markerApi, "mcprotector_claims");
-            if (markerSet == null) {
-                Method createMarkerSet = markerApi.getClass().getMethod("createMarkerSet", String.class, String.class, String.class, boolean.class);
-                markerSet = createMarkerSet.invoke(markerApi, "mcprotector_claims", "Faction Claims", null, false);
-            }
-            available = markerSet != null;
+            available = true;
             if (available) {
                 McProtectorMod.LOGGER.info("Dynmap integration enabled.");
                 flushPendingUpdates();
@@ -51,15 +45,16 @@ public final class DynmapBridge {
         }
     }
 
-    public static void updateClaim(ChunkPos chunkPos, Optional<Faction> faction) {
-        if (!available || markerSet == null) {
+    public static void updateClaim(ChunkPos chunkPos, Optional<Faction> faction, String dimension) {
+        if (!available || markerApi == null) {
             pendingUpdates.put(chunkPos.toLong(), faction);
             return;
         }
-        updateMarker(chunkPos, faction);
+        updateMarker(chunkPos, faction, dimension);
     }
 
-    private static void updateMarker(ChunkPos chunkPos, Optional<Faction> faction) {
+    private static void updateMarker(ChunkPos chunkPos, Optional<Faction> faction, String dimension) {
+        Object markerSet = getMarkerSet(dimension);
         if (!available || markerSet == null) {
             return;
         }
@@ -87,7 +82,7 @@ public final class DynmapBridge {
                     double[].class,
                     boolean.class
                 );
-                existing = createArea.invoke(markerSet, markerId, faction.get().getName(), false, "world", x, z, false);
+                existing = createArea.invoke(markerSet, markerId, faction.get().getName(), false, dimension, x, z, false);
             }
             if (existing != null) {
                 Method setLabel = existing.getClass().getMethod("setLabel", String.class);
@@ -104,25 +99,53 @@ public final class DynmapBridge {
         }
     }
 
-    public static void syncClaims(com.mcprotector.data.FactionData data) {
-        if (!available || markerSet == null) {
+    public static void syncClaims(net.minecraft.server.level.ServerLevel level, com.mcprotector.data.FactionData data) {
+        if (!available || markerApi == null) {
             return;
         }
         for (Map.Entry<Long, java.util.UUID> entry : data.getClaims().entrySet()) {
             ChunkPos chunkPos = new ChunkPos(entry.getKey());
             Optional<Faction> faction = data.getFaction(entry.getValue());
-            updateMarker(chunkPos, faction);
+            updateMarker(chunkPos, faction, level.dimension().location().toString());
         }
     }
 
     private static void flushPendingUpdates() {
-        if (!available || markerSet == null) {
+        if (!available || markerApi == null) {
             return;
         }
         for (Map.Entry<Long, Optional<Faction>> entry : pendingUpdates.entrySet()) {
             ChunkPos chunkPos = new ChunkPos(entry.getKey());
-            updateMarker(chunkPos, entry.getValue());
+            updateMarker(chunkPos, entry.getValue(), "minecraft:overworld");
         }
         pendingUpdates.clear();
+    }
+
+    private static Object getMarkerSet(String dimension) {
+        if (!available || markerApi == null) {
+            return null;
+        }
+        String safeDimension = sanitizeDimensionId(dimension);
+        return markerSets.computeIfAbsent(safeDimension, key -> {
+            try {
+                Method getMarkerSet = markerApi.getClass().getMethod("getMarkerSet", String.class);
+                Object existing = getMarkerSet.invoke(markerApi, "mcprotector_claims_" + key);
+                if (existing != null) {
+                    return existing;
+                }
+                Method createMarkerSet = markerApi.getClass().getMethod("createMarkerSet", String.class, String.class, String.class, boolean.class);
+                return createMarkerSet.invoke(markerApi, "mcprotector_claims_" + key, "Faction Claims (" + dimension + ")", null, false);
+            } catch (Throwable error) {
+                McProtectorMod.LOGGER.warn("Failed to access Dynmap marker set: {}", error.getMessage());
+                return null;
+            }
+        });
+    }
+
+    private static String sanitizeDimensionId(String dimension) {
+        if (dimension == null || dimension.isBlank()) {
+            return "unknown";
+        }
+        return dimension.replace(':', '_');
     }
 }
