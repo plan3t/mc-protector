@@ -6,16 +6,16 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraftforge.network.NetworkDirection;
 import net.minecraftforge.network.NetworkRegistry;
 import net.minecraftforge.network.PacketDistributor;
-import net.minecraftforge.network.SimpleChannel;
+import net.minecraftforge.network.simple.SimpleChannel;
 
 public final class NetworkHandler {
     private static final String PROTOCOL_VERSION = "1";
-    public static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(
-        new ResourceLocation(McProtectorMod.MOD_ID, "main"),
-        () -> PROTOCOL_VERSION,
-        PROTOCOL_VERSION::equals,
-        PROTOCOL_VERSION::equals
-    );
+    public static final SimpleChannel CHANNEL = NetworkRegistry.ChannelBuilder
+        .named(ResourceLocation.fromNamespaceAndPath(McProtectorMod.MOD_ID, "main"))
+        .networkProtocolVersion(() -> PROTOCOL_VERSION)
+        .clientAcceptedVersions(PROTOCOL_VERSION::equals)
+        .serverAcceptedVersions(PROTOCOL_VERSION::equals)
+        .simpleChannel();
 
     private static int packetId;
 
