@@ -37,6 +37,7 @@ public class FactionMainScreen extends Screen {
     private int roleIndex;
     private int permissionIndex;
     private int panelTop;
+    private int permissionsScrollOffset;
 
     public FactionMainScreen() {
         super(Component.literal("Faction"));
@@ -139,6 +140,24 @@ public class FactionMainScreen extends Screen {
     }
 
     @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
+        if (selectedTab == FactionTab.PERMISSIONS) {
+            int lineHeight = 10;
+            int listStart = panelTop + 85 + 22;
+            int availableHeight = Math.max(0, this.height - listStart - 30);
+            int visibleLines = Math.max(1, availableHeight / lineHeight);
+            int maxOffset = Math.max(0, getSelectedPermissions().size() - visibleLines);
+            if (delta < 0) {
+                permissionsScrollOffset = Math.min(maxOffset, permissionsScrollOffset + 1);
+            } else if (delta > 0) {
+                permissionsScrollOffset = Math.max(0, permissionsScrollOffset - 1);
+            }
+            return true;
+        }
+        return super.mouseScrolled(mouseX, mouseY, delta);
+    }
+
+    @Override
     public boolean isPauseScreen() {
         return false;
     }
@@ -166,6 +185,7 @@ public class FactionMainScreen extends Screen {
     private void updatePermissionLabels() {
         roleButton.setMessage(Component.literal("Role: " + currentRole().name()));
         permissionButton.setMessage(Component.literal("Perm: " + currentPermission().name()));
+        permissionsScrollOffset = 0;
     }
 
     private FactionRole currentRole() {
@@ -231,22 +251,40 @@ public class FactionMainScreen extends Screen {
 
     private void renderPermissions(GuiGraphics guiGraphics, List<com.mcprotector.network.FactionStatePacket.PermissionEntry> permissions, int startY) {
         guiGraphics.drawString(this.font, "Permissions:", PANEL_PADDING, startY, 0xFFFFFF);
-        int y = startY + 12;
         String selectedRole = currentRole().name();
         com.mcprotector.network.FactionStatePacket.PermissionEntry selected = permissions.stream()
             .filter(entry -> entry.role().equalsIgnoreCase(selectedRole))
             .findFirst()
             .orElse(null);
+        int y = startY + 12;
         if (selected == null) {
             guiGraphics.drawString(this.font, "No permissions found for " + selectedRole + ".", PANEL_PADDING, y, 0x777777);
             return;
         }
         guiGraphics.drawString(this.font, selectedRole + ":", PANEL_PADDING, y, 0xCCCCCC);
         y += 10;
-        for (String perm : selected.permissions()) {
+        int lineHeight = 10;
+        int availableHeight = Math.max(0, this.height - y - 30);
+        int visibleLines = Math.max(1, availableHeight / lineHeight);
+        int maxOffset = Math.max(0, selected.permissions().size() - visibleLines);
+        permissionsScrollOffset = Math.min(permissionsScrollOffset, maxOffset);
+        List<String> visiblePerms = selected.permissions()
+            .subList(permissionsScrollOffset, Math.min(selected.permissions().size(), permissionsScrollOffset + visibleLines));
+        for (String perm : visiblePerms) {
             guiGraphics.drawString(this.font, "- " + perm, PANEL_PADDING, y, 0xAAAAAA);
-            y += 10;
+            y += lineHeight;
         }
+        if (selected.permissions().size() > visibleLines) {
+            guiGraphics.drawString(this.font, "Scroll to view more...", PANEL_PADDING, this.height - 25, 0x777777);
+        }
+    }
+
+    private List<String> getSelectedPermissions() {
+        return FactionClientData.getSnapshot().permissions().stream()
+            .filter(entry -> entry.role().equalsIgnoreCase(currentRole().name()))
+            .findFirst()
+            .map(com.mcprotector.network.FactionStatePacket.PermissionEntry::permissions)
+            .orElse(List.of());
     }
 
     private void renderRelations(GuiGraphics guiGraphics, List<com.mcprotector.network.FactionStatePacket.RelationEntry> relations, int startY) {
