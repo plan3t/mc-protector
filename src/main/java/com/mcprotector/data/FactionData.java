@@ -10,20 +10,28 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.saveddata.SavedData;
 
+import java.time.Duration;
+import java.time.Instant;
+import java.util.ArrayDeque;
+import java.util.Deque;
 import java.util.EnumSet;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 public class FactionData extends SavedData {
     private static final String DATA_NAME = "mcprotector_factions";
+    private static final int DATA_VERSION = 2;
 
     private final Map<UUID, Faction> factions = new HashMap<>();
     private final Map<UUID, UUID> playerFaction = new HashMap<>();
     private final Map<Long, UUID> claims = new HashMap<>();
     private final Map<UUID, Map<UUID, FactionRelation>> relations = new HashMap<>();
-    private final Map<UUID, UUID> pendingInvites = new HashMap<>();
+    private final Map<UUID, FactionInvite> pendingInvites = new HashMap<>();
+    private final Map<Long, Deque<FactionAccessLog>> accessLogs = new HashMap<>();
 
     public static FactionData get(ServerLevel level) {
         return level.getDataStorage().computeIfAbsent(FactionData::load, FactionData::new, DATA_NAME);
@@ -31,6 +39,7 @@ public class FactionData extends SavedData {
 
     public static FactionData load(CompoundTag tag) {
         FactionData data = new FactionData();
+        int dataVersion = tag.contains("DataVersion") ? tag.getInt("DataVersion") : 1;
         ListTag factionsTag = tag.getList("Factions", Tag.TAG_COMPOUND);
         for (Tag entry : factionsTag) {
             CompoundTag factionTag = (CompoundTag) entry;
@@ -47,10 +56,22 @@ public class FactionData extends SavedData {
             if (factionTag.contains("Description")) {
                 faction.setDescription(factionTag.getString("Description"));
             }
+            if (factionTag.contains("BannerColor")) {
+                faction.setBannerColor(factionTag.getString("BannerColor"));
+            }
+            if (factionTag.contains("ProtectionTier")) {
+                faction.setProtectionTier(FactionProtectionTier.valueOf(factionTag.getString("ProtectionTier")));
+            }
             CompoundTag ranksTag = factionTag.getCompound("RankNames");
             for (FactionRole role : FactionRole.values()) {
                 if (ranksTag.contains(role.name())) {
                     faction.setRankName(role, ranksTag.getString(role.name()));
+                }
+            }
+            if (factionTag.contains("TrustedPlayers")) {
+                ListTag trustedTag = factionTag.getList("TrustedPlayers", Tag.TAG_STRING);
+                for (Tag trustedEntry : trustedTag) {
+                    faction.addTrustedPlayer(UUID.fromString(trustedEntry.getAsString()));
                 }
             }
             ListTag members = factionTag.getList("Members", Tag.TAG_COMPOUND);
@@ -90,11 +111,38 @@ public class FactionData extends SavedData {
             FactionRelation relationType = FactionRelation.valueOf(relation.getString("Type"));
             data.relations.computeIfAbsent(source, key -> new HashMap<>()).put(target, relationType);
         }
+        if (dataVersion >= 2 && tag.contains("Invites")) {
+            ListTag invitesTag = tag.getList("Invites", Tag.TAG_COMPOUND);
+            for (Tag inviteEntry : invitesTag) {
+                CompoundTag invite = (CompoundTag) inviteEntry;
+                UUID playerId = invite.getUUID("Player");
+                UUID factionId = invite.getUUID("Faction");
+                long expiresAt = invite.getLong("ExpiresAt");
+                data.pendingInvites.put(playerId, new FactionInvite(factionId, expiresAt));
+            }
+        }
         return data;
+    }
+
+    public void restoreFromTag(CompoundTag tag) {
+        FactionData loaded = load(tag);
+        factions.clear();
+        playerFaction.clear();
+        claims.clear();
+        relations.clear();
+        pendingInvites.clear();
+        accessLogs.clear();
+        factions.putAll(loaded.factions);
+        playerFaction.putAll(loaded.playerFaction);
+        claims.putAll(loaded.claims);
+        relations.putAll(loaded.relations);
+        pendingInvites.putAll(loaded.pendingInvites);
+        setDirty();
     }
 
     @Override
     public CompoundTag save(CompoundTag tag) {
+        tag.putInt("DataVersion", DATA_VERSION);
         ListTag factionsTag = new ListTag();
         for (Faction faction : factions.values()) {
             CompoundTag factionTag = new CompoundTag();
@@ -104,11 +152,18 @@ public class FactionData extends SavedData {
             factionTag.putString("Color", faction.getColorName());
             factionTag.putString("Motd", faction.getMotd());
             factionTag.putString("Description", faction.getDescription());
+            factionTag.putString("BannerColor", faction.getBannerColor());
+            factionTag.putString("ProtectionTier", faction.getProtectionTier().name());
             CompoundTag ranksTag = new CompoundTag();
             for (Map.Entry<FactionRole, String> entry : faction.getRankNames().entrySet()) {
                 ranksTag.putString(entry.getKey().name(), entry.getValue());
             }
             factionTag.put("RankNames", ranksTag);
+            ListTag trustedTag = new ListTag();
+            for (UUID trusted : faction.getTrustedPlayers()) {
+                trustedTag.add(net.minecraft.nbt.StringTag.valueOf(trusted.toString()));
+            }
+            factionTag.put("TrustedPlayers", trustedTag);
             ListTag membersTag = new ListTag();
             for (Map.Entry<UUID, FactionRole> member : faction.getMembers().entrySet()) {
                 CompoundTag memberTag = new CompoundTag();
@@ -148,6 +203,15 @@ public class FactionData extends SavedData {
             }
         }
         tag.put("Relations", relationsTag);
+        ListTag invitesTag = new ListTag();
+        for (Map.Entry<UUID, FactionInvite> entry : pendingInvites.entrySet()) {
+            CompoundTag invite = new CompoundTag();
+            invite.putUUID("Player", entry.getKey());
+            invite.putUUID("Faction", entry.getValue().factionId());
+            invite.putLong("ExpiresAt", entry.getValue().expiresAt());
+            invitesTag.add(invite);
+        }
+        tag.put("Invites", invitesTag);
         return tag;
     }
 
@@ -209,11 +273,22 @@ public class FactionData extends SavedData {
     }
 
     public void invitePlayer(UUID playerId, UUID factionId) {
-        pendingInvites.put(playerId, factionId);
+        long expiresAt = Instant.now().plus(Duration.ofMinutes(FactionConfig.SERVER.inviteExpirationMinutes.get())).toEpochMilli();
+        pendingInvites.put(playerId, new FactionInvite(factionId, expiresAt));
+        setDirty();
     }
 
-    public Optional<UUID> getInvite(UUID playerId) {
-        return Optional.ofNullable(pendingInvites.get(playerId));
+    public Optional<FactionInvite> getInvite(UUID playerId) {
+        FactionInvite invite = pendingInvites.get(playerId);
+        if (invite == null) {
+            return Optional.empty();
+        }
+        if (invite.expiresAt() < System.currentTimeMillis()) {
+            pendingInvites.remove(playerId);
+            setDirty();
+            return Optional.empty();
+        }
+        return Optional.of(invite);
     }
 
     public void disbandFaction(UUID factionId) {
@@ -295,11 +370,17 @@ public class FactionData extends SavedData {
         if (ownerId.isEmpty()) {
             return true;
         }
-        Optional<Faction> faction = getFaction(ownerId.get());
-        if (faction.isEmpty()) {
+        Optional<Faction> ownerFaction = getFaction(ownerId.get());
+        if (ownerFaction.isEmpty()) {
             return true;
         }
-        if (faction.get().hasPermission(player.getUUID(), permission)) {
+        if (ownerFaction.get().hasPermission(player.getUUID(), permission)) {
+            return true;
+        }
+        if (ownerFaction.get().isTrusted(player.getUUID())) {
+            if (permission == FactionPermission.BLOCK_BREAK || permission == FactionPermission.BLOCK_PLACE) {
+                return FactionConfig.SERVER.trustedAllowBuild.get();
+            }
             return true;
         }
         Optional<UUID> playerFactionId = getFactionIdByPlayer(player.getUUID());
@@ -308,7 +389,7 @@ public class FactionData extends SavedData {
         }
         FactionRelation relation = getRelation(playerFactionId.get(), ownerId.get());
         if (relation == FactionRelation.ALLY) {
-            return isAllowedForAllies(permission);
+            return isAllowedForAllies(permission, ownerFaction.get());
         }
         if (relation == FactionRelation.WAR) {
             return isAllowedForWar(permission);
@@ -333,16 +414,20 @@ public class FactionData extends SavedData {
         }
         int base = FactionConfig.SERVER.baseClaims.get();
         int perMember = FactionConfig.SERVER.claimsPerMember.get();
-        return Math.max(base, base + (faction.getMemberCount() * perMember));
+        int levelBonus = (getFactionLevel(factionId) - 1) * FactionConfig.SERVER.bonusClaimsPerLevel.get();
+        return Math.max(base, base + (faction.getMemberCount() * perMember) + levelBonus);
     }
 
     public Map<Long, UUID> getClaims() {
         return claims;
     }
 
-    private boolean isAllowedForAllies(FactionPermission permission) {
+    private boolean isAllowedForAllies(FactionPermission permission, Faction faction) {
+        FactionProtectionTier tier = faction != null ? faction.getProtectionTier() : FactionProtectionTier.STANDARD;
         return switch (permission) {
-            case BLOCK_USE, CONTAINER_OPEN, REDSTONE_TOGGLE, ENTITY_INTERACT, CREATE_MACHINE_INTERACT -> true;
+            case BLOCK_USE -> true;
+            case CONTAINER_OPEN, ENTITY_INTERACT, CREATE_MACHINE_INTERACT -> tier != FactionProtectionTier.STRICT;
+            case REDSTONE_TOGGLE -> tier == FactionProtectionTier.RELAXED;
             default -> false;
         };
     }
@@ -382,5 +467,71 @@ public class FactionData extends SavedData {
 
     public boolean isAtWar(UUID source, UUID target) {
         return getRelation(source, target) == FactionRelation.WAR;
+    }
+
+    public int getFactionLevel(UUID factionId) {
+        Faction faction = factions.get(factionId);
+        if (faction == null) {
+            return 1;
+        }
+        int membersPerLevel = Math.max(1, FactionConfig.SERVER.membersPerLevel.get());
+        int level = 1 + Math.max(0, (faction.getMemberCount() - 1) / membersPerLevel);
+        return Math.min(level, FactionConfig.SERVER.maxFactionLevel.get());
+    }
+
+    public boolean addTrustedPlayer(UUID factionId, UUID playerId) {
+        Faction faction = factions.get(factionId);
+        if (faction == null) {
+            return false;
+        }
+        faction.addTrustedPlayer(playerId);
+        setDirty();
+        return true;
+    }
+
+    public boolean removeTrustedPlayer(UUID factionId, UUID playerId) {
+        Faction faction = factions.get(factionId);
+        if (faction == null) {
+            return false;
+        }
+        faction.removeTrustedPlayer(playerId);
+        setDirty();
+        return true;
+    }
+
+    public Set<UUID> getTrustedPlayers(UUID factionId) {
+        Faction faction = factions.get(factionId);
+        if (faction == null) {
+            return Set.of();
+        }
+        return new HashSet<>(faction.getTrustedPlayers());
+    }
+
+    public void logAccess(BlockPos pos, UUID playerId, String playerName, String action, boolean allowed, String blockName) {
+        long key = ChunkPos.asLong(pos);
+        Deque<FactionAccessLog> logs = accessLogs.computeIfAbsent(key, k -> new ArrayDeque<>());
+        logs.addFirst(new FactionAccessLog(Instant.now().toEpochMilli(), playerId, playerName, pos, action, allowed, blockName));
+        int maxSize = Math.max(1, FactionConfig.SERVER.accessLogSize.get());
+        while (logs.size() > maxSize) {
+            logs.removeLast();
+        }
+    }
+
+    public Deque<FactionAccessLog> getAccessLogs(BlockPos pos) {
+        return accessLogs.getOrDefault(ChunkPos.asLong(pos), new ArrayDeque<>());
+    }
+
+    public boolean canUseProtectionTier(UUID factionId, FactionProtectionTier tier) {
+        if (tier == FactionProtectionTier.STRICT) {
+            return getFactionLevel(factionId) >= FactionConfig.SERVER.strictProtectionMinLevel.get();
+        }
+        return true;
+    }
+
+    public record FactionInvite(UUID factionId, long expiresAt) {
+    }
+
+    public record FactionAccessLog(long timestamp, UUID playerId, String playerName, BlockPos pos, String action,
+                                   boolean allowed, String blockName) {
     }
 }

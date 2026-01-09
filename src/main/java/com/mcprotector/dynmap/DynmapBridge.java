@@ -2,18 +2,18 @@ package com.mcprotector.dynmap;
 
 import com.mcprotector.McProtectorMod;
 import com.mcprotector.data.Faction;
-import com.mcprotector.data.FactionData;
 import net.minecraft.world.level.ChunkPos;
 
 import java.lang.reflect.Method;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
-import java.util.UUID;
 
 public final class DynmapBridge {
     private static boolean available;
     private static Object markerApi;
     private static Object markerSet;
+    private static final Map<Long, Optional<Faction>> pendingUpdates = new HashMap<>();
 
     private DynmapBridge() {
     }
@@ -43,6 +43,7 @@ public final class DynmapBridge {
             available = markerSet != null;
             if (available) {
                 McProtectorMod.LOGGER.info("Dynmap integration enabled.");
+                flushPendingUpdates();
             }
         } catch (Throwable error) {
             McProtectorMod.LOGGER.info("Dynmap not available: {}", error.getMessage());
@@ -51,6 +52,14 @@ public final class DynmapBridge {
     }
 
     public static void updateClaim(ChunkPos chunkPos, Optional<Faction> faction) {
+        if (!available || markerSet == null) {
+            pendingUpdates.put(chunkPos.toLong(), faction);
+            return;
+        }
+        updateMarker(chunkPos, faction);
+    }
+
+    private static void updateMarker(ChunkPos chunkPos, Optional<Faction> faction) {
         if (!available || markerSet == null) {
             return;
         }
@@ -83,20 +92,37 @@ public final class DynmapBridge {
             if (existing != null) {
                 Method setLabel = existing.getClass().getMethod("setLabel", String.class);
                 setLabel.invoke(existing, faction.get().getName());
+                try {
+                    Method setDescription = existing.getClass().getMethod("setDescription", String.class);
+                    setDescription.invoke(existing, "Faction: " + faction.get().getName());
+                } catch (NoSuchMethodException ignored) {
+                    // Dynmap versions without setDescription can ignore this.
+                }
             }
         } catch (Throwable error) {
             McProtectorMod.LOGGER.warn("Failed to update Dynmap marker: {}", error.getMessage());
         }
     }
 
-    public static void syncClaims(FactionData data) {
+    public static void syncClaims(com.mcprotector.data.FactionData data) {
         if (!available || markerSet == null) {
             return;
         }
-        for (Map.Entry<Long, UUID> entry : data.getClaims().entrySet()) {
+        for (Map.Entry<Long, java.util.UUID> entry : data.getClaims().entrySet()) {
             ChunkPos chunkPos = new ChunkPos(entry.getKey());
             Optional<Faction> faction = data.getFaction(entry.getValue());
-            updateClaim(chunkPos, faction);
+            updateMarker(chunkPos, faction);
         }
+    }
+
+    private static void flushPendingUpdates() {
+        if (!available || markerSet == null) {
+            return;
+        }
+        for (Map.Entry<Long, Optional<Faction>> entry : pendingUpdates.entrySet()) {
+            ChunkPos chunkPos = new ChunkPos(entry.getKey());
+            updateMarker(chunkPos, entry.getValue());
+        }
+        pendingUpdates.clear();
     }
 }

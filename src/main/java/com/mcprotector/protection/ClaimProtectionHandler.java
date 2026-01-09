@@ -1,5 +1,7 @@
 package com.mcprotector.protection;
 
+import com.mcprotector.config.FactionConfig;
+import com.mcprotector.data.Faction;
 import com.mcprotector.data.FactionData;
 import com.mcprotector.data.FactionPermission;
 import net.minecraft.core.BlockPos;
@@ -13,12 +15,19 @@ import net.minecraft.world.level.LevelAccessor;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.BaseFireBlock;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.DoorBlock;
+import net.minecraft.world.level.block.FenceGateBlock;
+import net.minecraft.world.level.block.TrapDoorBlock;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraftforge.event.entity.player.PlayerInteractEvent;
 import net.minecraftforge.event.level.BlockEvent;
 import net.minecraftforge.event.level.ExplosionEvent;
+import net.minecraftforge.event.entity.living.LivingAttackEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
+
+import java.util.Optional;
+import java.util.UUID;
 
 public class ClaimProtectionHandler {
 
@@ -69,8 +78,20 @@ public class ClaimProtectionHandler {
     public void onRightClickBlock(PlayerInteractEvent.RightClickBlock event) {
         Player player = event.getEntity();
         BlockPos pos = event.getPos();
-        FactionPermission permission = permissionForBlockUse(event.getLevel().getBlockState(pos), event.getLevel(), pos);
-        if (!isAllowed(player, pos, permission)) {
+        BlockState state = event.getLevel().getBlockState(pos);
+        if (isDoorLike(state) && !FactionConfig.SERVER.allowDoorUseInClaims.get()) {
+            boolean allowedDoor = isMemberOrTrusted(player, pos) || isAllowed(player, pos, FactionPermission.BLOCK_USE);
+            logAccess(player, pos, FactionPermission.BLOCK_USE, allowedDoor, state.getBlock().getDescriptionId());
+            if (!allowedDoor) {
+                event.setCanceled(true);
+                event.setCancellationResult(net.minecraft.world.InteractionResult.FAIL);
+            }
+            return;
+        }
+        FactionPermission permission = permissionForBlockUse(state, event.getLevel(), pos);
+        boolean allowed = isAllowed(player, pos, permission);
+        logAccess(player, pos, permission, allowed, event.getLevel().getBlockState(pos).getBlock().getDescriptionId());
+        if (!allowed) {
             event.setCanceled(true);
             event.setCancellationResult(net.minecraft.world.InteractionResult.FAIL);
         }
@@ -80,7 +101,9 @@ public class ClaimProtectionHandler {
     public void onEntityInteract(PlayerInteractEvent.EntityInteract event) {
         Player player = event.getEntity();
         BlockPos pos = event.getPos();
-        if (!isAllowed(player, pos, FactionPermission.ENTITY_INTERACT)) {
+        boolean allowed = isAllowed(player, pos, FactionPermission.ENTITY_INTERACT);
+        logAccess(player, pos, FactionPermission.ENTITY_INTERACT, allowed, event.getTarget().getType().toString());
+        if (!allowed) {
             event.setCanceled(true);
         }
     }
@@ -89,7 +112,9 @@ public class ClaimProtectionHandler {
     public void onEntityInteractSpecific(PlayerInteractEvent.EntityInteractSpecific event) {
         Player player = event.getEntity();
         BlockPos pos = event.getPos();
-        if (!isAllowed(player, pos, FactionPermission.ENTITY_INTERACT)) {
+        boolean allowed = isAllowed(player, pos, FactionPermission.ENTITY_INTERACT);
+        logAccess(player, pos, FactionPermission.ENTITY_INTERACT, allowed, event.getTarget().getType().toString());
+        if (!allowed) {
             event.setCanceled(true);
         }
     }
@@ -102,9 +127,46 @@ public class ClaimProtectionHandler {
         event.getAffectedBlocks().removeIf(pos -> FactionData.get(serverLevel).isClaimed(pos));
     }
 
+    @SubscribeEvent
+    public void onPlayerAttack(LivingAttackEvent event) {
+        if (!(event.getEntity() instanceof Player victim)) {
+            return;
+        }
+        if (!(event.getSource().getEntity() instanceof Player attacker)) {
+            return;
+        }
+        if (!(victim.level() instanceof ServerLevel serverLevel)) {
+            return;
+        }
+        if (isWarZone(serverLevel)) {
+            return;
+        }
+        if (isSafeZone(serverLevel)) {
+            event.setCanceled(true);
+            return;
+        }
+        if (FactionConfig.SERVER.allowPvpInClaims.get()) {
+            return;
+        }
+        if (!FactionData.get(serverLevel).isClaimed(victim.blockPosition())) {
+            return;
+        }
+        event.setCanceled(true);
+    }
+
     private boolean isAllowed(Player player, BlockPos pos, FactionPermission permission) {
         if (!(player instanceof ServerPlayer serverPlayer)) {
             return !isClaimed(player.level(), pos);
+        }
+        if (isWarZone(serverPlayer.serverLevel())) {
+            return true;
+        }
+        if (isSafeZone(serverPlayer.serverLevel())) {
+            return serverPlayer.hasPermissions(FactionConfig.SERVER.adminBypassPermissionLevel.get());
+        }
+        if (serverPlayer.hasPermissions(FactionConfig.SERVER.adminBypassPermissionLevel.get())) {
+            logAccess(serverPlayer, pos, permission, true, "ADMIN_BYPASS");
+            return true;
         }
         return FactionData.get(serverPlayer.serverLevel()).hasPermission(serverPlayer, pos, permission);
     }
@@ -119,6 +181,9 @@ public class ClaimProtectionHandler {
     private FactionPermission permissionForBlockUse(BlockState state, net.minecraft.world.level.Level level, BlockPos pos) {
         Block block = state.getBlock();
         if (block == Blocks.LEVER || state.is(BlockTags.BUTTONS)) {
+            if (!FactionConfig.SERVER.allowRedstoneInClaims.get()) {
+                return FactionPermission.BLOCK_USE;
+            }
             return FactionPermission.REDSTONE_TOGGLE;
         }
         BlockEntity blockEntity = state.hasBlockEntity() ? level.getBlockEntity(pos) : null;
@@ -126,5 +191,57 @@ public class ClaimProtectionHandler {
             return FactionPermission.CONTAINER_OPEN;
         }
         return FactionPermission.BLOCK_USE;
+    }
+
+    private void logAccess(Player player, BlockPos pos, FactionPermission permission, boolean allowed, String targetName) {
+        if (!(player instanceof ServerPlayer serverPlayer)) {
+            return;
+        }
+        if (!(serverPlayer.level() instanceof ServerLevel serverLevel)) {
+            return;
+        }
+        if (!FactionData.get(serverLevel).isClaimed(pos)) {
+            return;
+        }
+        FactionData.get(serverLevel).logAccess(
+            pos,
+            serverPlayer.getUUID(),
+            serverPlayer.getName().getString(),
+            permission.name(),
+            allowed,
+            targetName
+        );
+    }
+
+    private boolean isMemberOrTrusted(Player player, BlockPos pos) {
+        if (!(player instanceof ServerPlayer serverPlayer)) {
+            return false;
+        }
+        ServerLevel level = serverPlayer.serverLevel();
+        FactionData data = FactionData.get(level);
+        Optional<UUID> ownerId = data.getClaimOwner(pos);
+        if (ownerId.isEmpty()) {
+            return true;
+        }
+        if (ownerId.get().equals(data.getFactionIdByPlayer(serverPlayer.getUUID()).orElse(null))) {
+            return true;
+        }
+        Optional<Faction> ownerFaction = data.getFaction(ownerId.get());
+        return ownerFaction.isPresent() && ownerFaction.get().isTrusted(serverPlayer.getUUID());
+    }
+
+    private boolean isDoorLike(BlockState state) {
+        Block block = state.getBlock();
+        return block instanceof DoorBlock || block instanceof TrapDoorBlock || block instanceof FenceGateBlock;
+    }
+
+    private boolean isSafeZone(ServerLevel level) {
+        String dimension = level.dimension().location().toString();
+        return FactionConfig.SERVER.safeZoneDimensions.get().contains(dimension);
+    }
+
+    private boolean isWarZone(ServerLevel level) {
+        String dimension = level.dimension().location().toString();
+        return FactionConfig.SERVER.warZoneDimensions.get().contains(dimension);
     }
 }
