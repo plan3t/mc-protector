@@ -3,6 +3,7 @@ package com.mcprotector.claim;
 import net.minecraft.world.level.ChunkPos;
 
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -11,6 +12,7 @@ public final class FactionClaimManager {
     private static final Map<UUID, Boolean> BORDER_ENABLED = new ConcurrentHashMap<>();
     private static final Map<UUID, Long> LAST_AUTO_CLAIM = new ConcurrentHashMap<>();
     private static final Map<UUID, ChunkPos> LAST_CHUNK = new ConcurrentHashMap<>();
+    private static final Map<UUID, Optional<UUID>> LAST_TERRITORY = new ConcurrentHashMap<>();
 
     private FactionClaimManager() {
     }
@@ -49,5 +51,17 @@ public final class FactionClaimManager {
             return;
         }
         LAST_CHUNK.put(playerId, chunkPos);
+    }
+
+    public static Optional<UUID> getLastTerritory(UUID playerId) {
+        return LAST_TERRITORY.getOrDefault(playerId, Optional.empty());
+    }
+
+    public static void setLastTerritory(UUID playerId, Optional<UUID> factionId) {
+        if (factionId == null) {
+            LAST_TERRITORY.remove(playerId);
+            return;
+        }
+        LAST_TERRITORY.put(playerId, factionId);
     }
 }

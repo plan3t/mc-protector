@@ -349,7 +349,7 @@ public class FactionData extends SavedData {
     }
 
     public Optional<Faction> getFactionAt(BlockPos pos) {
-        long key = ChunkPos.asLong(pos);
+        long key = new ChunkPos(pos).toLong();
         UUID factionId = claims.get(key);
         if (factionId == null) {
             return Optional.empty();
@@ -358,11 +358,11 @@ public class FactionData extends SavedData {
     }
 
     public boolean isClaimed(BlockPos pos) {
-        return claims.containsKey(ChunkPos.asLong(pos));
+        return claims.containsKey(new ChunkPos(pos).toLong());
     }
 
     public Optional<UUID> getClaimOwner(BlockPos pos) {
-        return Optional.ofNullable(claims.get(ChunkPos.asLong(pos)));
+        return Optional.ofNullable(claims.get(new ChunkPos(pos).toLong()));
     }
 
     public boolean hasPermission(Player player, BlockPos pos, FactionPermission permission) {
