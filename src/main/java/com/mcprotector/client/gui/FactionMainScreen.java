@@ -380,6 +380,55 @@ public class FactionMainScreen extends Screen {
         if (claims.size() > visibleLines) {
             guiGraphics.drawString(this.font, "Scroll to view more...", PANEL_PADDING, this.height - 25, 0x777777);
         }
+        List<net.minecraft.util.FormattedCharSequence> tooltip = lines.stream()
+            .map(Component::getVisualOrderText)
+            .toList();
+        guiGraphics.renderTooltip(this.font, tooltip, mouseX, mouseY);
+    }
+
+    private void handleMapClick(FactionMapClientData.MapSnapshot mapSnapshot, ChunkPos clicked) {
+        long key = clicked.toLong();
+        com.mcprotector.network.FactionClaimMapPacket.ClaimEntry entry = mapSnapshot.claims().get(key);
+        FactionClaimMapActionPacket.ActionType action = entry == null
+            ? FactionClaimMapActionPacket.ActionType.CLAIM
+            : "OWN".equals(entry.relation())
+            ? FactionClaimMapActionPacket.ActionType.UNCLAIM
+            : FactionClaimMapActionPacket.ActionType.OVERTAKE;
+        NetworkHandler.CHANNEL.sendToServer(new FactionClaimMapActionPacket(clicked.x, clicked.z, action));
+        FactionMapClientData.requestUpdate();
+    }
+
+    private MapRegion buildMapRegion(int startY, int radius) {
+        int gridSize = radius * 2 + 1;
+        int maxWidth = this.width - PANEL_PADDING * 2;
+        int maxHeight = this.height - startY - 40;
+        int cellSize = Math.max(6, Math.min(18, Math.min(maxWidth / gridSize, maxHeight / gridSize)));
+        int mapWidth = cellSize * gridSize;
+        int mapHeight = cellSize * gridSize;
+        int originX = (this.width - mapWidth) / 2;
+        int originY = startY + 16;
+        if (originY + mapHeight > this.height - PANEL_PADDING - 30) {
+            originY = Math.max(startY + 16, this.height - PANEL_PADDING - 30 - mapHeight);
+        }
+        return new MapRegion(originX, originY, cellSize, radius);
+    }
+
+    private ChunkPos getChunkFromMouse(MapRegion region, double mouseX, double mouseY) {
+        if (region == null) {
+            return null;
+        }
+        int size = region.cellSize() * (region.radius() * 2 + 1);
+        if (mouseX < region.originX() || mouseY < region.originY()
+            || mouseX >= region.originX() + size || mouseY >= region.originY() + size) {
+            return null;
+        }
+        int dx = (int) ((mouseX - region.originX()) / region.cellSize()) - region.radius();
+        int dz = (int) ((mouseY - region.originY()) / region.cellSize()) - region.radius();
+        FactionMapClientData.MapSnapshot mapSnapshot = FactionMapClientData.getSnapshot();
+        return new ChunkPos(mapSnapshot.centerChunkX() + dx, mapSnapshot.centerChunkZ() + dz);
+    }
+
+    private record MapRegion(int originX, int originY, int cellSize, int radius) {
     }
 
 }
