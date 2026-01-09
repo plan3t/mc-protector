@@ -145,6 +145,8 @@ public final class FactionConfig {
         public final ForgeConfigSpec.ConfigValue<Integer> adminBypassPermissionLevel;
         public final ForgeConfigSpec.ConfigValue<Integer> accessLogSize;
         public final ForgeConfigSpec.ConfigValue<Boolean> dynmapFullSyncOnStart;
+        public final ForgeConfigSpec.ConfigValue<Integer> claimMapRadiusChunks;
+        public final ForgeConfigSpec.ConfigValue<Boolean> claimMapFullSync;
         public final ForgeConfigSpec.ConfigValue<List<? extends String>> safeZoneDimensions;
         public final ForgeConfigSpec.ConfigValue<List<? extends String>> warZoneDimensions;
 
@@ -232,6 +234,12 @@ public final class FactionConfig {
             dynmapFullSyncOnStart = builder
                 .comment("Run a full Dynmap claim sync on server start.")
                 .define("dynmapFullSyncOnStart", true);
+            claimMapRadiusChunks = builder
+                .comment("Radius in chunks for the client claim map sync.")
+                .define("claimMapRadiusChunks", 8);
+            claimMapFullSync = builder
+                .comment("Send all claims to clients instead of only the radius (for larger map views).")
+                .define("claimMapFullSync", false);
             safeZoneDimensions = builder
                 .comment("Dimensions treated as safe zones (no PvP, no claim interactions).")
                 .defineListAllowEmpty("safeZoneDimensions", List.of(), value -> value instanceof String);
