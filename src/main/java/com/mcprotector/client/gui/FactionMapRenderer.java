@@ -15,12 +15,12 @@ public final class FactionMapRenderer {
     public static MapRegion buildMapRegion(int startY, int radius, int width, int height, int panelPadding) {
         int gridSize = radius * 2 + 1;
         int maxWidth = width - panelPadding * 2;
-        int maxHeight = height - startY - 120;
+        int maxHeight = height - startY - 80;
         int cellSize = Math.max(6, Math.min(18, Math.min(maxWidth / gridSize, maxHeight / gridSize)));
         int mapWidth = cellSize * gridSize;
         int mapHeight = cellSize * gridSize;
         int originX = (width - mapWidth) / 2;
-        int originY = startY + 12;
+        int originY = startY + 6;
         if (originY + mapHeight > height - panelPadding - 30) {
             originY = Math.max(startY + 16, height - panelPadding - 30 - mapHeight);
         }

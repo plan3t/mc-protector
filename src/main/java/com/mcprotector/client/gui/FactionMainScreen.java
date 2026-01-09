@@ -129,8 +129,9 @@ public class FactionMainScreen extends Screen {
             : "No faction", PANEL_PADDING, 18, 0xCCCCCC);
         int contentStart = selectedTab == FactionTab.INVITES
             || selectedTab == FactionTab.PERMISSIONS
-            || selectedTab == FactionTab.FACTION_MAP
             ? panelTop + 85
+            : selectedTab == FactionTab.FACTION_MAP
+            ? panelTop + 40
             : 80;
         switch (selectedTab) {
             case MEMBERS -> renderMembers(guiGraphics, snapshot.members(), contentStart);
@@ -159,19 +160,21 @@ public class FactionMainScreen extends Screen {
         }
         if (selectedTab == FactionTab.FACTION_MAP) {
             FactionMapClientData.MapSnapshot mapSnapshot = FactionMapClientData.getSnapshot();
-            FactionMapRenderer.MapRegion region = FactionMapRenderer.buildMapRegion(panelTop + 85, mapSnapshot.radius(),
+            FactionMapRenderer.MapRegion region = FactionMapRenderer.buildMapRegion(panelTop + 40, mapSnapshot.radius(),
                 this.width, this.height, PANEL_PADDING);
             int listStart = FactionMapRenderer.getMapClaimsListStart(region);
-            int lineHeight = 10;
-            int availableHeight = Math.max(0, this.height - listStart - 30);
-            int visibleLines = Math.max(1, availableHeight / lineHeight);
-            int maxOffset = Math.max(0, FactionClientData.getSnapshot().claims().size() - visibleLines);
-            if (delta < 0) {
-                mapClaimsScrollOffset = Math.min(maxOffset, mapClaimsScrollOffset + 1);
-            } else if (delta > 0) {
-                mapClaimsScrollOffset = Math.max(0, mapClaimsScrollOffset - 1);
+            if (mouseY >= listStart) {
+                int lineHeight = 10;
+                int availableHeight = Math.max(0, this.height - listStart - 30);
+                int visibleLines = Math.max(1, availableHeight / lineHeight);
+                int maxOffset = Math.max(0, FactionClientData.getSnapshot().claims().size() - visibleLines);
+                if (delta < 0) {
+                    mapClaimsScrollOffset = Math.min(maxOffset, mapClaimsScrollOffset + 1);
+                } else if (delta > 0) {
+                    mapClaimsScrollOffset = Math.max(0, mapClaimsScrollOffset - 1);
+                }
+                return true;
             }
-            return true;
         }
         return super.mouseScrolled(mouseX, mouseY, delta);
     }
@@ -180,7 +183,7 @@ public class FactionMainScreen extends Screen {
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         if (selectedTab == FactionTab.FACTION_MAP && button == 0) {
             FactionMapClientData.MapSnapshot mapSnapshot = FactionMapClientData.getSnapshot();
-            FactionMapRenderer.MapRegion region = FactionMapRenderer.buildMapRegion(panelTop + 85, mapSnapshot.radius(),
+            FactionMapRenderer.MapRegion region = FactionMapRenderer.buildMapRegion(panelTop + 40, mapSnapshot.radius(),
                 this.width, this.height, PANEL_PADDING);
             ChunkPos clicked = FactionMapRenderer.getChunkFromMouse(region, mouseX, mouseY, mapSnapshot);
             if (clicked != null) {
