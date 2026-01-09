@@ -1,6 +1,7 @@
 package com.mcprotector;
 
 import com.mcprotector.chat.FactionChatHandler;
+import com.mcprotector.claim.FactionClaimHandler;
 import com.mcprotector.command.FactionCommands;
 import com.mcprotector.command.FactionRelationCommands;
 import com.mcprotector.config.FactionConfig;
@@ -32,6 +33,7 @@ public class McProtectorMod {
         MinecraftForge.EVENT_BUS.addListener(this::onServerStarted);
         MinecraftForge.EVENT_BUS.register(new ClaimProtectionHandler());
         MinecraftForge.EVENT_BUS.register(new FactionChatHandler());
+        MinecraftForge.EVENT_BUS.register(new FactionClaimHandler());
     }
 
     private void onCommonSetup(FMLCommonSetupEvent event) {
@@ -45,7 +47,9 @@ public class McProtectorMod {
 
     private void onServerStarted(ServerStartedEvent event) {
         for (var level : event.getServer().getAllLevels()) {
-            DynmapBridge.syncClaims(FactionData.get(level));
+            if (FactionConfig.SERVER.dynmapFullSyncOnStart.get()) {
+                DynmapBridge.syncClaims(FactionData.get(level));
+            }
         }
     }
 }
