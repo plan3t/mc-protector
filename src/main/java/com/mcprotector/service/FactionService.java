@@ -26,6 +26,12 @@ public final class FactionService {
 
     public static int claimChunk(CommandSourceStack source) throws CommandSyntaxException {
         ServerPlayer player = source.getPlayerOrException();
+        ChunkPos chunk = new ChunkPos(player.blockPosition());
+        return claimChunk(source, chunk);
+    }
+
+    public static int claimChunk(CommandSourceStack source, ChunkPos chunk) throws CommandSyntaxException {
+        ServerPlayer player = source.getPlayerOrException();
         FactionData data = FactionData.get(player.serverLevel());
         Optional<Faction> faction = data.getFactionByPlayer(player.getUUID());
         if (faction.isEmpty()) {
@@ -41,16 +47,17 @@ public final class FactionService {
         }
         long now = System.currentTimeMillis();
         int level = data.getFactionLevel(faction.get().getId());
-        int cooldownSeconds = Math.max(0, FactionConfig.SERVER.claimCooldownSeconds.get()
+        int baseCooldownSeconds = Math.max(0, FactionConfig.SERVER.claimCooldownSeconds.get()
             - (level - 1) * FactionConfig.SERVER.claimCooldownReductionPerLevel.get());
+        int cooldownSeconds = applyOwnerCooldownMultiplier(baseCooldownSeconds, faction.get(), player.getUUID(),
+            FactionConfig.SERVER.claimCooldownOwnerMultiplier.get());
         long lastClaim = LAST_CLAIM.getOrDefault(player.getUUID(), 0L);
         if (now - lastClaim < cooldownSeconds * 1000L) {
             source.sendFailure(Component.literal("You must wait before claiming again."));
             return 0;
         }
-        ChunkPos chunk = new ChunkPos(player.blockPosition());
         if (!data.claimChunk(chunk, faction.get().getId())) {
-            if (data.isClaimed(player.blockPosition())) {
+            if (data.isClaimed(chunk)) {
                 source.sendFailure(Component.literal("This chunk is already claimed."));
             } else {
                 source.sendFailure(Component.literal("Your faction has reached its claim limit."));
@@ -65,6 +72,12 @@ public final class FactionService {
 
     public static int unclaimChunk(CommandSourceStack source) throws CommandSyntaxException {
         ServerPlayer player = source.getPlayerOrException();
+        ChunkPos chunk = new ChunkPos(player.blockPosition());
+        return unclaimChunk(source, chunk);
+    }
+
+    public static int unclaimChunk(CommandSourceStack source, ChunkPos chunk) throws CommandSyntaxException {
+        ServerPlayer player = source.getPlayerOrException();
         FactionData data = FactionData.get(player.serverLevel());
         Optional<Faction> faction = data.getFactionByPlayer(player.getUUID());
         if (faction.isEmpty()) {
@@ -77,14 +90,15 @@ public final class FactionService {
         }
         long now = System.currentTimeMillis();
         int level = data.getFactionLevel(faction.get().getId());
-        int cooldownSeconds = Math.max(0, FactionConfig.SERVER.unclaimCooldownSeconds.get()
+        int baseCooldownSeconds = Math.max(0, FactionConfig.SERVER.unclaimCooldownSeconds.get()
             - (level - 1) * FactionConfig.SERVER.unclaimCooldownReductionPerLevel.get());
+        int cooldownSeconds = applyOwnerCooldownMultiplier(baseCooldownSeconds, faction.get(), player.getUUID(),
+            FactionConfig.SERVER.unclaimCooldownOwnerMultiplier.get());
         long lastUnclaim = LAST_UNCLAIM.getOrDefault(player.getUUID(), 0L);
         if (now - lastUnclaim < cooldownSeconds * 1000L) {
             source.sendFailure(Component.literal("You must wait before unclaiming again."));
             return 0;
         }
-        ChunkPos chunk = new ChunkPos(player.blockPosition());
         if (!data.unclaimChunk(chunk, faction.get().getId())) {
             source.sendFailure(Component.literal("Your faction does not own this chunk."));
             return 0;
@@ -164,6 +178,41 @@ public final class FactionService {
         return 1;
     }
 
+    public static int overtakeChunk(CommandSourceStack source, ChunkPos chunk) throws CommandSyntaxException {
+        ServerPlayer player = source.getPlayerOrException();
+        FactionData data = FactionData.get(player.serverLevel());
+        Optional<Faction> faction = data.getFactionByPlayer(player.getUUID());
+        if (faction.isEmpty()) {
+            source.sendFailure(Component.literal("You are not in a faction."));
+            return 0;
+        }
+        if (!faction.get().hasPermission(player.getUUID(), FactionPermission.CHUNK_OVERTAKE)) {
+            source.sendFailure(Component.literal("You lack permission to overtake chunks."));
+            return 0;
+        }
+        if (!isClaimingAllowed(source)) {
+            return 0;
+        }
+        if (!data.overtakeChunk(chunk, faction.get().getId())) {
+            if (data.isClaimed(chunk) && data.getClaimOwner(chunk).isPresent()) {
+                source.sendFailure(Component.literal("You cannot overtake this chunk unless you are at war with the owner and have claim capacity."));
+            } else {
+                source.sendFailure(Component.literal("This chunk cannot be overtaken."));
+            }
+            return 0;
+        }
+        DynmapBridge.updateClaim(chunk, faction);
+        source.sendSuccess(() -> Component.literal("Chunk overtaken for " + faction.get().getName()), false);
+        return 1;
+    }
+
+    public static int syncDynmap(CommandSourceStack source) throws CommandSyntaxException {
+        ServerPlayer player = source.getPlayerOrException();
+        DynmapBridge.syncClaims(FactionData.get(player.serverLevel()));
+        source.sendSuccess(() -> Component.literal("Synced faction claims to Dynmap."), false);
+        return 1;
+    }
+
     private static boolean isClaimingAllowed(CommandSourceStack source) {
         String dimension = source.getLevel().dimension().location().toString();
         if (FactionConfig.SERVER.safeZoneDimensions.get().contains(dimension)) {
@@ -175,5 +224,12 @@ public final class FactionService {
             return false;
         }
         return true;
+    }
+
+    private static int applyOwnerCooldownMultiplier(int baseSeconds, Faction faction, UUID playerId, double multiplier) {
+        if (faction.getRole(playerId) == FactionRole.OWNER) {
+            return Math.max(0, (int) Math.ceil(baseSeconds * Math.max(0.0, multiplier)));
+        }
+        return baseSeconds;
     }
 }

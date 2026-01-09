@@ -38,6 +38,21 @@ public final class NetworkHandler {
             .decoder(FactionActionPacket::decode)
             .consumerMainThread(FactionActionPacket::handle)
             .add();
+        CHANNEL.messageBuilder(FactionClaimMapRequestPacket.class, nextId(), NetworkDirection.PLAY_TO_SERVER)
+            .encoder(FactionClaimMapRequestPacket::encode)
+            .decoder(FactionClaimMapRequestPacket::decode)
+            .consumerMainThread(FactionClaimMapRequestPacket::handle)
+            .add();
+        CHANNEL.messageBuilder(FactionClaimMapPacket.class, nextId(), NetworkDirection.PLAY_TO_CLIENT)
+            .encoder(FactionClaimMapPacket::encode)
+            .decoder(FactionClaimMapPacket::decode)
+            .consumerMainThread(FactionClaimMapPacket::handle)
+            .add();
+        CHANNEL.messageBuilder(FactionClaimMapActionPacket.class, nextId(), NetworkDirection.PLAY_TO_SERVER)
+            .encoder(FactionClaimMapActionPacket::encode)
+            .decoder(FactionClaimMapActionPacket::decode)
+            .consumerMainThread(FactionClaimMapActionPacket::handle)
+            .add();
     }
 
     public static void sendToPlayer(ServerPlayer player, Object packet) {

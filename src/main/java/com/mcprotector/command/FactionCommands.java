@@ -261,13 +261,7 @@ public final class FactionCommands {
             source.sendSuccess(() -> Component.literal("Run /faction overtake confirm within 10 seconds to confirm."), false);
             return 1;
         }
-        if (!data.overtakeChunk(chunk, faction.get().getId())) {
-            source.sendFailure(Component.literal("This chunk cannot be overtaken."));
-            return 0;
-        }
-        DynmapBridge.updateClaim(chunk, faction);
-        source.sendSuccess(() -> Component.literal("Chunk overtaken for " + faction.get().getName()), false);
-        return 1;
+        return FactionService.overtakeChunk(source, chunk);
     }
 
     private static int confirmOvertake(CommandSourceStack source) throws CommandSyntaxException {
@@ -284,18 +278,11 @@ public final class FactionCommands {
             return 0;
         }
         ChunkPos chunk = new ChunkPos(player.blockPosition());
-        if (!data.overtakeChunk(chunk, faction.get().getId())) {
-            if (data.isClaimed(player.blockPosition()) && data.getClaimOwner(player.blockPosition()).isPresent()) {
-                source.sendFailure(Component.literal("You cannot overtake this chunk unless you are at war with the owner and have claim capacity."));
-            } else {
-                source.sendFailure(Component.literal("This chunk cannot be overtaken."));
-            }
-            return 0;
+        int result = FactionService.overtakeChunk(source, chunk);
+        if (result != 0) {
+            OVERTAKE_CONFIRMATIONS.remove(player.getUUID());
         }
-        DynmapBridge.updateClaim(chunk, faction);
-        OVERTAKE_CONFIRMATIONS.remove(player.getUUID());
-        source.sendSuccess(() -> Component.literal("Chunk overtaken for " + faction.get().getName()), false);
-        return 1;
+        return result;
     }
 
     private static int factionInfo(CommandSourceStack source) throws CommandSyntaxException {
