@@ -1,9 +1,11 @@
 package com.mcprotector.client.gui;
 
 import com.mcprotector.client.FactionClientData;
+import com.mcprotector.client.FactionMapClientData;
 import com.mcprotector.data.FactionPermission;
 import com.mcprotector.data.FactionRole;
 import com.mcprotector.network.FactionActionPacket;
+import com.mcprotector.network.FactionClaimMapActionPacket;
 import com.mcprotector.network.NetworkHandler;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -11,6 +13,7 @@ import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
+import net.minecraft.world.level.ChunkPos;
 
 import java.time.Instant;
 import java.time.ZoneId;
@@ -34,6 +37,7 @@ public class FactionMainScreen extends Screen {
     private Button grantButton;
     private Button revokeButton;
     private Button refreshButton;
+    private Button dynmapSyncButton;
     private int roleIndex;
     private int permissionIndex;
     private int panelTop;
@@ -85,12 +89,19 @@ public class FactionMainScreen extends Screen {
             .bounds(PANEL_PADDING + 80, panelTop + 55, 70, 20)
             .build());
 
-        refreshButton = this.addRenderableWidget(Button.builder(Component.literal("Refresh"), button -> FactionClientData.requestUpdate())
+        refreshButton = this.addRenderableWidget(Button.builder(Component.literal("Refresh"), button -> {
+            FactionClientData.requestUpdate();
+            FactionMapClientData.requestUpdate();
+        })
             .bounds(this.width - PANEL_PADDING - 80, this.height - PANEL_PADDING - 20, 80, 20)
+            .build());
+        dynmapSyncButton = this.addRenderableWidget(Button.builder(Component.literal("Sync Dynmap"), button -> sendDynmapSync())
+            .bounds(PANEL_PADDING, this.height - PANEL_PADDING - 20, 110, 20)
             .build());
 
         updateVisibility();
         FactionClientData.requestUpdate();
+        FactionMapClientData.requestUpdate();
     }
 
     @Override
@@ -127,6 +138,7 @@ public class FactionMainScreen extends Screen {
         int contentStart = selectedTab == FactionTab.INVITES
             || selectedTab == FactionTab.PERMISSIONS
             || selectedTab == FactionTab.CLAIMS
+            || selectedTab == FactionTab.MAP
             ? panelTop + 85
             : 80;
         switch (selectedTab) {
@@ -135,6 +147,7 @@ public class FactionMainScreen extends Screen {
             case PERMISSIONS -> renderPermissions(guiGraphics, snapshot.permissions(), contentStart);
             case RELATIONS -> renderRelations(guiGraphics, snapshot.relations(), contentStart);
             case CLAIMS -> renderClaims(guiGraphics, snapshot.claims(), contentStart);
+            case MAP -> renderMap(guiGraphics, contentStart, mouseX, mouseY);
         }
         super.render(guiGraphics, mouseX, mouseY, partialTick);
     }
@@ -158,6 +171,20 @@ public class FactionMainScreen extends Screen {
     }
 
     @Override
+    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        if (selectedTab == FactionTab.MAP && button == 0) {
+            FactionMapClientData.MapSnapshot mapSnapshot = FactionMapClientData.getSnapshot();
+            MapRegion region = buildMapRegion(panelTop + 85, mapSnapshot.radius());
+            ChunkPos clicked = getChunkFromMouse(region, mouseX, mouseY);
+            if (clicked != null) {
+                handleMapClick(mapSnapshot, clicked);
+                return true;
+            }
+        }
+        return super.mouseClicked(mouseX, mouseY, button);
+    }
+
+    @Override
     public boolean isPauseScreen() {
         return false;
     }
@@ -176,10 +203,14 @@ public class FactionMainScreen extends Screen {
         inviteButton.visible = invites;
         claimButton.visible = claims;
         unclaimButton.visible = claims;
+        dynmapSyncButton.visible = selectedTab == FactionTab.MAP;
         roleButton.visible = permissions;
         permissionButton.visible = permissions;
         grantButton.visible = permissions;
         revokeButton.visible = permissions;
+        if (selectedTab == FactionTab.MAP) {
+            FactionMapClientData.requestUpdate();
+        }
     }
 
     private void updatePermissionLabels() {
@@ -216,6 +247,10 @@ public class FactionMainScreen extends Screen {
         NetworkHandler.CHANNEL.sendToServer(
             FactionActionPacket.setPermission(currentRole().name(), currentPermission().name(), grant)
         );
+    }
+
+    private void sendDynmapSync() {
+        NetworkHandler.CHANNEL.sendToServer(FactionActionPacket.syncDynmap());
     }
 
     private void renderMembers(GuiGraphics guiGraphics, List<com.mcprotector.network.FactionStatePacket.MemberEntry> members, int startY) {
@@ -317,5 +352,114 @@ public class FactionMainScreen extends Screen {
             y += 10;
             count++;
         }
+    }
+
+    private void renderMap(GuiGraphics guiGraphics, int startY, int mouseX, int mouseY) {
+        FactionMapClientData.MapSnapshot mapSnapshot = FactionMapClientData.getSnapshot();
+        int radius = mapSnapshot.radius();
+        guiGraphics.drawString(this.font, "Claim Map:", PANEL_PADDING, startY, 0xFFFFFF);
+        if (radius <= 0) {
+            guiGraphics.drawString(this.font, "Map data unavailable. Click Refresh.", PANEL_PADDING, startY + 14, 0x777777);
+            return;
+        }
+        MapRegion region = buildMapRegion(startY, radius);
+        renderMapGrid(guiGraphics, mapSnapshot, region);
+        ChunkPos hovered = getChunkFromMouse(region, mouseX, mouseY);
+        if (hovered != null) {
+            renderMapTooltip(guiGraphics, mapSnapshot, hovered, mouseX, mouseY);
+        }
+    }
+
+    private void renderMapGrid(GuiGraphics guiGraphics, FactionMapClientData.MapSnapshot mapSnapshot, MapRegion region) {
+        int radius = region.radius();
+        for (int dz = -radius; dz <= radius; dz++) {
+            for (int dx = -radius; dx <= radius; dx++) {
+                int chunkX = mapSnapshot.centerChunkX() + dx;
+                int chunkZ = mapSnapshot.centerChunkZ() + dz;
+                int x = region.originX() + (dx + radius) * region.cellSize();
+                int y = region.originY() + (dz + radius) * region.cellSize();
+                long key = new ChunkPos(chunkX, chunkZ).toLong();
+                com.mcprotector.network.FactionClaimMapPacket.ClaimEntry entry = mapSnapshot.claims().get(key);
+                int color = getMapColor(entry);
+                guiGraphics.fill(x, y, x + region.cellSize(), y + region.cellSize(), color);
+            }
+        }
+        int centerX = region.originX() + radius * region.cellSize();
+        int centerY = region.originY() + radius * region.cellSize();
+        guiGraphics.renderOutline(centerX, centerY, region.cellSize(), region.cellSize(), 0xFFFFFFFF);
+    }
+
+    private int getMapColor(com.mcprotector.network.FactionClaimMapPacket.ClaimEntry entry) {
+        if (entry == null) {
+            return 0xFF3A3A3A;
+        }
+        return switch (entry.relation()) {
+            case "OWN" -> 0xFF4CAF50;
+            case "ALLY" -> 0xFF4FC3F7;
+            case "WAR" -> 0xFFEF5350;
+            default -> 0xFF8D8D8D;
+        };
+    }
+
+    private void renderMapTooltip(GuiGraphics guiGraphics, FactionMapClientData.MapSnapshot mapSnapshot, ChunkPos hovered,
+                                  int mouseX, int mouseY) {
+        long key = hovered.toLong();
+        com.mcprotector.network.FactionClaimMapPacket.ClaimEntry entry = mapSnapshot.claims().get(key);
+        List<Component> lines;
+        if (entry == null) {
+            lines = List.of(Component.literal("Wilderness"));
+        } else {
+            String relation = entry.relation().equals("OWN") ? "Your faction" : entry.relation();
+            lines = List.of(
+                Component.literal(entry.factionName()),
+                Component.literal(relation)
+            );
+        }
+        guiGraphics.renderTooltip(this.font, lines, mouseX, mouseY);
+    }
+
+    private void handleMapClick(FactionMapClientData.MapSnapshot mapSnapshot, ChunkPos clicked) {
+        long key = clicked.toLong();
+        com.mcprotector.network.FactionClaimMapPacket.ClaimEntry entry = mapSnapshot.claims().get(key);
+        FactionClaimMapActionPacket.ActionType action = entry == null
+            ? FactionClaimMapActionPacket.ActionType.CLAIM
+            : "OWN".equals(entry.relation())
+            ? FactionClaimMapActionPacket.ActionType.UNCLAIM
+            : FactionClaimMapActionPacket.ActionType.OVERTAKE;
+        NetworkHandler.CHANNEL.sendToServer(new FactionClaimMapActionPacket(clicked.x, clicked.z, action));
+        FactionMapClientData.requestUpdate();
+    }
+
+    private MapRegion buildMapRegion(int startY, int radius) {
+        int gridSize = radius * 2 + 1;
+        int maxWidth = this.width - PANEL_PADDING * 2;
+        int maxHeight = this.height - startY - 40;
+        int cellSize = Math.max(6, Math.min(18, Math.min(maxWidth / gridSize, maxHeight / gridSize)));
+        int mapWidth = cellSize * gridSize;
+        int mapHeight = cellSize * gridSize;
+        int originX = (this.width - mapWidth) / 2;
+        int originY = startY + 16;
+        if (originY + mapHeight > this.height - PANEL_PADDING - 30) {
+            originY = Math.max(startY + 16, this.height - PANEL_PADDING - 30 - mapHeight);
+        }
+        return new MapRegion(originX, originY, cellSize, radius);
+    }
+
+    private ChunkPos getChunkFromMouse(MapRegion region, double mouseX, double mouseY) {
+        if (region == null) {
+            return null;
+        }
+        int size = region.cellSize() * (region.radius() * 2 + 1);
+        if (mouseX < region.originX() || mouseY < region.originY()
+            || mouseX >= region.originX() + size || mouseY >= region.originY() + size) {
+            return null;
+        }
+        int dx = (int) ((mouseX - region.originX()) / region.cellSize()) - region.radius();
+        int dz = (int) ((mouseY - region.originY()) / region.cellSize()) - region.radius();
+        FactionMapClientData.MapSnapshot mapSnapshot = FactionMapClientData.getSnapshot();
+        return new ChunkPos(mapSnapshot.centerChunkX() + dx, mapSnapshot.centerChunkZ() + dz);
+    }
+
+    private record MapRegion(int originX, int originY, int cellSize, int radius) {
     }
 }
