@@ -104,11 +104,11 @@ public final class DynmapBridge {
         }
     }
 
-    public static void syncClaims(FactionData data) {
+    public static void syncClaims(com.mcprotector.data.FactionData data) {
         if (!available || markerSet == null) {
             return;
         }
-        for (Map.Entry<Long, UUID> entry : data.getClaims().entrySet()) {
+        for (Map.Entry<Long, java.util.UUID> entry : data.getClaims().entrySet()) {
             ChunkPos chunkPos = new ChunkPos(entry.getKey());
             Optional<Faction> faction = data.getFaction(entry.getValue());
             updateMarker(chunkPos, faction);
