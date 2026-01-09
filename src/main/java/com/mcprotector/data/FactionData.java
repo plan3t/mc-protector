@@ -376,8 +376,16 @@ public class FactionData extends SavedData {
         return claims.containsKey(new ChunkPos(pos).toLong());
     }
 
+    public boolean isClaimed(ChunkPos chunkPos) {
+        return claims.containsKey(chunkPos.toLong());
+    }
+
     public Optional<UUID> getClaimOwner(BlockPos pos) {
         return Optional.ofNullable(claims.get(new ChunkPos(pos).toLong()));
+    }
+
+    public Optional<UUID> getClaimOwner(ChunkPos chunkPos) {
+        return Optional.ofNullable(claims.get(chunkPos.toLong()));
     }
 
     public boolean hasPermission(Player player, BlockPos pos, FactionPermission permission) {
