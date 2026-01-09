@@ -232,8 +232,19 @@ public class FactionMainScreen extends Screen {
     private void renderPermissions(GuiGraphics guiGraphics, List<com.mcprotector.network.FactionStatePacket.PermissionEntry> permissions, int startY) {
         guiGraphics.drawString(this.font, "Permissions:", PANEL_PADDING, startY, 0xFFFFFF);
         int y = startY + 12;
-        for (var entry : permissions) {
-            guiGraphics.drawString(this.font, entry.role() + ": " + String.join(", ", entry.permissions()), PANEL_PADDING, y, 0xCCCCCC);
+        String selectedRole = currentRole().name();
+        com.mcprotector.network.FactionStatePacket.PermissionEntry selected = permissions.stream()
+            .filter(entry -> entry.role().equalsIgnoreCase(selectedRole))
+            .findFirst()
+            .orElse(null);
+        if (selected == null) {
+            guiGraphics.drawString(this.font, "No permissions found for " + selectedRole + ".", PANEL_PADDING, y, 0x777777);
+            return;
+        }
+        guiGraphics.drawString(this.font, selectedRole + ":", PANEL_PADDING, y, 0xCCCCCC);
+        y += 10;
+        for (String perm : selected.permissions()) {
+            guiGraphics.drawString(this.font, "- " + perm, PANEL_PADDING, y, 0xAAAAAA);
             y += 10;
         }
     }
