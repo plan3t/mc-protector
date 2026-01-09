@@ -936,7 +936,8 @@ public final class FactionCommands {
             enabled = !enabled;
         }
         FactionClaimManager.setAutoClaimEnabled(player.getUUID(), enabled);
-        source.sendSuccess(() -> Component.literal("Auto-claim " + (enabled ? "enabled" : "disabled") + "."), false);
+        String message = "Auto-claim " + (enabled ? "enabled" : "disabled") + ".";
+        source.sendSuccess(() -> Component.literal(message), false);
         return 1;
     }
 
@@ -949,7 +950,8 @@ public final class FactionCommands {
             enabled = !enabled;
         }
         FactionClaimManager.setBorderEnabled(player.getUUID(), enabled);
-        source.sendSuccess(() -> Component.literal("Claim borders " + (enabled ? "enabled" : "disabled") + "."), false);
+        String message = "Claim borders " + (enabled ? "enabled" : "disabled") + ".";
+        source.sendSuccess(() -> Component.literal(message), false);
         return 1;
     }
 
