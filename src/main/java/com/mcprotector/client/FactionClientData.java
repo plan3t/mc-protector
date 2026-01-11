@@ -2,6 +2,7 @@ package com.mcprotector.client;
 
 import com.mcprotector.network.FactionStatePacket;
 import net.minecraft.client.Minecraft;
+import net.neoforged.neoforge.client.network.ClientPacketDistributor;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -37,7 +38,7 @@ public final class FactionClientData {
     public static void requestUpdate() {
         Minecraft client = Minecraft.getInstance();
         if (client.player != null) {
-            com.mcprotector.network.NetworkHandler.CHANNEL.sendToServer(new com.mcprotector.network.FactionStateRequestPacket());
+            ClientPacketDistributor.sendToServer(new com.mcprotector.network.FactionStateRequestPacket());
         }
     }
 

@@ -4,13 +4,13 @@ import com.mcprotector.McProtectorMod;
 import com.mcprotector.client.gui.FactionMainScreen;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
-import net.minecraftforge.client.event.RegisterKeyMappingsEvent;
-import net.minecraftforge.event.TickEvent;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.common.Mod;
-import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.common.MinecraftForge;
+import net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent;
+import net.neoforged.neoforge.client.event.ClientTickEvent;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.common.Mod;
+import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent;
+import net.neoforged.api.distmarker.Dist;
+import net.neoforged.neoforge.common.NeoForge;
 import org.lwjgl.glfw.GLFW;
 
 @Mod.EventBusSubscriber(modid = McProtectorMod.MOD_ID, bus = Mod.EventBusSubscriber.Bus.MOD, value = Dist.CLIENT)
@@ -22,7 +22,7 @@ public final class ClientModEvents {
 
     @SubscribeEvent
     public static void onClientSetup(FMLClientSetupEvent event) {
-        MinecraftForge.EVENT_BUS.addListener(ClientModEvents::onClientTick);
+        NeoForge.EVENT_BUS.addListener(ClientModEvents::onClientTick);
     }
 
     @SubscribeEvent
@@ -31,8 +31,8 @@ public final class ClientModEvents {
         event.register(factionUiKey);
     }
 
-    private static void onClientTick(TickEvent.ClientTickEvent event) {
-        if (event.phase != TickEvent.Phase.END || factionUiKey == null) {
+    private static void onClientTick(ClientTickEvent.Post event) {
+        if (factionUiKey == null) {
             return;
         }
         while (factionUiKey.consumeClick()) {

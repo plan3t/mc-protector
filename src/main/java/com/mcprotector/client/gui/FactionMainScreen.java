@@ -7,7 +7,7 @@ import com.mcprotector.data.FactionPermission;
 import com.mcprotector.data.FactionRole;
 import com.mcprotector.network.FactionActionPacket;
 import com.mcprotector.network.FactionClaimSelectionPacket;
-import com.mcprotector.network.NetworkHandler;
+import net.neoforged.neoforge.client.network.ClientPacketDistributor;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
@@ -376,7 +376,7 @@ public class FactionMainScreen extends Screen {
     private void sendInvite() {
         String name = inviteNameField.getValue().trim();
         if (!name.isEmpty()) {
-            NetworkHandler.CHANNEL.sendToServer(FactionActionPacket.invite(name));
+            ClientPacketDistributor.sendToServer(FactionActionPacket.invite(name));
             inviteNameField.setValue("");
         }
     }
@@ -384,22 +384,22 @@ public class FactionMainScreen extends Screen {
     private void acceptInvite() {
         String factionName = FactionClientData.getSnapshot().pendingInviteFaction();
         if (!factionName.isEmpty()) {
-            NetworkHandler.CHANNEL.sendToServer(FactionActionPacket.joinFaction(factionName));
+            ClientPacketDistributor.sendToServer(FactionActionPacket.joinFaction(factionName));
         }
     }
 
     private void declineInvite() {
-        NetworkHandler.CHANNEL.sendToServer(FactionActionPacket.declineInvite());
+        ClientPacketDistributor.sendToServer(FactionActionPacket.declineInvite());
     }
 
     private void sendPermission(boolean grant) {
-        NetworkHandler.CHANNEL.sendToServer(
+        ClientPacketDistributor.sendToServer(
             FactionActionPacket.setPermission(currentRole().name(), currentPermission().name(), grant)
         );
     }
 
     private void sendDynmapSync() {
-        NetworkHandler.CHANNEL.sendToServer(FactionActionPacket.syncDynmap());
+        ClientPacketDistributor.sendToServer(FactionActionPacket.syncDynmap());
     }
 
     private void sendMemberAction(MemberAction action) {
@@ -408,15 +408,15 @@ public class FactionMainScreen extends Screen {
             return;
         }
         switch (action) {
-            case KICK -> NetworkHandler.CHANNEL.sendToServer(FactionActionPacket.kickMember(name));
-            case PROMOTE -> NetworkHandler.CHANNEL.sendToServer(FactionActionPacket.promoteMember(name));
-            case DEMOTE -> NetworkHandler.CHANNEL.sendToServer(FactionActionPacket.demoteMember(name));
+            case KICK -> ClientPacketDistributor.sendToServer(FactionActionPacket.kickMember(name));
+            case PROMOTE -> ClientPacketDistributor.sendToServer(FactionActionPacket.promoteMember(name));
+            case DEMOTE -> ClientPacketDistributor.sendToServer(FactionActionPacket.demoteMember(name));
         }
         memberNameField.setValue("");
     }
 
     private void leaveFaction() {
-        NetworkHandler.CHANNEL.sendToServer(FactionActionPacket.leaveFaction());
+        ClientPacketDistributor.sendToServer(FactionActionPacket.leaveFaction());
     }
 
     private void cycleClaimType() {
@@ -482,7 +482,7 @@ public class FactionMainScreen extends Screen {
         if (chunks.isEmpty()) {
             return;
         }
-        NetworkHandler.CHANNEL.sendToServer(new FactionClaimSelectionPacket(chunks, toPacketClaimType(), factionName));
+        ClientPacketDistributor.sendToServer(new FactionClaimSelectionPacket(chunks, toPacketClaimType(), factionName));
         selectedChunks.clear();
         FactionMapClientData.requestUpdate();
     }

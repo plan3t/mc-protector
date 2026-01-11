@@ -1,16 +1,20 @@
 package com.mcprotector.network;
 
+import com.mcprotector.McProtectorMod;
 import com.mcprotector.data.Faction;
 import com.mcprotector.data.FactionData;
 import com.mcprotector.data.FactionPermission;
 import com.mcprotector.data.FactionRelation;
 import com.mcprotector.data.FactionRole;
-import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.fml.DistExecutor;
-import net.minecraftforge.network.NetworkEvent;
+import net.neoforged.api.distmarker.Dist;
+import net.neoforged.fml.DistExecutor;
+import net.neoforged.neoforge.network.handling.IPayloadContext;
 
 import java.util.ArrayList;
 import java.util.EnumSet;
@@ -18,9 +22,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.function.Supplier;
 
-public class FactionStatePacket {
+public class FactionStatePacket implements CustomPacketPayload {
+    public static final CustomPacketPayload.Type<FactionStatePacket> TYPE =
+        new CustomPacketPayload.Type<>(Identifier.fromNamespaceAndPath(McProtectorMod.MOD_ID, "faction_state"));
+    public static final StreamCodec<RegistryFriendlyByteBuf, FactionStatePacket> STREAM_CODEC =
+        StreamCodec.ofMember(FactionStatePacket::write, FactionStatePacket::decode);
     private final boolean inFaction;
     private final String factionName;
     private final String roleName;
@@ -123,49 +130,49 @@ public class FactionStatePacket {
             .orElse(playerId.toString());
     }
 
-    public static void encode(FactionStatePacket packet, FriendlyByteBuf buffer) {
-        buffer.writeBoolean(packet.inFaction);
-        buffer.writeUtf(packet.factionName);
-        buffer.writeUtf(packet.roleName);
-        buffer.writeUtf(packet.pendingInviteFaction);
-        buffer.writeVarInt(packet.members.size());
-        for (MemberEntry entry : packet.members) {
+    private void write(RegistryFriendlyByteBuf buffer) {
+        buffer.writeBoolean(inFaction);
+        buffer.writeUtf(factionName);
+        buffer.writeUtf(roleName);
+        buffer.writeUtf(pendingInviteFaction);
+        buffer.writeVarInt(members.size());
+        for (MemberEntry entry : members) {
             buffer.writeUUID(entry.playerId());
             buffer.writeUtf(entry.name());
             buffer.writeUtf(entry.role());
         }
-        buffer.writeVarInt(packet.invites.size());
-        for (InviteEntry entry : packet.invites) {
+        buffer.writeVarInt(invites.size());
+        for (InviteEntry entry : invites) {
             buffer.writeUUID(entry.playerId());
             buffer.writeUtf(entry.name());
             buffer.writeLong(entry.expiresAt());
         }
-        buffer.writeVarInt(packet.permissions.size());
-        for (PermissionEntry entry : packet.permissions) {
+        buffer.writeVarInt(permissions.size());
+        for (PermissionEntry entry : permissions) {
             buffer.writeUtf(entry.role());
             buffer.writeVarInt(entry.permissions().size());
             for (String perm : entry.permissions()) {
                 buffer.writeUtf(perm);
             }
         }
-        buffer.writeVarInt(packet.relations.size());
-        for (RelationEntry entry : packet.relations) {
+        buffer.writeVarInt(relations.size());
+        for (RelationEntry entry : relations) {
             buffer.writeUUID(entry.factionId());
             buffer.writeUtf(entry.factionName());
             buffer.writeUtf(entry.relation());
         }
-        buffer.writeVarInt(packet.claims.size());
-        for (ClaimEntry entry : packet.claims) {
+        buffer.writeVarInt(claims.size());
+        for (ClaimEntry entry : claims) {
             buffer.writeInt(entry.chunkX());
             buffer.writeInt(entry.chunkZ());
         }
-        buffer.writeVarInt(packet.claimCount);
-        buffer.writeVarInt(packet.maxClaims);
-        buffer.writeUtf(packet.protectionTier);
-        buffer.writeVarInt(packet.factionLevel);
+        buffer.writeVarInt(claimCount);
+        buffer.writeVarInt(maxClaims);
+        buffer.writeUtf(protectionTier);
+        buffer.writeVarInt(factionLevel);
     }
 
-    public static FactionStatePacket decode(FriendlyByteBuf buffer) {
+    public static FactionStatePacket decode(RegistryFriendlyByteBuf buffer) {
         boolean inFaction = buffer.readBoolean();
         String factionName = buffer.readUtf();
         String roleName = buffer.readUtf();
@@ -209,12 +216,15 @@ public class FactionStatePacket {
             pendingInviteFaction, factionClaimCount, maxClaims, protectionTier, factionLevel);
     }
 
-    public static void handle(FactionStatePacket packet, Supplier<NetworkEvent.Context> context) {
-        NetworkEvent.Context ctx = context.get();
-        ctx.enqueueWork(() -> DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> () -> {
+    public static void handle(FactionStatePacket packet, IPayloadContext context) {
+        context.enqueueWork(() -> DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> () -> {
             com.mcprotector.client.ClientPacketHandler.handleFactionState(packet);
         }));
-        ctx.setPacketHandled(true);
+    }
+
+    @Override
+    public Type<? extends CustomPacketPayload> type() {
+        return TYPE;
     }
 
     public boolean inFaction() {
