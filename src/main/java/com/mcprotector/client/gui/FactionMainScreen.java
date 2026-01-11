@@ -28,6 +28,7 @@ public class FactionMainScreen extends Screen {
     private static final int TAB_BUTTON_HEIGHT = 18;
     private static final int TAB_BUTTON_WIDTH = 72;
     private static final int PANEL_PADDING = 16;
+    private static final int BACKDROP_COLOR = 0x80000000;
     private static final int PANEL_BG = 0xFF1B1B1B;
     private static final int PANEL_BORDER = 0xFF3B3B3B;
     private static final int PANEL_HIGHLIGHT = 0xFF4A4A4A;
@@ -185,7 +186,7 @@ public class FactionMainScreen extends Screen {
 
     @Override
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
-        this.renderBackground(guiGraphics, mouseX, mouseY, partialTick);
+        renderBackdrop(guiGraphics);
         renderPanels(guiGraphics);
         FactionClientData.FactionSnapshot snapshot = FactionClientData.getSnapshot();
         updateDynamicVisibility(snapshot);
@@ -510,6 +511,10 @@ public class FactionMainScreen extends Screen {
         drawPanel(guiGraphics, panelLeft, headerTop, panelRight, headerBottom);
         drawPanel(guiGraphics, panelLeft, contentTop, panelRight, contentBottom);
         drawPanel(guiGraphics, panelLeft + 4, panelTop - 2, panelRight - 4, panelTop + 28);
+    }
+
+    private void renderBackdrop(GuiGraphics guiGraphics) {
+        guiGraphics.fill(0, 0, this.width, this.height, BACKDROP_COLOR);
     }
 
     private void drawPanel(GuiGraphics guiGraphics, int left, int top, int right, int bottom) {
