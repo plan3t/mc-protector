@@ -12,7 +12,7 @@ import net.neoforged.neoforge.network.handling.IPayloadContext;
 
 public class FactionActionPacket implements CustomPacketPayload {
     public static final CustomPacketPayload.Type<FactionActionPacket> TYPE =
-        new CustomPacketPayload.Type<>(new ResourceLocation(McProtectorMod.MOD_ID, "faction_action"));
+        new CustomPacketPayload.Type<>(ResourceLocation.fromNamespaceAndPath(McProtectorMod.MOD_ID, "faction_action"));
     public static final StreamCodec<RegistryFriendlyByteBuf, FactionActionPacket> STREAM_CODEC =
         StreamCodec.ofMember(FactionActionPacket::write, FactionActionPacket::decode);
     private final ActionType action;

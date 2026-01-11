@@ -23,7 +23,7 @@ import java.util.UUID;
 
 public class FactionStatePacket implements CustomPacketPayload {
     public static final CustomPacketPayload.Type<FactionStatePacket> TYPE =
-        new CustomPacketPayload.Type<>(new ResourceLocation(McProtectorMod.MOD_ID, "faction_state"));
+        new CustomPacketPayload.Type<>(ResourceLocation.fromNamespaceAndPath(McProtectorMod.MOD_ID, "faction_state"));
     public static final StreamCodec<RegistryFriendlyByteBuf, FactionStatePacket> STREAM_CODEC =
         StreamCodec.ofMember(FactionStatePacket::write, FactionStatePacket::decode);
     private final boolean inFaction;

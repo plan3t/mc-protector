@@ -16,7 +16,7 @@ import java.util.List;
 
 public class FactionClaimSelectionPacket implements CustomPacketPayload {
     public static final CustomPacketPayload.Type<FactionClaimSelectionPacket> TYPE =
-        new CustomPacketPayload.Type<>(new ResourceLocation(McProtectorMod.MOD_ID, "faction_claim_selection"));
+        new CustomPacketPayload.Type<>(ResourceLocation.fromNamespaceAndPath(McProtectorMod.MOD_ID, "faction_claim_selection"));
     public static final StreamCodec<RegistryFriendlyByteBuf, FactionClaimSelectionPacket> STREAM_CODEC =
         StreamCodec.ofMember(FactionClaimSelectionPacket::write, FactionClaimSelectionPacket::decode);
     private final List<ChunkPos> chunks;

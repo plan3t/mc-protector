@@ -10,7 +10,7 @@ import net.neoforged.neoforge.network.handling.IPayloadContext;
 
 public class FactionClaimMapRequestPacket implements CustomPacketPayload {
     public static final CustomPacketPayload.Type<FactionClaimMapRequestPacket> TYPE =
-        new CustomPacketPayload.Type<>(new ResourceLocation(McProtectorMod.MOD_ID, "faction_claim_map_request"));
+        new CustomPacketPayload.Type<>(ResourceLocation.fromNamespaceAndPath(McProtectorMod.MOD_ID, "faction_claim_map_request"));
     public static final StreamCodec<RegistryFriendlyByteBuf, FactionClaimMapRequestPacket> STREAM_CODEC =
         StreamCodec.ofMember(FactionClaimMapRequestPacket::write, FactionClaimMapRequestPacket::decode);
 

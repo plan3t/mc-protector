@@ -14,7 +14,7 @@ import net.neoforged.api.distmarker.Dist;
 import net.neoforged.neoforge.common.NeoForge;
 import org.lwjgl.glfw.GLFW;
 
-@EventBusSubscriber(modid = McProtectorMod.MOD_ID, bus = EventBusSubscriber.Bus.MOD, value = Dist.CLIENT)
+@EventBusSubscriber(modid = McProtectorMod.MOD_ID, value = Dist.CLIENT)
 public final class ClientModEvents {
     private static KeyMapping factionUiKey;
 

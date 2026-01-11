@@ -16,7 +16,7 @@ import java.util.List;
 
 public class FactionSafeZoneMapActionPacket implements CustomPacketPayload {
     public static final CustomPacketPayload.Type<FactionSafeZoneMapActionPacket> TYPE =
-        new CustomPacketPayload.Type<>(new ResourceLocation(McProtectorMod.MOD_ID, "faction_safezone_action"));
+        new CustomPacketPayload.Type<>(ResourceLocation.fromNamespaceAndPath(McProtectorMod.MOD_ID, "faction_safezone_action"));
     public static final StreamCodec<RegistryFriendlyByteBuf, FactionSafeZoneMapActionPacket> STREAM_CODEC =
         StreamCodec.ofMember(FactionSafeZoneMapActionPacket::write, FactionSafeZoneMapActionPacket::decode);
     private final List<ChunkPos> chunks;

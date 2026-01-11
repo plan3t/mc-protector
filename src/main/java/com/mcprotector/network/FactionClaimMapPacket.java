@@ -20,7 +20,7 @@ import java.util.UUID;
 
 public class FactionClaimMapPacket implements CustomPacketPayload {
     public static final CustomPacketPayload.Type<FactionClaimMapPacket> TYPE =
-        new CustomPacketPayload.Type<>(new ResourceLocation(McProtectorMod.MOD_ID, "faction_claim_map"));
+        new CustomPacketPayload.Type<>(ResourceLocation.fromNamespaceAndPath(McProtectorMod.MOD_ID, "faction_claim_map"));
     public static final StreamCodec<RegistryFriendlyByteBuf, FactionClaimMapPacket> STREAM_CODEC =
         StreamCodec.ofMember(FactionClaimMapPacket::write, FactionClaimMapPacket::decode);
     private final int centerChunkX;
