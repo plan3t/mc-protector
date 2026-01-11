@@ -28,7 +28,7 @@ public class FactionMainScreen extends Screen {
     private static final int TAB_BUTTON_HEIGHT = 18;
     private static final int TAB_BUTTON_WIDTH = 72;
     private static final int PANEL_PADDING = 16;
-    private static final int PANEL_BG = 0xD01B1B1B;
+    private static final int PANEL_BG = 0xFF1B1B1B;
     private static final int PANEL_BORDER = 0xFF3B3B3B;
     private static final int PANEL_HIGHLIGHT = 0xFF4A4A4A;
     private static final DateTimeFormatter INVITE_TIME_FORMAT = DateTimeFormatter.ofPattern("HH:mm")
