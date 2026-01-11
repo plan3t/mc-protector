@@ -1,15 +1,21 @@
 package com.mcprotector.network;
 
+import com.mcprotector.McProtectorMod;
 import com.mcprotector.service.FactionService;
-import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.ChunkPos;
-import net.minecraftforge.network.NetworkEvent;
+import net.neoforged.neoforge.network.handling.IPayloadContext;
 
-import java.util.function.Supplier;
-
-public class FactionClaimMapActionPacket {
+public class FactionClaimMapActionPacket implements CustomPacketPayload {
+    public static final CustomPacketPayload.Type<FactionClaimMapActionPacket> TYPE =
+        new CustomPacketPayload.Type<>(Identifier.fromNamespaceAndPath(McProtectorMod.MOD_ID, "faction_claim_map_action"));
+    public static final StreamCodec<RegistryFriendlyByteBuf, FactionClaimMapActionPacket> STREAM_CODEC =
+        StreamCodec.ofMember(FactionClaimMapActionPacket::write, FactionClaimMapActionPacket::decode);
     private final int chunkX;
     private final int chunkZ;
     private final ActionType action;
@@ -20,27 +26,24 @@ public class FactionClaimMapActionPacket {
         this.action = action;
     }
 
-    public static void encode(FactionClaimMapActionPacket packet, FriendlyByteBuf buffer) {
-        buffer.writeInt(packet.chunkX);
-        buffer.writeInt(packet.chunkZ);
-        buffer.writeEnum(packet.action);
+    private void write(RegistryFriendlyByteBuf buffer) {
+        buffer.writeInt(chunkX);
+        buffer.writeInt(chunkZ);
+        buffer.writeEnum(action);
     }
 
-    public static FactionClaimMapActionPacket decode(FriendlyByteBuf buffer) {
+    public static FactionClaimMapActionPacket decode(RegistryFriendlyByteBuf buffer) {
         int chunkX = buffer.readInt();
         int chunkZ = buffer.readInt();
         ActionType action = buffer.readEnum(ActionType.class);
         return new FactionClaimMapActionPacket(chunkX, chunkZ, action);
     }
 
-    public static void handle(FactionClaimMapActionPacket packet, Supplier<NetworkEvent.Context> context) {
-        NetworkEvent.Context ctx = context.get();
-        ServerPlayer player = ctx.getSender();
-        if (player == null) {
-            ctx.setPacketHandled(true);
+    public static void handle(FactionClaimMapActionPacket packet, IPayloadContext context) {
+        if (!(context.player() instanceof ServerPlayer player)) {
             return;
         }
-        ctx.enqueueWork(() -> {
+        context.enqueueWork(() -> {
             ChunkPos chunkPos = new ChunkPos(packet.chunkX, packet.chunkZ);
             try {
                 switch (packet.action) {
@@ -54,7 +57,11 @@ public class FactionClaimMapActionPacket {
             NetworkHandler.sendToPlayer(player, FactionStatePacket.fromPlayer(player));
             NetworkHandler.sendToPlayer(player, FactionClaimMapPacket.fromPlayer(player));
         });
-        ctx.setPacketHandled(true);
+    }
+
+    @Override
+    public Type<? extends CustomPacketPayload> type() {
+        return TYPE;
     }
 
     public enum ActionType {

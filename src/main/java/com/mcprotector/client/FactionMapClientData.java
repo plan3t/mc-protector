@@ -3,6 +3,7 @@ package com.mcprotector.client;
 import com.mcprotector.network.FactionClaimMapPacket;
 import net.minecraft.client.Minecraft;
 import net.minecraft.world.level.ChunkPos;
+import net.neoforged.neoforge.client.network.ClientPacketDistributor;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -28,7 +29,7 @@ public final class FactionMapClientData {
     public static void requestUpdate() {
         Minecraft client = Minecraft.getInstance();
         if (client.player != null) {
-            com.mcprotector.network.NetworkHandler.CHANNEL.sendToServer(new com.mcprotector.network.FactionClaimMapRequestPacket());
+            ClientPacketDistributor.sendToServer(new com.mcprotector.network.FactionClaimMapRequestPacket());
         }
     }
 
