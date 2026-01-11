@@ -4,13 +4,13 @@ import com.mcprotector.McProtectorMod;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 
 public class FactionStateRequestPacket implements CustomPacketPayload {
     public static final CustomPacketPayload.Type<FactionStateRequestPacket> TYPE =
-        new CustomPacketPayload.Type<>(Identifier.fromNamespaceAndPath(McProtectorMod.MOD_ID, "faction_state_request"));
+        new CustomPacketPayload.Type<>(new ResourceLocation(McProtectorMod.MOD_ID, "faction_state_request"));
     public static final StreamCodec<RegistryFriendlyByteBuf, FactionStateRequestPacket> STREAM_CODEC =
         StreamCodec.ofMember(FactionStateRequestPacket::write, FactionStateRequestPacket::decode);
 

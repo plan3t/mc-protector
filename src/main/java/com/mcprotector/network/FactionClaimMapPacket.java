@@ -8,11 +8,9 @@ import com.mcprotector.data.FactionRelation;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.ChunkPos;
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.fml.DistExecutor;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 
 import java.util.ArrayList;
@@ -22,7 +20,7 @@ import java.util.UUID;
 
 public class FactionClaimMapPacket implements CustomPacketPayload {
     public static final CustomPacketPayload.Type<FactionClaimMapPacket> TYPE =
-        new CustomPacketPayload.Type<>(Identifier.fromNamespaceAndPath(McProtectorMod.MOD_ID, "faction_claim_map"));
+        new CustomPacketPayload.Type<>(new ResourceLocation(McProtectorMod.MOD_ID, "faction_claim_map"));
     public static final StreamCodec<RegistryFriendlyByteBuf, FactionClaimMapPacket> STREAM_CODEC =
         StreamCodec.ofMember(FactionClaimMapPacket::write, FactionClaimMapPacket::decode);
     private final int centerChunkX;
@@ -114,9 +112,7 @@ public class FactionClaimMapPacket implements CustomPacketPayload {
     }
 
     public static void handle(FactionClaimMapPacket packet, IPayloadContext context) {
-        context.enqueueWork(() -> DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> () -> {
-            com.mcprotector.client.ClientPacketHandler.handleClaimMap(packet);
-        }));
+        context.enqueueWork(() -> com.mcprotector.client.ClientPacketHandler.handleClaimMap(packet));
     }
 
     @Override

@@ -9,15 +9,14 @@ import com.mcprotector.data.FactionData;
 import com.mcprotector.dynmap.DynmapBridge;
 import com.mcprotector.network.NetworkHandler;
 import com.mcprotector.protection.ClaimProtectionHandler;
+import net.neoforged.bus.api.IEventBus;
+import net.neoforged.fml.common.Mod;
+import net.neoforged.fml.ModContainer;
+import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent;
+import net.neoforged.fml.config.ModConfig;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
 import net.neoforged.neoforge.event.server.ServerStartedEvent;
-import net.neoforged.bus.api.IEventBus;
-import net.neoforged.fml.common.Mod;
-import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent;
-import net.neoforged.fml.javafmlmod.FMLJavaModLoadingContext;
-import net.neoforged.fml.config.ModConfig;
-import net.neoforged.fml.ModLoadingContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -26,11 +25,10 @@ public class McProtectorMod {
     public static final String MOD_ID = "mcprotector";
     public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
 
-    public McProtectorMod() {
-        IEventBus modBus = FMLJavaModLoadingContext.get().getModEventBus();
-        modBus.addListener(this::onCommonSetup);
-        modBus.addListener(NetworkHandler::registerPayloads);
-        ModLoadingContext.get().registerConfig(ModConfig.Type.SERVER, FactionConfig.SERVER_SPEC);
+    public McProtectorMod(IEventBus modEventBus, ModContainer modContainer) {
+        modEventBus.addListener(this::onCommonSetup);
+        modEventBus.addListener(NetworkHandler::registerPayloads);
+        modContainer.registerConfig(ModConfig.Type.SERVER, FactionConfig.SERVER_SPEC);
         NeoForge.EVENT_BUS.addListener(this::registerCommands);
         NeoForge.EVENT_BUS.addListener(this::onServerStarted);
         NeoForge.EVENT_BUS.register(new ClaimProtectionHandler());

@@ -6,7 +6,7 @@ import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.ChunkPos;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
@@ -16,7 +16,7 @@ import java.util.List;
 
 public class FactionSafeZoneMapActionPacket implements CustomPacketPayload {
     public static final CustomPacketPayload.Type<FactionSafeZoneMapActionPacket> TYPE =
-        new CustomPacketPayload.Type<>(Identifier.fromNamespaceAndPath(McProtectorMod.MOD_ID, "faction_safezone_action"));
+        new CustomPacketPayload.Type<>(new ResourceLocation(McProtectorMod.MOD_ID, "faction_safezone_action"));
     public static final StreamCodec<RegistryFriendlyByteBuf, FactionSafeZoneMapActionPacket> STREAM_CODEC =
         StreamCodec.ofMember(FactionSafeZoneMapActionPacket::write, FactionSafeZoneMapActionPacket::decode);
     private final List<ChunkPos> chunks;

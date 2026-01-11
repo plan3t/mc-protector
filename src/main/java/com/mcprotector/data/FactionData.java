@@ -5,6 +5,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
+import net.minecraft.core.HolderLookup;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.ChunkPos;
@@ -40,10 +41,17 @@ public class FactionData extends SavedData {
     private final Map<UUID, FactionHome> factionHomes = new HashMap<>();
 
     public static FactionData get(ServerLevel level) {
-        return level.getDataStorage().computeIfAbsent(FactionData::load, FactionData::new, DATA_NAME);
+        return level.getDataStorage().computeIfAbsent(
+            new SavedData.Factory<>(FactionData::new, FactionData::load),
+            DATA_NAME
+        );
     }
 
-    public static FactionData load(CompoundTag tag) {
+    public static FactionData load(CompoundTag tag, HolderLookup.Provider provider) {
+        return load(tag);
+    }
+
+    private static FactionData load(CompoundTag tag) {
         FactionData data = new FactionData();
         int dataVersion = tag.contains("DataVersion") ? tag.getInt("DataVersion") : 1;
         ListTag factionsTag = tag.getList("Factions", Tag.TAG_COMPOUND);
@@ -222,7 +230,7 @@ public class FactionData extends SavedData {
     }
 
     @Override
-    public CompoundTag save(CompoundTag tag) {
+    public CompoundTag save(CompoundTag tag, HolderLookup.Provider provider) {
         tag.putInt("DataVersion", DATA_VERSION);
         ListTag factionsTag = new ListTag();
         for (Faction faction : factions.values()) {

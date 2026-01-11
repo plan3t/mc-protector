@@ -9,11 +9,9 @@ import com.mcprotector.data.FactionRole;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.fml.DistExecutor;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 
 import java.util.ArrayList;
@@ -25,7 +23,7 @@ import java.util.UUID;
 
 public class FactionStatePacket implements CustomPacketPayload {
     public static final CustomPacketPayload.Type<FactionStatePacket> TYPE =
-        new CustomPacketPayload.Type<>(Identifier.fromNamespaceAndPath(McProtectorMod.MOD_ID, "faction_state"));
+        new CustomPacketPayload.Type<>(new ResourceLocation(McProtectorMod.MOD_ID, "faction_state"));
     public static final StreamCodec<RegistryFriendlyByteBuf, FactionStatePacket> STREAM_CODEC =
         StreamCodec.ofMember(FactionStatePacket::write, FactionStatePacket::decode);
     private final boolean inFaction;
@@ -217,9 +215,7 @@ public class FactionStatePacket implements CustomPacketPayload {
     }
 
     public static void handle(FactionStatePacket packet, IPayloadContext context) {
-        context.enqueueWork(() -> DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> () -> {
-            com.mcprotector.client.ClientPacketHandler.handleFactionState(packet);
-        }));
+        context.enqueueWork(() -> com.mcprotector.client.ClientPacketHandler.handleFactionState(packet));
     }
 
     @Override
