@@ -346,10 +346,9 @@ public class FactionMainScreen extends Screen {
         demoteMemberButton.visible = members;
         leaveFactionButton.visible = members;
         boolean mapTab = selectedTab == FactionTab.FACTION_MAP;
-        boolean admin = isAdminPlayer();
-        safeZoneFactionField.setVisible(mapTab && admin);
-        safeZoneClaimButton.visible = mapTab && admin;
-        safeZoneUnclaimButton.visible = mapTab && admin;
+        safeZoneFactionField.setVisible(mapTab);
+        safeZoneClaimButton.visible = mapTab;
+        safeZoneUnclaimButton.visible = mapTab;
         if (!mapTab) {
             safeZoneSelectionMode = false;
             safeZoneSelecting = false;
@@ -438,9 +437,6 @@ public class FactionMainScreen extends Screen {
     }
 
     private void toggleSafeZoneMode(boolean unclaimMode) {
-        if (!isAdminPlayer()) {
-            return;
-        }
         if (safeZoneSelectionMode && safeZoneUnclaimMode == unclaimMode) {
             safeZoneSelectionMode = false;
         } else {
@@ -489,13 +485,6 @@ public class FactionMainScreen extends Screen {
             safeZoneUnclaimMode ? FactionSafeZoneMapActionPacket.ActionType.UNCLAIM : FactionSafeZoneMapActionPacket.ActionType.CLAIM));
         safeZoneSelection.clear();
         FactionMapClientData.requestUpdate();
-    }
-
-    private boolean isAdminPlayer() {
-        if (Minecraft.getInstance().player == null) {
-            return false;
-        }
-        return Minecraft.getInstance().player.hasPermissions(FactionConfig.SERVER.adminBypassPermissionLevel.get());
     }
 
     private void renderMembers(GuiGraphics guiGraphics, List<com.mcprotector.network.FactionStatePacket.MemberEntry> members, int startY) {
