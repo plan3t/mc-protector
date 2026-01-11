@@ -2,10 +2,12 @@ package com.mcprotector.client.gui;
 
 import com.mcprotector.client.FactionClientData;
 import com.mcprotector.client.FactionMapClientData;
+import com.mcprotector.config.FactionConfig;
 import com.mcprotector.data.FactionPermission;
 import com.mcprotector.data.FactionRole;
 import com.mcprotector.network.FactionActionPacket;
 import com.mcprotector.network.FactionClaimMapActionPacket;
+import com.mcprotector.network.FactionSafeZoneMapActionPacket;
 import com.mcprotector.network.NetworkHandler;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -18,7 +20,10 @@ import net.minecraft.world.level.ChunkPos;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 public class FactionMainScreen extends Screen {
     private static final int TAB_BUTTON_HEIGHT = 18;
@@ -43,11 +48,18 @@ public class FactionMainScreen extends Screen {
     private Button leaveFactionButton;
     private Button refreshButton;
     private Button dynmapSyncButton;
+    private EditBox safeZoneFactionField;
+    private Button safeZoneClaimButton;
+    private Button safeZoneUnclaimButton;
     private int roleIndex;
     private int permissionIndex;
     private int panelTop;
     private int permissionsScrollOffset;
     private int mapClaimsScrollOffset;
+    private boolean safeZoneSelectionMode;
+    private boolean safeZoneUnclaimMode;
+    private boolean safeZoneSelecting;
+    private final Set<ChunkPos> safeZoneSelection = new HashSet<>();
 
     public FactionMainScreen() {
         super(Component.literal("Faction"));
@@ -119,6 +131,16 @@ public class FactionMainScreen extends Screen {
         leaveFactionButton = this.addRenderableWidget(Button.builder(Component.literal("Leave Faction"), button -> leaveFaction())
             .bounds(PANEL_PADDING, this.height - PANEL_PADDING - 20, 110, 20)
             .build());
+        safeZoneFactionField = new EditBox(this.font, PANEL_PADDING, panelTop + 10, 140, 18,
+            Component.literal("Safe zone faction"));
+        safeZoneFactionField.setMaxLength(32);
+        this.addRenderableWidget(safeZoneFactionField);
+        safeZoneClaimButton = this.addRenderableWidget(Button.builder(Component.literal("Safe Zone Claim"), button -> toggleSafeZoneMode(false))
+            .bounds(PANEL_PADDING + 150, panelTop + 8, 130, 20)
+            .build());
+        safeZoneUnclaimButton = this.addRenderableWidget(Button.builder(Component.literal("Safe Zone Unclaim"), button -> toggleSafeZoneMode(true))
+            .bounds(PANEL_PADDING + 285, panelTop + 8, 150, 20)
+            .build());
 
         updateVisibility();
         FactionClientData.requestUpdate();
@@ -134,6 +156,9 @@ public class FactionMainScreen extends Screen {
         if (memberNameField != null) {
             memberNameField.tick();
         }
+        if (safeZoneFactionField != null) {
+            safeZoneFactionField.tick();
+        }
     }
 
     @Override
@@ -143,6 +168,9 @@ public class FactionMainScreen extends Screen {
         }
         if (memberNameField != null && memberNameField.isFocused()) {
             return memberNameField.keyPressed(keyCode, scanCode, modifiers);
+        }
+        if (safeZoneFactionField != null && safeZoneFactionField.isFocused()) {
+            return safeZoneFactionField.keyPressed(keyCode, scanCode, modifiers);
         }
         return super.keyPressed(keyCode, scanCode, modifiers);
     }
@@ -154,6 +182,9 @@ public class FactionMainScreen extends Screen {
         }
         if (memberNameField != null && memberNameField.isFocused()) {
             return memberNameField.charTyped(codePoint, modifiers);
+        }
+        if (safeZoneFactionField != null && safeZoneFactionField.isFocused()) {
+            return safeZoneFactionField.charTyped(codePoint, modifiers);
         }
         return super.charTyped(codePoint, modifiers);
     }
@@ -236,8 +267,15 @@ public class FactionMainScreen extends Screen {
                 this.width, this.height, PANEL_PADDING);
             ChunkPos clicked = FactionMapRenderer.getChunkFromMouse(region, mouseX, mouseY, mapSnapshot);
             if (clicked != null) {
+                if (safeZoneSelectionMode) {
+                    startSafeZoneSelection(clicked);
+                    return true;
+                }
                 long key = clicked.toLong();
                 com.mcprotector.network.FactionClaimMapPacket.ClaimEntry entry = mapSnapshot.claims().get(key);
+                if (entry != null && entry.safeZone()) {
+                    return true;
+                }
                 FactionClaimMapActionPacket.ActionType action = entry == null
                     ? FactionClaimMapActionPacket.ActionType.CLAIM
                     : "OWN".equals(entry.relation())
@@ -249,6 +287,33 @@ public class FactionMainScreen extends Screen {
             }
         }
         return super.mouseClicked(mouseX, mouseY, button);
+    }
+
+    @Override
+    public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
+        if (selectedTab == FactionTab.FACTION_MAP && button == 0 && safeZoneSelecting) {
+            FactionMapClientData.MapSnapshot mapSnapshot = FactionMapClientData.getSnapshot();
+            FactionMapRenderer.MapRegion region = FactionMapRenderer.buildMapRegion(panelTop + 40, mapSnapshot.radius(),
+                this.width, this.height, PANEL_PADDING);
+            ChunkPos hovered = FactionMapRenderer.getChunkFromMouse(region, mouseX, mouseY, mapSnapshot);
+            if (hovered != null) {
+                addSafeZoneSelection(hovered);
+                return true;
+            }
+        }
+        return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
+    }
+
+    @Override
+    public boolean mouseReleased(double mouseX, double mouseY, int button) {
+        if (selectedTab == FactionTab.FACTION_MAP && button == 0 && safeZoneSelecting) {
+            safeZoneSelecting = false;
+            if (!safeZoneSelection.isEmpty()) {
+                promptSafeZoneConfirm();
+            }
+            return true;
+        }
+        return super.mouseReleased(mouseX, mouseY, button);
     }
 
     @Override
@@ -280,6 +345,16 @@ public class FactionMainScreen extends Screen {
         promoteMemberButton.visible = members;
         demoteMemberButton.visible = members;
         leaveFactionButton.visible = members;
+        boolean mapTab = selectedTab == FactionTab.FACTION_MAP;
+        boolean admin = isAdminPlayer();
+        safeZoneFactionField.setVisible(mapTab && admin);
+        safeZoneClaimButton.visible = mapTab && admin;
+        safeZoneUnclaimButton.visible = mapTab && admin;
+        if (!mapTab) {
+            safeZoneSelectionMode = false;
+            safeZoneSelecting = false;
+            safeZoneSelection.clear();
+        }
         if (selectedTab == FactionTab.FACTION_MAP) {
             mapClaimsScrollOffset = 0;
             FactionMapClientData.requestUpdate();
@@ -360,6 +435,67 @@ public class FactionMainScreen extends Screen {
 
     private void leaveFaction() {
         NetworkHandler.CHANNEL.sendToServer(FactionActionPacket.leaveFaction());
+    }
+
+    private void toggleSafeZoneMode(boolean unclaimMode) {
+        if (!isAdminPlayer()) {
+            return;
+        }
+        if (safeZoneSelectionMode && safeZoneUnclaimMode == unclaimMode) {
+            safeZoneSelectionMode = false;
+        } else {
+            safeZoneSelectionMode = true;
+            safeZoneUnclaimMode = unclaimMode;
+        }
+        safeZoneSelection.clear();
+    }
+
+    private void startSafeZoneSelection(ChunkPos chunk) {
+        safeZoneSelection.clear();
+        safeZoneSelecting = true;
+        addSafeZoneSelection(chunk);
+    }
+
+    private void addSafeZoneSelection(ChunkPos chunk) {
+        if (safeZoneSelection.size() >= 9) {
+            return;
+        }
+        safeZoneSelection.add(chunk);
+    }
+
+    private void promptSafeZoneConfirm() {
+        int count = safeZoneSelection.size();
+        String factionName = safeZoneFactionField.getValue().trim();
+        Component title = Component.literal("Confirm Safe Zone");
+        Component message = safeZoneUnclaimMode
+            ? Component.literal("Remove " + count + " safe zone chunk(s)?")
+            : Component.literal("Claim " + count + " safe zone chunk(s) for " + factionName + "?");
+        Minecraft.getInstance().setScreen(new net.minecraft.client.gui.screens.ConfirmScreen(result -> {
+            Minecraft.getInstance().setScreen(this);
+            if (result) {
+                sendSafeZoneSelection(factionName);
+            } else {
+                safeZoneSelection.clear();
+            }
+        }, title, message));
+    }
+
+    private void sendSafeZoneSelection(String factionName) {
+        List<ChunkPos> chunks = new ArrayList<>(safeZoneSelection);
+        if (chunks.isEmpty()) {
+            return;
+        }
+        NetworkHandler.CHANNEL.sendToServer(new FactionSafeZoneMapActionPacket(chunks, factionName,
+            safeZoneUnclaimMode ? FactionSafeZoneMapActionPacket.ActionType.UNCLAIM : FactionSafeZoneMapActionPacket.ActionType.CLAIM));
+        safeZoneSelection.clear();
+        FactionMapClientData.requestUpdate();
+    }
+
+    private boolean isAdminPlayer() {
+        if (Minecraft.getInstance().player == null) {
+            return false;
+        }
+        return Minecraft.getInstance().player.hasPermissions(FactionConfig.SERVER.adminBypassPermissionLevel.get());
     }
 
     private void renderMembers(GuiGraphics guiGraphics, List<com.mcprotector.network.FactionStatePacket.MemberEntry> members, int startY) {
@@ -455,12 +591,19 @@ public class FactionMainScreen extends Screen {
         }
         FactionMapRenderer.MapRegion region = FactionMapRenderer.buildMapRegion(startY, radius, this.width, this.height, PANEL_PADDING);
         FactionMapRenderer.renderMapGrid(guiGraphics, mapSnapshot, region);
+        if (!safeZoneSelection.isEmpty()) {
+            FactionMapRenderer.renderSelectionOverlay(guiGraphics, mapSnapshot, region, safeZoneSelection);
+        }
         ChunkPos hovered = FactionMapRenderer.getChunkFromMouse(region, mouseX, mouseY, mapSnapshot);
         if (hovered != null) {
             FactionMapRenderer.renderMapTooltip(guiGraphics, mapSnapshot, hovered, mouseX, mouseY, this.font);
         }
         mapClaimsScrollOffset = FactionMapRenderer.renderMapClaimsList(guiGraphics, snapshot.claims(), region,
             mapClaimsScrollOffset, this.height, PANEL_PADDING, this.font);
+        if (safeZoneSelectionMode) {
+            String modeLabel = safeZoneUnclaimMode ? "Safe Zone Unclaim" : "Safe Zone Claim";
+            guiGraphics.drawString(this.font, modeLabel + " (drag up to 9 chunks)", PANEL_PADDING, startY + 14, 0xF9A825);
+        }
     }
 
     private enum MemberAction {
