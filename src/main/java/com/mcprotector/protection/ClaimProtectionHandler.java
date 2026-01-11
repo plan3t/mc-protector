@@ -26,8 +26,7 @@ import net.minecraftforge.event.level.BlockEvent;
 import net.minecraftforge.event.level.ExplosionEvent;
 import net.minecraftforge.event.entity.living.LivingAttackEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.event.entity.living.LivingSpawnEvent;
-import net.minecraftforge.eventbus.api.Event;
+import net.minecraftforge.event.entity.living.MobSpawnEvent;
 
 import java.util.Optional;
 import java.util.UUID;
@@ -158,7 +157,7 @@ public class ClaimProtectionHandler {
     }
 
     @SubscribeEvent
-    public void onMobSpawn(LivingSpawnEvent.CheckSpawn event) {
+    public void onMobSpawn(MobSpawnEvent.FinalizeSpawn event) {
         if (!(event.getEntity() instanceof Mob)) {
             return;
         }
@@ -166,7 +165,7 @@ public class ClaimProtectionHandler {
             return;
         }
         if (isSafeZone(serverLevel) || FactionData.get(serverLevel).isSafeZoneClaimed(event.getEntity().blockPosition())) {
-            event.setResult(Event.Result.DENY);
+            event.setSpawnCancelled(true);
         }
     }
 
