@@ -48,7 +48,20 @@ public class FactionClaimMapPacket {
             String relation = playerFactionId
                 .map(id -> id.equals(entry.getValue()) ? "OWN" : data.getRelation(id, entry.getValue()).name())
                 .orElse(FactionRelation.NEUTRAL.name());
-            entries.add(new ClaimEntry(chunkPos.x, chunkPos.z, factionName, relation));
+            entries.add(new ClaimEntry(chunkPos.x, chunkPos.z, factionName, relation, false));
+        }
+        for (var entry : data.getSafeZoneClaims().entrySet()) {
+            ChunkPos chunkPos = new ChunkPos(entry.getKey());
+            if (!fullSync
+                && (Math.abs(chunkPos.x - center.x) > radius || Math.abs(chunkPos.z - center.z) > radius)) {
+                continue;
+            }
+            Optional<Faction> faction = data.getFaction(entry.getValue());
+            String factionName = faction.map(Faction::getName).orElse("Unknown");
+            String relation = playerFactionId
+                .map(id -> id.equals(entry.getValue()) ? "OWN" : data.getRelation(id, entry.getValue()).name())
+                .orElse(FactionRelation.NEUTRAL.name());
+            entries.add(new ClaimEntry(chunkPos.x, chunkPos.z, factionName, relation, true));
         }
         return new FactionClaimMapPacket(center.x, center.z, radius, entries);
     }
@@ -63,6 +76,7 @@ public class FactionClaimMapPacket {
             buffer.writeInt(entry.chunkZ());
             buffer.writeUtf(entry.factionName());
             buffer.writeUtf(entry.relation());
+            buffer.writeBoolean(entry.safeZone());
         }
     }
 
@@ -73,7 +87,7 @@ public class FactionClaimMapPacket {
         int claimCount = buffer.readVarInt();
         List<ClaimEntry> claims = new ArrayList<>();
         for (int i = 0; i < claimCount; i++) {
-            claims.add(new ClaimEntry(buffer.readInt(), buffer.readInt(), buffer.readUtf(), buffer.readUtf()));
+            claims.add(new ClaimEntry(buffer.readInt(), buffer.readInt(), buffer.readUtf(), buffer.readUtf(), buffer.readBoolean()));
         }
         return new FactionClaimMapPacket(centerChunkX, centerChunkZ, radius, claims);
     }
@@ -102,6 +116,6 @@ public class FactionClaimMapPacket {
         return claims;
     }
 
-    public record ClaimEntry(int chunkX, int chunkZ, String factionName, String relation) {
+    public record ClaimEntry(int chunkX, int chunkZ, String factionName, String relation, boolean safeZone) {
     }
 }
