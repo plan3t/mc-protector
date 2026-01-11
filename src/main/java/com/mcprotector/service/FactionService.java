@@ -223,6 +223,69 @@ public final class FactionService {
         return 1;
     }
 
+    public static int toggleFactionChunks(CommandSourceStack source, Iterable<ChunkPos> chunks) throws CommandSyntaxException {
+        ServerPlayer player = source.getPlayerOrException();
+        FactionData data = FactionData.get(player.serverLevel());
+        Optional<Faction> faction = data.getFactionByPlayer(player.getUUID());
+        if (faction.isEmpty()) {
+            source.sendFailure(Component.literal("You are not in a faction."));
+            return 0;
+        }
+        if (!faction.get().hasPermission(player.getUUID(), FactionPermission.CHUNK_CLAIM)) {
+            source.sendFailure(Component.literal("You lack permission to claim chunks."));
+            return 0;
+        }
+        if (!isClaimingAllowed(source)) {
+            return 0;
+        }
+        int claimed = 0;
+        int unclaimed = 0;
+        for (ChunkPos chunk : chunks) {
+            if (data.unclaimChunk(chunk, faction.get().getId())) {
+                DynmapBridge.updateClaim(chunk, Optional.empty(), player.level().dimension().location().toString());
+                unclaimed++;
+                continue;
+            }
+            if (data.claimChunk(chunk, faction.get().getId())) {
+                DynmapBridge.updateClaim(chunk, faction, player.level().dimension().location().toString());
+                claimed++;
+            }
+        }
+        if (claimed == 0 && unclaimed == 0) {
+            source.sendFailure(Component.literal("No chunks were updated."));
+            return 0;
+        }
+        String message = "Claimed " + claimed + " chunk(s), unclaimed " + unclaimed + " chunk(s).";
+        source.sendSuccess(() -> Component.literal(message), false);
+        return 1;
+    }
+
+    public static int togglePersonalChunks(CommandSourceStack source, Iterable<ChunkPos> chunks) throws CommandSyntaxException {
+        ServerPlayer player = source.getPlayerOrException();
+        FactionData data = FactionData.get(player.serverLevel());
+        if (!isClaimingAllowed(source)) {
+            return 0;
+        }
+        int claimed = 0;
+        int unclaimed = 0;
+        for (ChunkPos chunk : chunks) {
+            if (data.unclaimPersonalChunk(chunk, player.getUUID())) {
+                unclaimed++;
+                continue;
+            }
+            if (data.claimPersonalChunk(chunk, player.getUUID())) {
+                claimed++;
+            }
+        }
+        if (claimed == 0 && unclaimed == 0) {
+            source.sendFailure(Component.literal("No personal chunks were updated."));
+            return 0;
+        }
+        String message = "Claimed " + claimed + " personal chunk(s), unclaimed " + unclaimed + " personal chunk(s).";
+        source.sendSuccess(() -> Component.literal(message), false);
+        return 1;
+    }
+
     public static int claimSafeZoneChunks(CommandSourceStack source, Iterable<ChunkPos> chunks, String factionName)
         throws CommandSyntaxException {
         ServerPlayer player = source.getPlayerOrException();
@@ -252,6 +315,46 @@ public final class FactionService {
             return 0;
         }
         String message = "Claimed " + claimed + " safe zone chunk(s) for " + faction.get().getName();
+        source.sendSuccess(() -> Component.literal(message), false);
+        return 1;
+    }
+
+    public static int toggleSafeZoneChunks(CommandSourceStack source, Iterable<ChunkPos> chunks, String factionName)
+        throws CommandSyntaxException {
+        ServerPlayer player = source.getPlayerOrException();
+        if (!hasAdminPermission(source)) {
+            source.sendFailure(Component.literal("Only server operators can create safe zones."));
+            return 0;
+        }
+        if (factionName == null || factionName.isBlank()) {
+            source.sendFailure(Component.literal("Provide a faction name for the safe zone claim."));
+            return 0;
+        }
+        FactionData data = FactionData.get(player.serverLevel());
+        Optional<Faction> faction = data.findFactionByName(factionName.trim());
+        if (faction.isEmpty()) {
+            source.sendFailure(Component.literal("Faction not found."));
+            return 0;
+        }
+        int claimed = 0;
+        int unclaimed = 0;
+        for (ChunkPos chunk : chunks) {
+            if (data.unclaimSafeZoneChunk(chunk)) {
+                DynmapBridge.updateClaim(chunk, Optional.empty(), player.level().dimension().location().toString());
+                unclaimed++;
+                continue;
+            }
+            if (data.claimSafeZoneChunk(chunk, faction.get().getId())) {
+                DynmapBridge.updateClaim(chunk, faction, player.level().dimension().location().toString());
+                claimed++;
+            }
+        }
+        if (claimed == 0 && unclaimed == 0) {
+            source.sendFailure(Component.literal("No safe zone chunks were updated."));
+            return 0;
+        }
+        String message = "Claimed " + claimed + " safe zone chunk(s), unclaimed " + unclaimed + " safe zone chunk(s) for "
+            + faction.get().getName();
         source.sendSuccess(() -> Component.literal(message), false);
         return 1;
     }

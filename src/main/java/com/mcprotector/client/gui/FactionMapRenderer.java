@@ -16,8 +16,8 @@ public final class FactionMapRenderer {
     public static MapRegion buildMapRegion(int startY, int radius, int width, int height, int panelPadding) {
         int gridSize = radius * 2 + 1;
         int maxWidth = width - panelPadding * 2;
-        int maxHeight = height - startY - 80;
-        int cellSize = Math.max(6, Math.min(18, Math.min(maxWidth / gridSize, maxHeight / gridSize)));
+        int maxHeight = height - startY - 40;
+        int cellSize = Math.max(8, Math.min(22, Math.min(maxWidth / gridSize, maxHeight / gridSize)));
         int mapWidth = cellSize * gridSize;
         int mapHeight = cellSize * gridSize;
         int originX = (width - mapWidth) / 2;
@@ -94,6 +94,12 @@ public final class FactionMapRenderer {
                 Component.literal("Safe Zone"),
                 Component.literal(entry.factionName())
             );
+        } else if (entry.personal()) {
+            String relation = entry.relation().equals("OWN") ? "Your personal claim" : "Personal claim";
+            lines = List.of(
+                Component.literal(entry.factionName()),
+                Component.literal(relation)
+            );
         } else {
             String relation = entry.relation().equals("OWN") ? "Your faction" : entry.relation();
             lines = List.of(
@@ -144,6 +150,9 @@ public final class FactionMapRenderer {
         }
         if (entry.safeZone()) {
             return 0xFFF9A825;
+        }
+        if (entry.personal()) {
+            return 0xFF9C27B0;
         }
         return switch (entry.relation()) {
             case "OWN" -> 0xFF4CAF50;

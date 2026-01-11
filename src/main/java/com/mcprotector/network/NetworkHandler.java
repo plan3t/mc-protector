@@ -53,6 +53,11 @@ public final class NetworkHandler {
             .decoder(FactionClaimMapActionPacket::decode)
             .consumerMainThread(FactionClaimMapActionPacket::handle)
             .add();
+        CHANNEL.messageBuilder(FactionClaimSelectionPacket.class, nextId(), NetworkDirection.PLAY_TO_SERVER)
+            .encoder(FactionClaimSelectionPacket::encode)
+            .decoder(FactionClaimSelectionPacket::decode)
+            .consumerMainThread(FactionClaimSelectionPacket::handle)
+            .add();
         CHANNEL.messageBuilder(FactionSafeZoneMapActionPacket.class, nextId(), NetworkDirection.PLAY_TO_SERVER)
             .encoder(FactionSafeZoneMapActionPacket::encode)
             .decoder(FactionSafeZoneMapActionPacket::decode)

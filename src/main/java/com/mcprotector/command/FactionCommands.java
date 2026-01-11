@@ -23,6 +23,7 @@ import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.arguments.EntityArgument;
 import net.minecraft.network.chat.Component;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.ChunkPos;
@@ -453,6 +454,12 @@ public final class FactionCommands {
     private static int claimInfo(CommandSourceStack source) throws CommandSyntaxException {
         ServerPlayer player = source.getPlayerOrException();
         FactionData data = FactionData.get(player.serverLevel());
+        Optional<UUID> personalOwner = data.getPersonalClaimOwner(player.blockPosition());
+        if (personalOwner.isPresent()) {
+            String ownerName = resolveName(player.getServer(), personalOwner.get());
+            source.sendSuccess(() -> Component.literal("Personal claim owner: " + ownerName), false);
+            return 1;
+        }
         Optional<UUID> ownerId = data.getClaimOwner(player.blockPosition());
         if (ownerId.isEmpty()) {
             source.sendSuccess(() -> Component.literal("This chunk is unclaimed."), false);
@@ -512,6 +519,20 @@ public final class FactionCommands {
         FactionChatMode mode = FactionChatManager.getMode(player.getUUID());
         source.sendSuccess(() -> Component.literal("Current chat mode: " + mode.name()), false);
         return 1;
+    }
+
+    private static String resolveName(MinecraftServer server, UUID playerId) {
+        if (server == null) {
+            return playerId.toString();
+        }
+        ServerPlayer player = server.getPlayerList().getPlayer(playerId);
+        if (player != null) {
+            return player.getGameProfile().getName();
+        }
+        return server.getProfileCache()
+            .get(playerId)
+            .map(profile -> profile.getName())
+            .orElse(playerId.toString());
     }
 
     private static int toggleChatMode(CommandSourceStack source) throws CommandSyntaxException {
