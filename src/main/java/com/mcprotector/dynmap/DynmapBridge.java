@@ -108,6 +108,11 @@ public final class DynmapBridge {
             Optional<Faction> faction = data.getFaction(entry.getValue());
             updateMarker(chunkPos, faction, level.dimension().location().toString());
         }
+        for (Map.Entry<Long, java.util.UUID> entry : data.getSafeZoneClaims().entrySet()) {
+            ChunkPos chunkPos = new ChunkPos(entry.getKey());
+            Optional<Faction> faction = data.getFaction(entry.getValue());
+            updateMarker(chunkPos, faction, level.dimension().location().toString());
+        }
     }
 
     private static void flushPendingUpdates() {
