@@ -138,9 +138,6 @@ public final class FactionMapRenderer {
             guiGraphics.drawString(font, "Chunk " + claim.chunkX() + ", " + claim.chunkZ(), panelPadding, y, 0xCCCCCC);
             y += lineHeight;
         }
-        if (claims.size() > visibleLines) {
-            guiGraphics.drawString(font, "Scroll to view more...", panelPadding, height - 25, 0x777777);
-        }
         return clampedOffset;
     }
 
