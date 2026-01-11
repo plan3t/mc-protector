@@ -186,8 +186,7 @@ public class FactionMainScreen extends Screen {
 
     @Override
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
-        renderBackdrop(guiGraphics);
-        renderPanels(guiGraphics);
+        super.render(guiGraphics, mouseX, mouseY, partialTick);
         FactionClientData.FactionSnapshot snapshot = FactionClientData.getSnapshot();
         updateDynamicVisibility(snapshot);
         updateClaimTypeOptions(snapshot);
@@ -217,7 +216,12 @@ public class FactionMainScreen extends Screen {
             case RELATIONS -> renderRelations(guiGraphics, snapshot.relations(), contentStart);
             case FACTION_MAP -> renderFactionMap(guiGraphics, snapshot, contentStart, mouseX, mouseY);
         }
-        super.render(guiGraphics, mouseX, mouseY, partialTick);
+    }
+
+    @Override
+    public void renderBackground(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
+        renderBackdrop(guiGraphics);
+        renderPanels(guiGraphics);
     }
 
     @Override
