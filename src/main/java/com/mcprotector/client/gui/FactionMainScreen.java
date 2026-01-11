@@ -28,6 +28,9 @@ public class FactionMainScreen extends Screen {
     private static final int TAB_BUTTON_HEIGHT = 18;
     private static final int TAB_BUTTON_WIDTH = 72;
     private static final int PANEL_PADDING = 16;
+    private static final int PANEL_BG = 0xD01B1B1B;
+    private static final int PANEL_BORDER = 0xFF3B3B3B;
+    private static final int PANEL_HIGHLIGHT = 0xFF4A4A4A;
     private static final DateTimeFormatter INVITE_TIME_FORMAT = DateTimeFormatter.ofPattern("HH:mm")
         .withZone(ZoneId.systemDefault());
 
@@ -183,6 +186,7 @@ public class FactionMainScreen extends Screen {
     @Override
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
         this.renderBackground(guiGraphics, mouseX, mouseY, partialTick);
+        renderPanels(guiGraphics);
         FactionClientData.FactionSnapshot snapshot = FactionClientData.getSnapshot();
         updateDynamicVisibility(snapshot);
         updateClaimTypeOptions(snapshot);
@@ -190,12 +194,12 @@ public class FactionMainScreen extends Screen {
         String headline = snapshot.inFaction()
             ? "Faction: " + snapshot.factionName() + " (" + snapshot.roleName() + ")"
             : "No faction";
-        guiGraphics.drawString(this.font, headline, PANEL_PADDING, 18, 0xCCCCCC);
+        guiGraphics.drawString(this.font, headline, PANEL_PADDING, 18, 0xE0E0E0);
         if (snapshot.inFaction()) {
             String stats = "Level " + snapshot.factionLevel()
                 + " | Claims " + snapshot.claimCount() + "/" + snapshot.maxClaims()
                 + " | Protection " + snapshot.protectionTier();
-            guiGraphics.drawString(this.font, stats, PANEL_PADDING, 28, 0xAAAAAA);
+            guiGraphics.drawString(this.font, stats, PANEL_PADDING, 28, 0xBDBDBD);
         }
         int contentStart = selectedTab == FactionTab.INVITES
             || selectedTab == FactionTab.PERMISSIONS
@@ -494,6 +498,29 @@ public class FactionMainScreen extends Screen {
         if (claimTypeButton != null) {
             claimTypeButton.setMessage(Component.literal("Claim: " + selectedClaimType.getLabel(getFactionLabel(snapshot))));
         }
+    }
+
+    private void renderPanels(GuiGraphics guiGraphics) {
+        int panelLeft = Math.max(6, PANEL_PADDING - 8);
+        int panelRight = Math.min(this.width - 6, this.width - PANEL_PADDING + 8);
+        int headerTop = 4;
+        int headerBottom = Math.max(headerTop + 18, panelTop - 6);
+        int contentTop = Math.max(headerBottom + 4, panelTop - 2);
+        int contentBottom = this.height - 6;
+        drawPanel(guiGraphics, panelLeft, headerTop, panelRight, headerBottom);
+        drawPanel(guiGraphics, panelLeft, contentTop, panelRight, contentBottom);
+        drawPanel(guiGraphics, panelLeft + 4, panelTop - 2, panelRight - 4, panelTop + 28);
+    }
+
+    private void drawPanel(GuiGraphics guiGraphics, int left, int top, int right, int bottom) {
+        if (right <= left || bottom <= top) {
+            return;
+        }
+        guiGraphics.fill(left, top, right, bottom, PANEL_BG);
+        guiGraphics.fill(left, top, right, top + 1, PANEL_HIGHLIGHT);
+        guiGraphics.fill(left, bottom - 1, right, bottom, PANEL_BORDER);
+        guiGraphics.fill(left, top, left + 1, bottom, PANEL_BORDER);
+        guiGraphics.fill(right - 1, top, right, bottom, PANEL_BORDER);
     }
 
     private List<ClaimType> getClaimTypeOptions() {
