@@ -26,7 +26,7 @@ import net.minecraftforge.event.level.BlockEvent;
 import net.minecraftforge.event.level.ExplosionEvent;
 import net.minecraftforge.event.entity.living.LivingAttackEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.event.entity.living.MobSpawnEvent;
+import net.minecraftforge.event.entity.living.LivingSpawnEvent;
 import net.minecraftforge.eventbus.api.Event;
 
 import java.util.Optional;
@@ -158,7 +158,7 @@ public class ClaimProtectionHandler {
     }
 
     @SubscribeEvent
-    public void onMobSpawn(MobSpawnEvent.CheckSpawn event) {
+    public void onMobSpawn(LivingSpawnEvent.CheckSpawn event) {
         if (!(event.getEntity() instanceof Mob)) {
             return;
         }
