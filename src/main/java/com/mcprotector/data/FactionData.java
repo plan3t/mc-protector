@@ -25,11 +25,12 @@ import java.util.UUID;
 
 public class FactionData extends SavedData {
     private static final String DATA_NAME = "mcprotector_factions";
-    private static final int DATA_VERSION = 3;
+    private static final int DATA_VERSION = 4;
 
     private final Map<UUID, Faction> factions = new HashMap<>();
     private final Map<UUID, UUID> playerFaction = new HashMap<>();
     private final Map<Long, UUID> claims = new HashMap<>();
+    private final Map<Long, UUID> safeZoneClaims = new HashMap<>();
     private final Map<UUID, Map<UUID, FactionRelation>> relations = new HashMap<>();
     private final Map<UUID, FactionInvite> pendingInvites = new HashMap<>();
     private final Map<Long, Deque<FactionAccessLog>> accessLogs = new HashMap<>();
@@ -107,6 +108,15 @@ public class FactionData extends SavedData {
             UUID factionId = claim.getUUID("Faction");
             data.claims.put(pos, factionId);
         }
+        if (dataVersion >= 4 && tag.contains("SafeZoneClaims")) {
+            ListTag safeZoneTag = tag.getList("SafeZoneClaims", Tag.TAG_COMPOUND);
+            for (Tag claimEntry : safeZoneTag) {
+                CompoundTag claim = (CompoundTag) claimEntry;
+                long pos = claim.getLong("Chunk");
+                UUID factionId = claim.getUUID("Faction");
+                data.safeZoneClaims.put(pos, factionId);
+            }
+        }
         ListTag relationsTag = tag.getList("Relations", Tag.TAG_COMPOUND);
         for (Tag relationEntry : relationsTag) {
             CompoundTag relation = (CompoundTag) relationEntry;
@@ -179,6 +189,7 @@ public class FactionData extends SavedData {
         factions.clear();
         playerFaction.clear();
         claims.clear();
+        safeZoneClaims.clear();
         relations.clear();
         pendingInvites.clear();
         accessLogs.clear();
@@ -188,6 +199,7 @@ public class FactionData extends SavedData {
         factions.putAll(loaded.factions);
         playerFaction.putAll(loaded.playerFaction);
         claims.putAll(loaded.claims);
+        safeZoneClaims.putAll(loaded.safeZoneClaims);
         relations.putAll(loaded.relations);
         pendingInvites.putAll(loaded.pendingInvites);
         accessLogs.putAll(loaded.accessLogs);
@@ -249,6 +261,14 @@ public class FactionData extends SavedData {
             claimsTag.add(claim);
         }
         tag.put("Claims", claimsTag);
+        ListTag safeZoneTag = new ListTag();
+        for (Map.Entry<Long, UUID> entry : safeZoneClaims.entrySet()) {
+            CompoundTag claim = new CompoundTag();
+            claim.putLong("Chunk", entry.getKey());
+            claim.putUUID("Faction", entry.getValue());
+            safeZoneTag.add(claim);
+        }
+        tag.put("SafeZoneClaims", safeZoneTag);
         ListTag relationsTag = new ListTag();
         for (Map.Entry<UUID, Map<UUID, FactionRelation>> entry : relations.entrySet()) {
             for (Map.Entry<UUID, FactionRelation> relationEntry : entry.getValue().entrySet()) {
@@ -439,7 +459,7 @@ public class FactionData extends SavedData {
 
     public boolean claimChunk(ChunkPos chunk, UUID factionId) {
         long key = chunk.toLong();
-        if (claims.containsKey(key)) {
+        if (claims.containsKey(key) || safeZoneClaims.containsKey(key)) {
             return false;
         }
         if (getClaimCount(factionId) >= getMaxClaims(factionId)) {
@@ -452,6 +472,9 @@ public class FactionData extends SavedData {
 
     public boolean overtakeChunk(ChunkPos chunk, UUID factionId) {
         long key = chunk.toLong();
+        if (safeZoneClaims.containsKey(key)) {
+            return false;
+        }
         UUID currentOwner = claims.get(key);
         if (currentOwner == null || currentOwner.equals(factionId)) {
             return false;
@@ -469,6 +492,9 @@ public class FactionData extends SavedData {
 
     public boolean unclaimChunk(ChunkPos chunk, UUID factionId) {
         long key = chunk.toLong();
+        if (safeZoneClaims.containsKey(key)) {
+            return false;
+        }
         if (!factionId.equals(claims.get(key))) {
             return false;
         }
@@ -477,9 +503,34 @@ public class FactionData extends SavedData {
         return true;
     }
 
+    public boolean claimSafeZoneChunk(ChunkPos chunk, UUID factionId) {
+        long key = chunk.toLong();
+        UUID existing = claims.get(key);
+        if (safeZoneClaims.containsKey(key)) {
+            return false;
+        }
+        if (existing != null && !existing.equals(factionId)) {
+            return false;
+        }
+        claims.remove(key);
+        safeZoneClaims.put(key, factionId);
+        setDirty();
+        return true;
+    }
+
+    public boolean unclaimSafeZoneChunk(ChunkPos chunk) {
+        long key = chunk.toLong();
+        if (!safeZoneClaims.containsKey(key)) {
+            return false;
+        }
+        safeZoneClaims.remove(key);
+        setDirty();
+        return true;
+    }
+
     public Optional<Faction> getFactionAt(BlockPos pos) {
         long key = new ChunkPos(pos).toLong();
-        UUID factionId = claims.get(key);
+        UUID factionId = safeZoneClaims.getOrDefault(key, claims.get(key));
         if (factionId == null) {
             return Optional.empty();
         }
@@ -487,19 +538,33 @@ public class FactionData extends SavedData {
     }
 
     public boolean isClaimed(BlockPos pos) {
-        return claims.containsKey(new ChunkPos(pos).toLong());
+        long key = new ChunkPos(pos).toLong();
+        return claims.containsKey(key) || safeZoneClaims.containsKey(key);
     }
 
     public boolean isClaimed(ChunkPos chunkPos) {
-        return claims.containsKey(chunkPos.toLong());
+        long key = chunkPos.toLong();
+        return claims.containsKey(key) || safeZoneClaims.containsKey(key);
+    }
+
+    public boolean isSafeZoneClaimed(BlockPos pos) {
+        return safeZoneClaims.containsKey(new ChunkPos(pos).toLong());
+    }
+
+    public boolean isSafeZoneClaimed(ChunkPos chunkPos) {
+        return safeZoneClaims.containsKey(chunkPos.toLong());
     }
 
     public Optional<UUID> getClaimOwner(BlockPos pos) {
-        return Optional.ofNullable(claims.get(new ChunkPos(pos).toLong()));
+        long key = new ChunkPos(pos).toLong();
+        UUID owner = safeZoneClaims.getOrDefault(key, claims.get(key));
+        return Optional.ofNullable(owner);
     }
 
     public Optional<UUID> getClaimOwner(ChunkPos chunkPos) {
-        return Optional.ofNullable(claims.get(chunkPos.toLong()));
+        long key = chunkPos.toLong();
+        UUID owner = safeZoneClaims.getOrDefault(key, claims.get(key));
+        return Optional.ofNullable(owner);
     }
 
     public boolean hasPermission(Player player, BlockPos pos, FactionPermission permission) {
@@ -557,6 +622,10 @@ public class FactionData extends SavedData {
 
     public Map<Long, UUID> getClaims() {
         return claims;
+    }
+
+    public Map<Long, UUID> getSafeZoneClaims() {
+        return safeZoneClaims;
     }
 
     private boolean isAllowedForAllies(FactionPermission permission, Faction faction) {

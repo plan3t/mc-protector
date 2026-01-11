@@ -58,7 +58,11 @@ public final class FactionService {
         }
         if (!data.claimChunk(chunk, faction.get().getId())) {
             if (data.isClaimed(chunk)) {
-                source.sendFailure(Component.literal("This chunk is already claimed."));
+                if (data.isSafeZoneClaimed(chunk)) {
+                    source.sendFailure(Component.literal("This chunk is a safe zone and cannot be claimed."));
+                } else {
+                    source.sendFailure(Component.literal("This chunk is already claimed."));
+                }
             } else {
                 source.sendFailure(Component.literal("Your faction has reached its claim limit."));
             }
@@ -100,7 +104,11 @@ public final class FactionService {
             return 0;
         }
         if (!data.unclaimChunk(chunk, faction.get().getId())) {
-            source.sendFailure(Component.literal("Your faction does not own this chunk."));
+            if (data.isSafeZoneClaimed(chunk)) {
+                source.sendFailure(Component.literal("Safe zone claims can only be removed by a server operator."));
+            } else {
+                source.sendFailure(Component.literal("Your faction does not own this chunk."));
+            }
             return 0;
         }
         DynmapBridge.updateClaim(chunk, Optional.empty(), player.level().dimension().location().toString());
@@ -194,7 +202,9 @@ public final class FactionService {
             return 0;
         }
         if (!data.overtakeChunk(chunk, faction.get().getId())) {
-            if (data.isClaimed(chunk) && data.getClaimOwner(chunk).isPresent()) {
+            if (data.isSafeZoneClaimed(chunk)) {
+                source.sendFailure(Component.literal("Safe zone claims cannot be overtaken."));
+            } else if (data.isClaimed(chunk) && data.getClaimOwner(chunk).isPresent()) {
                 source.sendFailure(Component.literal("You cannot overtake this chunk unless you are at war with the owner and have claim capacity."));
             } else {
                 source.sendFailure(Component.literal("This chunk cannot be overtaken."));
@@ -211,6 +221,66 @@ public final class FactionService {
         DynmapBridge.syncClaims(player.serverLevel(), FactionData.get(player.serverLevel()));
         source.sendSuccess(() -> Component.literal("Synced faction claims to Dynmap."), false);
         return 1;
+    }
+
+    public static int claimSafeZoneChunks(CommandSourceStack source, Iterable<ChunkPos> chunks, String factionName)
+        throws CommandSyntaxException {
+        ServerPlayer player = source.getPlayerOrException();
+        if (!hasAdminPermission(source)) {
+            source.sendFailure(Component.literal("Only server operators can create safe zones."));
+            return 0;
+        }
+        if (factionName == null || factionName.isBlank()) {
+            source.sendFailure(Component.literal("Provide a faction name for the safe zone claim."));
+            return 0;
+        }
+        FactionData data = FactionData.get(player.serverLevel());
+        Optional<Faction> faction = data.findFactionByName(factionName.trim());
+        if (faction.isEmpty()) {
+            source.sendFailure(Component.literal("Faction not found."));
+            return 0;
+        }
+        int claimed = 0;
+        for (ChunkPos chunk : chunks) {
+            if (data.claimSafeZoneChunk(chunk, faction.get().getId())) {
+                DynmapBridge.updateClaim(chunk, faction, player.level().dimension().location().toString());
+                claimed++;
+            }
+        }
+        if (claimed == 0) {
+            source.sendFailure(Component.literal("No safe zone chunks were claimed."));
+            return 0;
+        }
+        String message = "Claimed " + claimed + " safe zone chunk(s) for " + faction.get().getName();
+        source.sendSuccess(() -> Component.literal(message), false);
+        return 1;
+    }
+
+    public static int unclaimSafeZoneChunks(CommandSourceStack source, Iterable<ChunkPos> chunks) throws CommandSyntaxException {
+        ServerPlayer player = source.getPlayerOrException();
+        if (!hasAdminPermission(source)) {
+            source.sendFailure(Component.literal("Only server operators can remove safe zones."));
+            return 0;
+        }
+        FactionData data = FactionData.get(player.serverLevel());
+        int removed = 0;
+        for (ChunkPos chunk : chunks) {
+            if (data.unclaimSafeZoneChunk(chunk)) {
+                DynmapBridge.updateClaim(chunk, Optional.empty(), player.level().dimension().location().toString());
+                removed++;
+            }
+        }
+        if (removed == 0) {
+            source.sendFailure(Component.literal("No safe zone chunks were removed."));
+            return 0;
+        }
+        String message = "Removed " + removed + " safe zone chunk(s).";
+        source.sendSuccess(() -> Component.literal(message), false);
+        return 1;
+    }
+
+    private static boolean hasAdminPermission(CommandSourceStack source) {
+        return source.hasPermission(FactionConfig.SERVER.adminBypassPermissionLevel.get());
     }
 
     public static int joinFaction(CommandSourceStack source, String name) throws CommandSyntaxException {
