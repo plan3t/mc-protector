@@ -10,6 +10,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.tags.BlockTags;
 import net.minecraft.world.MenuProvider;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.LevelAccessor;
 import net.minecraft.world.level.block.Block;
@@ -25,6 +26,8 @@ import net.minecraftforge.event.level.BlockEvent;
 import net.minecraftforge.event.level.ExplosionEvent;
 import net.minecraftforge.event.entity.living.LivingAttackEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraftforge.event.entity.living.MobSpawnEvent;
+import net.minecraftforge.eventbus.api.Event;
 
 import java.util.Optional;
 import java.util.UUID;
@@ -152,6 +155,19 @@ public class ClaimProtectionHandler {
             return;
         }
         event.setCanceled(true);
+    }
+
+    @SubscribeEvent
+    public void onMobSpawn(MobSpawnEvent.CheckSpawn event) {
+        if (!(event.getEntity() instanceof Mob)) {
+            return;
+        }
+        if (!(event.getEntity().level() instanceof ServerLevel serverLevel)) {
+            return;
+        }
+        if (isSafeZone(serverLevel) || FactionData.get(serverLevel).isSafeZoneClaimed(event.getEntity().blockPosition())) {
+            event.setResult(Event.Result.DENY);
+        }
     }
 
     private boolean isAllowed(Player player, BlockPos pos, FactionPermission permission) {
