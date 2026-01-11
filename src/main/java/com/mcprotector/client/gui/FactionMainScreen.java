@@ -2,6 +2,7 @@ package com.mcprotector.client.gui;
 
 import com.mcprotector.client.FactionClientData;
 import com.mcprotector.client.FactionMapClientData;
+import com.mcprotector.config.FactionConfig;
 import com.mcprotector.data.FactionPermission;
 import com.mcprotector.data.FactionRole;
 import com.mcprotector.network.FactionActionPacket;
