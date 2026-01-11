@@ -23,6 +23,7 @@ import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.arguments.EntityArgument;
 import net.minecraft.network.chat.Component;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.ChunkPos;
@@ -31,6 +32,7 @@ import net.minecraft.core.BlockPos;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Deque;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -169,6 +171,13 @@ public final class FactionCommands {
                     .executes(context -> toggleBorder(context.getSource(), null))
                     .then(Commands.argument("state", StringArgumentType.word())
                         .executes(context -> toggleBorder(context.getSource(), StringArgumentType.getString(context, "state")))))
+                .then(Commands.literal("safezone")
+                    .requires(source -> source.hasPermission(FactionConfig.SERVER.adminBypassPermissionLevel.get()))
+                    .then(Commands.literal("claim")
+                        .then(Commands.argument("faction", StringArgumentType.string())
+                            .executes(context -> claimSafeZone(context.getSource(), StringArgumentType.getString(context, "faction")))))
+                    .then(Commands.literal("unclaim")
+                        .executes(context -> unclaimSafeZone(context.getSource()))))
                 .then(Commands.literal("data")
                     .then(Commands.literal("backup")
                         .executes(context -> backupData(context.getSource())))
@@ -445,6 +454,12 @@ public final class FactionCommands {
     private static int claimInfo(CommandSourceStack source) throws CommandSyntaxException {
         ServerPlayer player = source.getPlayerOrException();
         FactionData data = FactionData.get(player.serverLevel());
+        Optional<UUID> personalOwner = data.getPersonalClaimOwner(player.blockPosition());
+        if (personalOwner.isPresent()) {
+            String ownerName = resolveName(player.getServer(), personalOwner.get());
+            source.sendSuccess(() -> Component.literal("Personal claim owner: " + ownerName), false);
+            return 1;
+        }
         Optional<UUID> ownerId = data.getClaimOwner(player.blockPosition());
         if (ownerId.isEmpty()) {
             source.sendSuccess(() -> Component.literal("This chunk is unclaimed."), false);
@@ -504,6 +519,20 @@ public final class FactionCommands {
         FactionChatMode mode = FactionChatManager.getMode(player.getUUID());
         source.sendSuccess(() -> Component.literal("Current chat mode: " + mode.name()), false);
         return 1;
+    }
+
+    private static String resolveName(MinecraftServer server, UUID playerId) {
+        if (server == null) {
+            return playerId.toString();
+        }
+        ServerPlayer player = server.getPlayerList().getPlayer(playerId);
+        if (player != null) {
+            return player.getGameProfile().getName();
+        }
+        return server.getProfileCache()
+            .get(playerId)
+            .map(profile -> profile.getName())
+            .orElse(playerId.toString());
     }
 
     private static int toggleChatMode(CommandSourceStack source) throws CommandSyntaxException {
@@ -821,6 +850,18 @@ public final class FactionCommands {
         String message = "Claim borders " + (enabled ? "enabled" : "disabled") + ".";
         source.sendSuccess(() -> Component.literal(message), false);
         return 1;
+    }
+
+    private static int claimSafeZone(CommandSourceStack source, String factionName) throws CommandSyntaxException {
+        ServerPlayer player = source.getPlayerOrException();
+        ChunkPos chunk = new ChunkPos(player.blockPosition());
+        return FactionService.claimSafeZoneChunks(source, List.of(chunk), factionName);
+    }
+
+    private static int unclaimSafeZone(CommandSourceStack source) throws CommandSyntaxException {
+        ServerPlayer player = source.getPlayerOrException();
+        ChunkPos chunk = new ChunkPos(player.blockPosition());
+        return FactionService.unclaimSafeZoneChunks(source, List.of(chunk));
     }
 
     private static int setHome(CommandSourceStack source) throws CommandSyntaxException {

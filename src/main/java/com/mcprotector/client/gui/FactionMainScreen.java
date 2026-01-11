@@ -2,10 +2,11 @@ package com.mcprotector.client.gui;
 
 import com.mcprotector.client.FactionClientData;
 import com.mcprotector.client.FactionMapClientData;
+import com.mcprotector.config.FactionConfig;
 import com.mcprotector.data.FactionPermission;
 import com.mcprotector.data.FactionRole;
 import com.mcprotector.network.FactionActionPacket;
-import com.mcprotector.network.FactionClaimMapActionPacket;
+import com.mcprotector.network.FactionClaimSelectionPacket;
 import com.mcprotector.network.NetworkHandler;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -18,7 +19,10 @@ import net.minecraft.world.level.ChunkPos;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 public class FactionMainScreen extends Screen {
     private static final int TAB_BUTTON_HEIGHT = 18;
@@ -43,11 +47,18 @@ public class FactionMainScreen extends Screen {
     private Button leaveFactionButton;
     private Button refreshButton;
     private Button dynmapSyncButton;
+    private EditBox safeZoneFactionField;
+    private Button claimTypeButton;
+    private Button submitClaimsButton;
     private int roleIndex;
     private int permissionIndex;
     private int panelTop;
     private int permissionsScrollOffset;
     private int mapClaimsScrollOffset;
+    private ClaimType selectedClaimType = ClaimType.FACTION;
+    private boolean selectionActive;
+    private ChunkPos selectionAnchor;
+    private final Set<ChunkPos> selectedChunks = new LinkedHashSet<>();
 
     public FactionMainScreen() {
         super(Component.literal("Faction"));
@@ -119,6 +130,17 @@ public class FactionMainScreen extends Screen {
         leaveFactionButton = this.addRenderableWidget(Button.builder(Component.literal("Leave Faction"), button -> leaveFaction())
             .bounds(PANEL_PADDING, this.height - PANEL_PADDING - 20, 110, 20)
             .build());
+        safeZoneFactionField = new EditBox(this.font, PANEL_PADDING, panelTop + 10, 120, 16,
+            Component.literal("Safe zone faction"));
+        safeZoneFactionField.setMaxLength(32);
+        this.addRenderableWidget(safeZoneFactionField);
+        claimTypeButton = this.addRenderableWidget(Button.builder(Component.literal("Claim: " + selectedClaimType.getLabel()),
+                button -> cycleClaimType())
+            .bounds(PANEL_PADDING + 130, panelTop + 8, 120, 16)
+            .build());
+        submitClaimsButton = this.addRenderableWidget(Button.builder(Component.literal("✓"), button -> promptClaimConfirm())
+            .bounds(PANEL_PADDING + 255, panelTop + 8, 16, 16)
+            .build());
 
         updateVisibility();
         FactionClientData.requestUpdate();
@@ -134,6 +156,9 @@ public class FactionMainScreen extends Screen {
         if (memberNameField != null) {
             memberNameField.tick();
         }
+        if (safeZoneFactionField != null) {
+            safeZoneFactionField.tick();
+        }
     }
 
     @Override
@@ -143,6 +168,9 @@ public class FactionMainScreen extends Screen {
         }
         if (memberNameField != null && memberNameField.isFocused()) {
             return memberNameField.keyPressed(keyCode, scanCode, modifiers);
+        }
+        if (safeZoneFactionField != null && safeZoneFactionField.isFocused()) {
+            return safeZoneFactionField.keyPressed(keyCode, scanCode, modifiers);
         }
         return super.keyPressed(keyCode, scanCode, modifiers);
     }
@@ -155,6 +183,9 @@ public class FactionMainScreen extends Screen {
         if (memberNameField != null && memberNameField.isFocused()) {
             return memberNameField.charTyped(codePoint, modifiers);
         }
+        if (safeZoneFactionField != null && safeZoneFactionField.isFocused()) {
+            return safeZoneFactionField.charTyped(codePoint, modifiers);
+        }
         return super.charTyped(codePoint, modifiers);
     }
 
@@ -163,6 +194,7 @@ public class FactionMainScreen extends Screen {
         this.renderBackground(guiGraphics);
         FactionClientData.FactionSnapshot snapshot = FactionClientData.getSnapshot();
         updateDynamicVisibility(snapshot);
+        updateClaimTypeOptions(snapshot);
         guiGraphics.drawCenteredString(this.font, this.title, this.width / 2, 6, 0xFFFFFF);
         String headline = snapshot.inFaction()
             ? "Faction: " + snapshot.factionName() + " (" + snapshot.roleName() + ")"
@@ -236,19 +268,35 @@ public class FactionMainScreen extends Screen {
                 this.width, this.height, PANEL_PADDING);
             ChunkPos clicked = FactionMapRenderer.getChunkFromMouse(region, mouseX, mouseY, mapSnapshot);
             if (clicked != null) {
-                long key = clicked.toLong();
-                com.mcprotector.network.FactionClaimMapPacket.ClaimEntry entry = mapSnapshot.claims().get(key);
-                FactionClaimMapActionPacket.ActionType action = entry == null
-                    ? FactionClaimMapActionPacket.ActionType.CLAIM
-                    : "OWN".equals(entry.relation())
-                    ? FactionClaimMapActionPacket.ActionType.UNCLAIM
-                    : FactionClaimMapActionPacket.ActionType.OVERTAKE;
-                NetworkHandler.CHANNEL.sendToServer(new FactionClaimMapActionPacket(clicked.x, clicked.z, action));
-                FactionMapClientData.requestUpdate();
+                startSelection(clicked);
                 return true;
             }
         }
         return super.mouseClicked(mouseX, mouseY, button);
+    }
+
+    @Override
+    public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
+        if (selectedTab == FactionTab.FACTION_MAP && button == 0 && selectionActive) {
+            FactionMapClientData.MapSnapshot mapSnapshot = FactionMapClientData.getSnapshot();
+            FactionMapRenderer.MapRegion region = FactionMapRenderer.buildMapRegion(panelTop + 40, mapSnapshot.radius(),
+                this.width, this.height, PANEL_PADDING);
+            ChunkPos hovered = FactionMapRenderer.getChunkFromMouse(region, mouseX, mouseY, mapSnapshot);
+            if (hovered != null) {
+                updateSelectionRectangle(hovered);
+                return true;
+            }
+        }
+        return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
+    }
+
+    @Override
+    public boolean mouseReleased(double mouseX, double mouseY, int button) {
+        if (selectedTab == FactionTab.FACTION_MAP && button == 0 && selectionActive) {
+            selectionActive = false;
+            return true;
+        }
+        return super.mouseReleased(mouseX, mouseY, button);
     }
 
     @Override
@@ -280,6 +328,15 @@ public class FactionMainScreen extends Screen {
         promoteMemberButton.visible = members;
         demoteMemberButton.visible = members;
         leaveFactionButton.visible = members;
+        boolean mapTab = selectedTab == FactionTab.FACTION_MAP;
+        claimTypeButton.visible = mapTab;
+        submitClaimsButton.visible = mapTab;
+        safeZoneFactionField.setVisible(mapTab && selectedClaimType == ClaimType.SAFEZONE && isOperator());
+        if (!mapTab) {
+            selectionActive = false;
+            selectionAnchor = null;
+            selectedChunks.clear();
+        }
         if (selectedTab == FactionTab.FACTION_MAP) {
             mapClaimsScrollOffset = 0;
             FactionMapClientData.requestUpdate();
@@ -360,6 +417,121 @@ public class FactionMainScreen extends Screen {
 
     private void leaveFaction() {
         NetworkHandler.CHANNEL.sendToServer(FactionActionPacket.leaveFaction());
+    }
+
+    private void cycleClaimType() {
+        List<ClaimType> options = getClaimTypeOptions();
+        int index = options.indexOf(selectedClaimType);
+        if (index < 0) {
+            selectedClaimType = options.get(0);
+        } else {
+            selectedClaimType = options.get((index + 1) % options.size());
+        }
+        selectedChunks.clear();
+        updateClaimTypeButtonLabel();
+        updateVisibility();
+    }
+
+    private void startSelection(ChunkPos chunk) {
+        selectionAnchor = chunk;
+        selectionActive = true;
+        updateSelectionRectangle(chunk);
+    }
+
+    private void updateSelectionRectangle(ChunkPos current) {
+        if (selectionAnchor == null) {
+            return;
+        }
+        selectedChunks.clear();
+        int minX = Math.min(selectionAnchor.x, current.x);
+        int maxX = Math.max(selectionAnchor.x, current.x);
+        int minZ = Math.min(selectionAnchor.z, current.z);
+        int maxZ = Math.max(selectionAnchor.z, current.z);
+        for (int x = minX; x <= maxX; x++) {
+            for (int z = minZ; z <= maxZ; z++) {
+                selectedChunks.add(new ChunkPos(x, z));
+                if (selectedChunks.size() >= 9) {
+                    return;
+                }
+            }
+        }
+    }
+
+    private void promptClaimConfirm() {
+        if (selectedChunks.isEmpty()) {
+            return;
+        }
+        int count = selectedChunks.size();
+        String targetFaction = safeZoneFactionField.getValue().trim();
+        Component title = Component.literal("Confirm Claims");
+        Component message = switch (selectedClaimType) {
+            case SAFEZONE -> Component.literal("Toggle " + count + " safe zone chunk(s) for " + targetFaction + "?");
+            case PERSONAL -> Component.literal("Toggle " + count + " personal chunk(s)?");
+            case FACTION -> Component.literal("Toggle " + count + " chunk(s) for " + getFactionLabel(FactionClientData.getSnapshot()) + "?");
+        };
+        Minecraft.getInstance().setScreen(new net.minecraft.client.gui.screens.ConfirmScreen(result -> {
+            Minecraft.getInstance().setScreen(this);
+            if (result) {
+                sendClaimSelection(targetFaction);
+            }
+        }, title, message));
+    }
+
+    private void sendClaimSelection(String factionName) {
+        List<ChunkPos> chunks = new ArrayList<>(selectedChunks);
+        if (chunks.isEmpty()) {
+            return;
+        }
+        NetworkHandler.CHANNEL.sendToServer(new FactionClaimSelectionPacket(chunks, toPacketClaimType(), factionName));
+        selectedChunks.clear();
+        FactionMapClientData.requestUpdate();
+    }
+
+    private void updateClaimTypeOptions(FactionClientData.FactionSnapshot snapshot) {
+        List<ClaimType> options = getClaimTypeOptions();
+        if (!options.contains(selectedClaimType)) {
+            selectedClaimType = options.get(0);
+        }
+        updateClaimTypeButtonLabel(snapshot);
+    }
+
+    private void updateClaimTypeButtonLabel() {
+        updateClaimTypeButtonLabel(FactionClientData.getSnapshot());
+    }
+
+    private void updateClaimTypeButtonLabel(FactionClientData.FactionSnapshot snapshot) {
+        if (claimTypeButton != null) {
+            claimTypeButton.setMessage(Component.literal("Claim: " + selectedClaimType.getLabel(getFactionLabel(snapshot))));
+        }
+    }
+
+    private List<ClaimType> getClaimTypeOptions() {
+        if (isOperator()) {
+            return List.of(ClaimType.FACTION, ClaimType.PERSONAL, ClaimType.SAFEZONE);
+        }
+        return List.of(ClaimType.FACTION, ClaimType.PERSONAL);
+    }
+
+    private String getFactionLabel(FactionClientData.FactionSnapshot snapshot) {
+        if (snapshot.inFaction()) {
+            return snapshot.factionName();
+        }
+        return "Faction";
+    }
+
+    private FactionClaimSelectionPacket.ClaimType toPacketClaimType() {
+        return switch (selectedClaimType) {
+            case FACTION -> FactionClaimSelectionPacket.ClaimType.FACTION;
+            case PERSONAL -> FactionClaimSelectionPacket.ClaimType.PERSONAL;
+            case SAFEZONE -> FactionClaimSelectionPacket.ClaimType.SAFEZONE;
+        };
+    }
+
+    private boolean isOperator() {
+        if (Minecraft.getInstance().player == null) {
+            return false;
+        }
+        return Minecraft.getInstance().player.hasPermissions(FactionConfig.SERVER.adminBypassPermissionLevel.get());
     }
 
     private void renderMembers(GuiGraphics guiGraphics, List<com.mcprotector.network.FactionStatePacket.MemberEntry> members, int startY) {
@@ -455,18 +627,50 @@ public class FactionMainScreen extends Screen {
         }
         FactionMapRenderer.MapRegion region = FactionMapRenderer.buildMapRegion(startY, radius, this.width, this.height, PANEL_PADDING);
         FactionMapRenderer.renderMapGrid(guiGraphics, mapSnapshot, region);
+        if (!selectedChunks.isEmpty()) {
+            FactionMapRenderer.renderSelectionOverlay(guiGraphics, mapSnapshot, region, selectedChunks);
+        } else {
+            guiGraphics.drawString(this.font, "Drag to select up to 9 chunks", PANEL_PADDING, startY + 14, 0x777777);
+        }
         ChunkPos hovered = FactionMapRenderer.getChunkFromMouse(region, mouseX, mouseY, mapSnapshot);
         if (hovered != null) {
             FactionMapRenderer.renderMapTooltip(guiGraphics, mapSnapshot, hovered, mouseX, mouseY, this.font);
         }
         mapClaimsScrollOffset = FactionMapRenderer.renderMapClaimsList(guiGraphics, snapshot.claims(), region,
             mapClaimsScrollOffset, this.height, PANEL_PADDING, this.font);
+        if (!selectedChunks.isEmpty()) {
+            guiGraphics.drawString(this.font, "Selected " + selectedChunks.size() + " chunk(s)",
+                PANEL_PADDING, startY + 14, 0xF9A825);
+        }
     }
 
     private enum MemberAction {
         KICK,
         PROMOTE,
         DEMOTE
+    }
+
+    private enum ClaimType {
+        FACTION("Faction"),
+        PERSONAL("Personal"),
+        SAFEZONE("Safezone");
+
+        private final String label;
+
+        ClaimType(String label) {
+            this.label = label;
+        }
+
+        public String getLabel() {
+            return label;
+        }
+
+        public String getLabel(String factionLabel) {
+            if (this == FACTION) {
+                return factionLabel;
+            }
+            return label;
+        }
     }
 
 }

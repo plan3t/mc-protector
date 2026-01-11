@@ -6,6 +6,7 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.level.ChunkPos;
 
+import java.util.Collection;
 import java.util.List;
 
 public final class FactionMapRenderer {
@@ -15,8 +16,8 @@ public final class FactionMapRenderer {
     public static MapRegion buildMapRegion(int startY, int radius, int width, int height, int panelPadding) {
         int gridSize = radius * 2 + 1;
         int maxWidth = width - panelPadding * 2;
-        int maxHeight = height - startY - 80;
-        int cellSize = Math.max(6, Math.min(18, Math.min(maxWidth / gridSize, maxHeight / gridSize)));
+        int maxHeight = height - startY - 40;
+        int cellSize = Math.max(8, Math.min(22, Math.min(maxWidth / gridSize, maxHeight / gridSize)));
         int mapWidth = cellSize * gridSize;
         int mapHeight = cellSize * gridSize;
         int originX = (width - mapWidth) / 2;
@@ -65,6 +66,22 @@ public final class FactionMapRenderer {
         guiGraphics.renderOutline(centerX, centerY, region.cellSize(), region.cellSize(), 0xFFFFFFFF);
     }
 
+    public static void renderSelectionOverlay(GuiGraphics guiGraphics, FactionMapClientData.MapSnapshot mapSnapshot,
+                                              MapRegion region, Collection<ChunkPos> selections) {
+        int radius = region.radius();
+        for (ChunkPos chunk : selections) {
+            int dx = chunk.x - mapSnapshot.centerChunkX();
+            int dz = chunk.z - mapSnapshot.centerChunkZ();
+            if (Math.abs(dx) > radius || Math.abs(dz) > radius) {
+                continue;
+            }
+            int x = region.originX() + (dx + radius) * region.cellSize();
+            int y = region.originY() + (dz + radius) * region.cellSize();
+            guiGraphics.fill(x + 1, y + 1, x + region.cellSize() - 1, y + region.cellSize() - 1, 0x66F9A825);
+            guiGraphics.renderOutline(x, y, region.cellSize(), region.cellSize(), 0xFFF9A825);
+        }
+    }
+
     public static void renderMapTooltip(GuiGraphics guiGraphics, FactionMapClientData.MapSnapshot mapSnapshot, ChunkPos hovered,
                                         int mouseX, int mouseY, Font font) {
         long key = hovered.toLong();
@@ -72,6 +89,17 @@ public final class FactionMapRenderer {
         List<Component> lines;
         if (entry == null) {
             lines = List.of(Component.literal("Wilderness"));
+        } else if (entry.safeZone()) {
+            lines = List.of(
+                Component.literal("Safe Zone"),
+                Component.literal(entry.factionName())
+            );
+        } else if (entry.personal()) {
+            String relation = entry.relation().equals("OWN") ? "Your personal claim" : "Personal claim";
+            lines = List.of(
+                Component.literal(entry.factionName()),
+                Component.literal(relation)
+            );
         } else {
             String relation = entry.relation().equals("OWN") ? "Your faction" : entry.relation();
             lines = List.of(
@@ -119,6 +147,12 @@ public final class FactionMapRenderer {
     private static int getMapColor(com.mcprotector.network.FactionClaimMapPacket.ClaimEntry entry) {
         if (entry == null) {
             return 0xFF3A3A3A;
+        }
+        if (entry.safeZone()) {
+            return 0xFFF9A825;
+        }
+        if (entry.personal()) {
+            return 0xFF9C27B0;
         }
         return switch (entry.relation()) {
             case "OWN" -> 0xFF4CAF50;
