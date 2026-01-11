@@ -1,23 +1,28 @@
 package com.mcprotector.network;
 
+import com.mcprotector.McProtectorMod;
 import com.mcprotector.config.FactionConfig;
 import com.mcprotector.data.Faction;
 import com.mcprotector.data.FactionData;
 import com.mcprotector.data.FactionRelation;
-import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.ChunkPos;
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.fml.DistExecutor;
-import net.minecraftforge.network.NetworkEvent;
+import net.neoforged.neoforge.network.handling.IPayloadContext;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.function.Supplier;
 
-public class FactionClaimMapPacket {
+public class FactionClaimMapPacket implements CustomPacketPayload {
+    public static final CustomPacketPayload.Type<FactionClaimMapPacket> TYPE =
+        new CustomPacketPayload.Type<>(ResourceLocation.fromNamespaceAndPath(McProtectorMod.MOD_ID, "faction_claim_map"));
+    public static final StreamCodec<RegistryFriendlyByteBuf, FactionClaimMapPacket> STREAM_CODEC =
+        StreamCodec.ofMember(FactionClaimMapPacket::write, FactionClaimMapPacket::decode);
     private final int centerChunkX;
     private final int centerChunkZ;
     private final int radius;
@@ -78,12 +83,12 @@ public class FactionClaimMapPacket {
         return new FactionClaimMapPacket(center.x, center.z, radius, entries);
     }
 
-    public static void encode(FactionClaimMapPacket packet, FriendlyByteBuf buffer) {
-        buffer.writeInt(packet.centerChunkX);
-        buffer.writeInt(packet.centerChunkZ);
-        buffer.writeInt(packet.radius);
-        buffer.writeVarInt(packet.claims.size());
-        for (ClaimEntry entry : packet.claims) {
+    private void write(RegistryFriendlyByteBuf buffer) {
+        buffer.writeInt(centerChunkX);
+        buffer.writeInt(centerChunkZ);
+        buffer.writeInt(radius);
+        buffer.writeVarInt(claims.size());
+        for (ClaimEntry entry : claims) {
             buffer.writeInt(entry.chunkX());
             buffer.writeInt(entry.chunkZ());
             buffer.writeUtf(entry.factionName());
@@ -93,7 +98,7 @@ public class FactionClaimMapPacket {
         }
     }
 
-    public static FactionClaimMapPacket decode(FriendlyByteBuf buffer) {
+    public static FactionClaimMapPacket decode(RegistryFriendlyByteBuf buffer) {
         int centerChunkX = buffer.readInt();
         int centerChunkZ = buffer.readInt();
         int radius = buffer.readInt();
@@ -106,12 +111,13 @@ public class FactionClaimMapPacket {
         return new FactionClaimMapPacket(centerChunkX, centerChunkZ, radius, claims);
     }
 
-    public static void handle(FactionClaimMapPacket packet, Supplier<NetworkEvent.Context> context) {
-        NetworkEvent.Context ctx = context.get();
-        ctx.enqueueWork(() -> DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> () -> {
-            com.mcprotector.client.ClientPacketHandler.handleClaimMap(packet);
-        }));
-        ctx.setPacketHandled(true);
+    public static void handle(FactionClaimMapPacket packet, IPayloadContext context) {
+        context.enqueueWork(() -> com.mcprotector.client.ClientPacketHandler.handleClaimMap(packet));
+    }
+
+    @Override
+    public Type<? extends CustomPacketPayload> type() {
+        return TYPE;
     }
 
     public int centerChunkX() {

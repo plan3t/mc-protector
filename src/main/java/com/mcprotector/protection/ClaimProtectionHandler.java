@@ -21,12 +21,12 @@ import net.minecraft.world.level.block.FenceGateBlock;
 import net.minecraft.world.level.block.TrapDoorBlock;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraftforge.event.entity.player.PlayerInteractEvent;
-import net.minecraftforge.event.level.BlockEvent;
-import net.minecraftforge.event.level.ExplosionEvent;
-import net.minecraftforge.event.entity.living.LivingAttackEvent;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.event.entity.living.MobSpawnEvent;
+import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
+import net.neoforged.neoforge.event.level.BlockEvent;
+import net.neoforged.neoforge.event.level.ExplosionEvent;
+import net.neoforged.neoforge.event.entity.living.FinalizeSpawnEvent;
+import net.neoforged.neoforge.event.entity.living.LivingIncomingDamageEvent;
+import net.neoforged.bus.api.SubscribeEvent;
 
 import java.util.Optional;
 import java.util.UUID;
@@ -130,7 +130,7 @@ public class ClaimProtectionHandler {
     }
 
     @SubscribeEvent
-    public void onPlayerAttack(LivingAttackEvent event) {
+    public void onPlayerAttack(LivingIncomingDamageEvent event) {
         if (!(event.getEntity() instanceof Player victim)) {
             return;
         }
@@ -157,7 +157,7 @@ public class ClaimProtectionHandler {
     }
 
     @SubscribeEvent
-    public void onMobSpawn(MobSpawnEvent.FinalizeSpawn event) {
+    public void onMobSpawn(FinalizeSpawnEvent event) {
         if (!(event.getEntity() instanceof Mob)) {
             return;
         }
@@ -165,7 +165,7 @@ public class ClaimProtectionHandler {
             return;
         }
         if (isSafeZone(serverLevel) || FactionData.get(serverLevel).isSafeZoneClaimed(event.getEntity().blockPosition())) {
-            event.setSpawnCancelled(true);
+            event.setCanceled(true);
         }
     }
 

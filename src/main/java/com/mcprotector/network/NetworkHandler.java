@@ -1,75 +1,29 @@
 package com.mcprotector.network;
 
-import com.mcprotector.McProtectorMod;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraftforge.network.NetworkDirection;
-import net.minecraftforge.network.NetworkRegistry;
-import net.minecraftforge.network.PacketDistributor;
-import net.minecraftforge.network.simple.SimpleChannel;
+import net.neoforged.neoforge.network.PacketDistributor;
+import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
+import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 
 public final class NetworkHandler {
     private static final String PROTOCOL_VERSION = "1";
-    public static final SimpleChannel CHANNEL = NetworkRegistry.ChannelBuilder
-        .named(ResourceLocation.fromNamespaceAndPath(McProtectorMod.MOD_ID, "main"))
-        .networkProtocolVersion(() -> PROTOCOL_VERSION)
-        .clientAcceptedVersions(PROTOCOL_VERSION::equals)
-        .serverAcceptedVersions(PROTOCOL_VERSION::equals)
-        .simpleChannel();
-
-    private static int packetId;
-
     private NetworkHandler() {
     }
 
-    public static void register() {
-        CHANNEL.messageBuilder(FactionStateRequestPacket.class, nextId(), NetworkDirection.PLAY_TO_SERVER)
-            .encoder(FactionStateRequestPacket::encode)
-            .decoder(FactionStateRequestPacket::decode)
-            .consumerMainThread(FactionStateRequestPacket::handle)
-            .add();
-        CHANNEL.messageBuilder(FactionStatePacket.class, nextId(), NetworkDirection.PLAY_TO_CLIENT)
-            .encoder(FactionStatePacket::encode)
-            .decoder(FactionStatePacket::decode)
-            .consumerMainThread(FactionStatePacket::handle)
-            .add();
-        CHANNEL.messageBuilder(FactionActionPacket.class, nextId(), NetworkDirection.PLAY_TO_SERVER)
-            .encoder(FactionActionPacket::encode)
-            .decoder(FactionActionPacket::decode)
-            .consumerMainThread(FactionActionPacket::handle)
-            .add();
-        CHANNEL.messageBuilder(FactionClaimMapRequestPacket.class, nextId(), NetworkDirection.PLAY_TO_SERVER)
-            .encoder(FactionClaimMapRequestPacket::encode)
-            .decoder(FactionClaimMapRequestPacket::decode)
-            .consumerMainThread(FactionClaimMapRequestPacket::handle)
-            .add();
-        CHANNEL.messageBuilder(FactionClaimMapPacket.class, nextId(), NetworkDirection.PLAY_TO_CLIENT)
-            .encoder(FactionClaimMapPacket::encode)
-            .decoder(FactionClaimMapPacket::decode)
-            .consumerMainThread(FactionClaimMapPacket::handle)
-            .add();
-        CHANNEL.messageBuilder(FactionClaimMapActionPacket.class, nextId(), NetworkDirection.PLAY_TO_SERVER)
-            .encoder(FactionClaimMapActionPacket::encode)
-            .decoder(FactionClaimMapActionPacket::decode)
-            .consumerMainThread(FactionClaimMapActionPacket::handle)
-            .add();
-        CHANNEL.messageBuilder(FactionClaimSelectionPacket.class, nextId(), NetworkDirection.PLAY_TO_SERVER)
-            .encoder(FactionClaimSelectionPacket::encode)
-            .decoder(FactionClaimSelectionPacket::decode)
-            .consumerMainThread(FactionClaimSelectionPacket::handle)
-            .add();
-        CHANNEL.messageBuilder(FactionSafeZoneMapActionPacket.class, nextId(), NetworkDirection.PLAY_TO_SERVER)
-            .encoder(FactionSafeZoneMapActionPacket::encode)
-            .decoder(FactionSafeZoneMapActionPacket::decode)
-            .consumerMainThread(FactionSafeZoneMapActionPacket::handle)
-            .add();
+    public static void registerPayloads(RegisterPayloadHandlersEvent event) {
+        PayloadRegistrar registrar = event.registrar(PROTOCOL_VERSION);
+        registrar.playToServer(FactionStateRequestPacket.TYPE, FactionStateRequestPacket.STREAM_CODEC, FactionStateRequestPacket::handle);
+        registrar.playToClient(FactionStatePacket.TYPE, FactionStatePacket.STREAM_CODEC, FactionStatePacket::handle);
+        registrar.playToServer(FactionActionPacket.TYPE, FactionActionPacket.STREAM_CODEC, FactionActionPacket::handle);
+        registrar.playToServer(FactionClaimMapRequestPacket.TYPE, FactionClaimMapRequestPacket.STREAM_CODEC, FactionClaimMapRequestPacket::handle);
+        registrar.playToClient(FactionClaimMapPacket.TYPE, FactionClaimMapPacket.STREAM_CODEC, FactionClaimMapPacket::handle);
+        registrar.playToServer(FactionClaimMapActionPacket.TYPE, FactionClaimMapActionPacket.STREAM_CODEC, FactionClaimMapActionPacket::handle);
+        registrar.playToServer(FactionClaimSelectionPacket.TYPE, FactionClaimSelectionPacket.STREAM_CODEC, FactionClaimSelectionPacket::handle);
+        registrar.playToServer(FactionSafeZoneMapActionPacket.TYPE, FactionSafeZoneMapActionPacket.STREAM_CODEC, FactionSafeZoneMapActionPacket::handle);
     }
 
-    public static void sendToPlayer(ServerPlayer player, Object packet) {
-        CHANNEL.send(PacketDistributor.PLAYER.with(() -> player), packet);
-    }
-
-    private static int nextId() {
-        return packetId++;
+    public static void sendToPlayer(ServerPlayer player, CustomPacketPayload payload) {
+        PacketDistributor.sendToPlayer(player, payload);
     }
 }
