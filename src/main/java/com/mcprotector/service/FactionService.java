@@ -251,7 +251,8 @@ public final class FactionService {
             source.sendFailure(Component.literal("No safe zone chunks were claimed."));
             return 0;
         }
-        source.sendSuccess(() -> Component.literal("Claimed " + claimed + " safe zone chunk(s) for " + faction.get().getName()), false);
+        String message = "Claimed " + claimed + " safe zone chunk(s) for " + faction.get().getName();
+        source.sendSuccess(() -> Component.literal(message), false);
         return 1;
     }
 
@@ -273,7 +274,8 @@ public final class FactionService {
             source.sendFailure(Component.literal("No safe zone chunks were removed."));
             return 0;
         }
-        source.sendSuccess(() -> Component.literal("Removed " + removed + " safe zone chunk(s)."), false);
+        String message = "Removed " + removed + " safe zone chunk(s).";
+        source.sendSuccess(() -> Component.literal(message), false);
         return 1;
     }
 
