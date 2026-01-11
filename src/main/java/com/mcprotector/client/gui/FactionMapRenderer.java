@@ -28,8 +28,8 @@ public final class FactionMapRenderer {
         return new MapRegion(originX, originY, cellSize, radius);
     }
 
-    public static int getMapClaimsListStart(MapRegion region) {
-        return region.originY() + (region.cellSize() * (region.radius() * 2 + 1)) + 24;
+    public static int getMapClaimsListStart(MapRegion region, int controlsOffset) {
+        return region.originY() + (region.cellSize() * (region.radius() * 2 + 1)) + 12 + controlsOffset;
     }
 
     public static ChunkPos getChunkFromMouse(MapRegion region, double mouseX, double mouseY,
@@ -119,8 +119,9 @@ public final class FactionMapRenderer {
                                           int scrollOffset,
                                           int height,
                                           int panelPadding,
+                                          int controlsOffset,
                                           Font font) {
-        int startY = region.originY() + (region.cellSize() * (region.radius() * 2 + 1)) + 12;
+        int startY = region.originY() + (region.cellSize() * (region.radius() * 2 + 1)) + 12 + controlsOffset;
         guiGraphics.drawString(font, "Claims:", panelPadding, startY, 0xFFFFFF);
         int y = startY + 12;
         if (claims.isEmpty()) {
