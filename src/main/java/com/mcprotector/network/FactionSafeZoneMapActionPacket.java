@@ -1,17 +1,24 @@
 package com.mcprotector.network;
 
+import com.mcprotector.McProtectorMod;
 import com.mcprotector.service.FactionService;
-import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.ChunkPos;
-import net.minecraftforge.network.NetworkEvent;
+import net.neoforged.neoforge.network.handling.IPayloadContext;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.function.Supplier;
 
-public class FactionSafeZoneMapActionPacket {
+public class FactionSafeZoneMapActionPacket implements CustomPacketPayload {
+    public static final CustomPacketPayload.Type<FactionSafeZoneMapActionPacket> TYPE =
+        new CustomPacketPayload.Type<>(new ResourceLocation(McProtectorMod.MOD_ID, "faction_safezone_action"));
+    public static final StreamCodec<RegistryFriendlyByteBuf, FactionSafeZoneMapActionPacket> STREAM_CODEC =
+        StreamCodec.ofMember(FactionSafeZoneMapActionPacket::write, FactionSafeZoneMapActionPacket::decode);
     private final List<ChunkPos> chunks;
     private final String factionName;
     private final ActionType action;
@@ -22,17 +29,17 @@ public class FactionSafeZoneMapActionPacket {
         this.action = action;
     }
 
-    public static void encode(FactionSafeZoneMapActionPacket packet, FriendlyByteBuf buffer) {
-        buffer.writeVarInt(packet.chunks.size());
-        for (ChunkPos chunk : packet.chunks) {
+    private void write(RegistryFriendlyByteBuf buffer) {
+        buffer.writeVarInt(chunks.size());
+        for (ChunkPos chunk : chunks) {
             buffer.writeInt(chunk.x);
             buffer.writeInt(chunk.z);
         }
-        buffer.writeUtf(packet.factionName == null ? "" : packet.factionName);
-        buffer.writeEnum(packet.action);
+        buffer.writeUtf(factionName == null ? "" : factionName);
+        buffer.writeEnum(action);
     }
 
-    public static FactionSafeZoneMapActionPacket decode(FriendlyByteBuf buffer) {
+    public static FactionSafeZoneMapActionPacket decode(RegistryFriendlyByteBuf buffer) {
         int count = buffer.readVarInt();
         List<ChunkPos> chunks = new ArrayList<>();
         for (int i = 0; i < count; i++) {
@@ -43,14 +50,11 @@ public class FactionSafeZoneMapActionPacket {
         return new FactionSafeZoneMapActionPacket(chunks, factionName, action);
     }
 
-    public static void handle(FactionSafeZoneMapActionPacket packet, Supplier<NetworkEvent.Context> context) {
-        NetworkEvent.Context ctx = context.get();
-        ServerPlayer player = ctx.getSender();
-        if (player == null) {
-            ctx.setPacketHandled(true);
+    public static void handle(FactionSafeZoneMapActionPacket packet, IPayloadContext context) {
+        if (!(context.player() instanceof ServerPlayer player)) {
             return;
         }
-        ctx.enqueueWork(() -> {
+        context.enqueueWork(() -> {
             if (packet.chunks.size() > 9) {
                 player.sendSystemMessage(Component.literal("Safe zone selection is limited to 9 chunks."));
                 return;
@@ -66,7 +70,11 @@ public class FactionSafeZoneMapActionPacket {
             NetworkHandler.sendToPlayer(player, FactionStatePacket.fromPlayer(player));
             NetworkHandler.sendToPlayer(player, FactionClaimMapPacket.fromPlayer(player));
         });
-        ctx.setPacketHandled(true);
+    }
+
+    @Override
+    public Type<? extends CustomPacketPayload> type() {
+        return TYPE;
     }
 
     public enum ActionType {

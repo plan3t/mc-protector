@@ -7,7 +7,7 @@ import com.mcprotector.data.FactionPermission;
 import com.mcprotector.data.FactionRole;
 import com.mcprotector.network.FactionActionPacket;
 import com.mcprotector.network.FactionClaimSelectionPacket;
-import com.mcprotector.network.NetworkHandler;
+import com.mcprotector.client.ClientNetworkSender;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
@@ -150,15 +150,6 @@ public class FactionMainScreen extends Screen {
     @Override
     public void tick() {
         super.tick();
-        if (inviteNameField != null) {
-            inviteNameField.tick();
-        }
-        if (memberNameField != null) {
-            memberNameField.tick();
-        }
-        if (safeZoneFactionField != null) {
-            safeZoneFactionField.tick();
-        }
     }
 
     @Override
@@ -191,7 +182,7 @@ public class FactionMainScreen extends Screen {
 
     @Override
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
-        this.renderBackground(guiGraphics);
+        this.renderBackground(guiGraphics, mouseX, mouseY, partialTick);
         FactionClientData.FactionSnapshot snapshot = FactionClientData.getSnapshot();
         updateDynamicVisibility(snapshot);
         updateClaimTypeOptions(snapshot);
@@ -225,16 +216,16 @@ public class FactionMainScreen extends Screen {
     }
 
     @Override
-    public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
+    public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
         if (selectedTab == FactionTab.PERMISSIONS) {
             int lineHeight = 10;
             int listStart = panelTop + 85 + 22;
             int availableHeight = Math.max(0, this.height - listStart - 30);
             int visibleLines = Math.max(1, availableHeight / lineHeight);
             int maxOffset = Math.max(0, getSelectedPermissions().size() - visibleLines);
-            if (delta < 0) {
+            if (scrollY < 0) {
                 permissionsScrollOffset = Math.min(maxOffset, permissionsScrollOffset + 1);
-            } else if (delta > 0) {
+            } else if (scrollY > 0) {
                 permissionsScrollOffset = Math.max(0, permissionsScrollOffset - 1);
             }
             return true;
@@ -249,15 +240,15 @@ public class FactionMainScreen extends Screen {
                 int availableHeight = Math.max(0, this.height - listStart - 30);
                 int visibleLines = Math.max(1, availableHeight / lineHeight);
                 int maxOffset = Math.max(0, FactionClientData.getSnapshot().claims().size() - visibleLines);
-                if (delta < 0) {
+                if (scrollY < 0) {
                     mapClaimsScrollOffset = Math.min(maxOffset, mapClaimsScrollOffset + 1);
-                } else if (delta > 0) {
+                } else if (scrollY > 0) {
                     mapClaimsScrollOffset = Math.max(0, mapClaimsScrollOffset - 1);
                 }
                 return true;
             }
         }
-        return super.mouseScrolled(mouseX, mouseY, delta);
+        return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
     }
 
     @Override
@@ -376,7 +367,7 @@ public class FactionMainScreen extends Screen {
     private void sendInvite() {
         String name = inviteNameField.getValue().trim();
         if (!name.isEmpty()) {
-            NetworkHandler.CHANNEL.sendToServer(FactionActionPacket.invite(name));
+            ClientNetworkSender.sendToServer(FactionActionPacket.invite(name));
             inviteNameField.setValue("");
         }
     }
@@ -384,22 +375,22 @@ public class FactionMainScreen extends Screen {
     private void acceptInvite() {
         String factionName = FactionClientData.getSnapshot().pendingInviteFaction();
         if (!factionName.isEmpty()) {
-            NetworkHandler.CHANNEL.sendToServer(FactionActionPacket.joinFaction(factionName));
+            ClientNetworkSender.sendToServer(FactionActionPacket.joinFaction(factionName));
         }
     }
 
     private void declineInvite() {
-        NetworkHandler.CHANNEL.sendToServer(FactionActionPacket.declineInvite());
+        ClientNetworkSender.sendToServer(FactionActionPacket.declineInvite());
     }
 
     private void sendPermission(boolean grant) {
-        NetworkHandler.CHANNEL.sendToServer(
+        ClientNetworkSender.sendToServer(
             FactionActionPacket.setPermission(currentRole().name(), currentPermission().name(), grant)
         );
     }
 
     private void sendDynmapSync() {
-        NetworkHandler.CHANNEL.sendToServer(FactionActionPacket.syncDynmap());
+        ClientNetworkSender.sendToServer(FactionActionPacket.syncDynmap());
     }
 
     private void sendMemberAction(MemberAction action) {
@@ -408,15 +399,15 @@ public class FactionMainScreen extends Screen {
             return;
         }
         switch (action) {
-            case KICK -> NetworkHandler.CHANNEL.sendToServer(FactionActionPacket.kickMember(name));
-            case PROMOTE -> NetworkHandler.CHANNEL.sendToServer(FactionActionPacket.promoteMember(name));
-            case DEMOTE -> NetworkHandler.CHANNEL.sendToServer(FactionActionPacket.demoteMember(name));
+            case KICK -> ClientNetworkSender.sendToServer(FactionActionPacket.kickMember(name));
+            case PROMOTE -> ClientNetworkSender.sendToServer(FactionActionPacket.promoteMember(name));
+            case DEMOTE -> ClientNetworkSender.sendToServer(FactionActionPacket.demoteMember(name));
         }
         memberNameField.setValue("");
     }
 
     private void leaveFaction() {
-        NetworkHandler.CHANNEL.sendToServer(FactionActionPacket.leaveFaction());
+        ClientNetworkSender.sendToServer(FactionActionPacket.leaveFaction());
     }
 
     private void cycleClaimType() {
@@ -482,7 +473,7 @@ public class FactionMainScreen extends Screen {
         if (chunks.isEmpty()) {
             return;
         }
-        NetworkHandler.CHANNEL.sendToServer(new FactionClaimSelectionPacket(chunks, toPacketClaimType(), factionName));
+        ClientNetworkSender.sendToServer(new FactionClaimSelectionPacket(chunks, toPacketClaimType(), factionName));
         selectedChunks.clear();
         FactionMapClientData.requestUpdate();
     }

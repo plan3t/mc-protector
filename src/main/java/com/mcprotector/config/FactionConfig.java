@@ -3,7 +3,7 @@ package com.mcprotector.config;
 import com.mcprotector.data.FactionRole;
 import com.mcprotector.data.FactionProtectionTier;
 import net.minecraft.ChatFormatting;
-import net.minecraftforge.common.ForgeConfigSpec;
+import net.neoforged.neoforge.common.ModConfigSpec;
 
 import java.util.EnumMap;
 import java.util.List;
@@ -11,11 +11,11 @@ import java.util.Locale;
 import java.util.Map;
 
 public final class FactionConfig {
-    public static final ForgeConfigSpec SERVER_SPEC;
+    public static final ModConfigSpec SERVER_SPEC;
     public static final Server SERVER;
 
     static {
-        ForgeConfigSpec.Builder builder = new ForgeConfigSpec.Builder();
+        ModConfigSpec.Builder builder = new ModConfigSpec.Builder();
         SERVER = new Server(builder);
         SERVER_SPEC = builder.build();
     }
@@ -112,47 +112,47 @@ public final class FactionConfig {
     }
 
     public static final class Server {
-        public final ForgeConfigSpec.ConfigValue<String> defaultFactionColor;
-        public final ForgeConfigSpec.ConfigValue<String> defaultMotd;
-        public final ForgeConfigSpec.ConfigValue<String> defaultDescription;
-        public final ForgeConfigSpec.ConfigValue<String> defaultBannerColor;
-        public final ForgeConfigSpec.ConfigValue<String> defaultRankPreset;
-        public final ForgeConfigSpec.ConfigValue<List<? extends String>> rankPresets;
-        public final ForgeConfigSpec.ConfigValue<String> defaultProtectionTier;
-        public final ForgeConfigSpec.ConfigValue<Integer> strictProtectionMinLevel;
-        public final ForgeConfigSpec.ConfigValue<Boolean> enableFactionChat;
-        public final ForgeConfigSpec.ConfigValue<Boolean> enableAllyChat;
-        public final ForgeConfigSpec.ConfigValue<Boolean> usePublicChatFormat;
-        public final ForgeConfigSpec.ConfigValue<String> factionChatFormat;
-        public final ForgeConfigSpec.ConfigValue<String> allyChatFormat;
-        public final ForgeConfigSpec.ConfigValue<String> publicChatFormat;
-        public final ForgeConfigSpec.ConfigValue<String> tabListFormat;
-        public final ForgeConfigSpec.ConfigValue<Integer> baseClaims;
-        public final ForgeConfigSpec.ConfigValue<Integer> claimsPerMember;
-        public final ForgeConfigSpec.ConfigValue<Integer> membersPerLevel;
-        public final ForgeConfigSpec.ConfigValue<Integer> maxFactionLevel;
-        public final ForgeConfigSpec.ConfigValue<Integer> bonusClaimsPerLevel;
-        public final ForgeConfigSpec.ConfigValue<Integer> claimCooldownSeconds;
-        public final ForgeConfigSpec.ConfigValue<Integer> claimCooldownReductionPerLevel;
-        public final ForgeConfigSpec.ConfigValue<Double> claimCooldownOwnerMultiplier;
-        public final ForgeConfigSpec.ConfigValue<Integer> unclaimCooldownSeconds;
-        public final ForgeConfigSpec.ConfigValue<Integer> unclaimCooldownReductionPerLevel;
-        public final ForgeConfigSpec.ConfigValue<Double> unclaimCooldownOwnerMultiplier;
-        public final ForgeConfigSpec.ConfigValue<Integer> inviteExpirationMinutes;
-        public final ForgeConfigSpec.ConfigValue<Integer> autoClaimCooldownSeconds;
-        public final ForgeConfigSpec.ConfigValue<Boolean> allowPvpInClaims;
-        public final ForgeConfigSpec.ConfigValue<Boolean> allowRedstoneInClaims;
-        public final ForgeConfigSpec.ConfigValue<Boolean> allowDoorUseInClaims;
-        public final ForgeConfigSpec.ConfigValue<Boolean> trustedAllowBuild;
-        public final ForgeConfigSpec.ConfigValue<Integer> adminBypassPermissionLevel;
-        public final ForgeConfigSpec.ConfigValue<Integer> accessLogSize;
-        public final ForgeConfigSpec.ConfigValue<Boolean> dynmapFullSyncOnStart;
-        public final ForgeConfigSpec.ConfigValue<Integer> claimMapRadiusChunks;
-        public final ForgeConfigSpec.ConfigValue<Boolean> claimMapFullSync;
-        public final ForgeConfigSpec.ConfigValue<List<? extends String>> safeZoneDimensions;
-        public final ForgeConfigSpec.ConfigValue<List<? extends String>> warZoneDimensions;
+        public final ModConfigSpec.ConfigValue<String> defaultFactionColor;
+        public final ModConfigSpec.ConfigValue<String> defaultMotd;
+        public final ModConfigSpec.ConfigValue<String> defaultDescription;
+        public final ModConfigSpec.ConfigValue<String> defaultBannerColor;
+        public final ModConfigSpec.ConfigValue<String> defaultRankPreset;
+        public final ModConfigSpec.ConfigValue<List<? extends String>> rankPresets;
+        public final ModConfigSpec.ConfigValue<String> defaultProtectionTier;
+        public final ModConfigSpec.ConfigValue<Integer> strictProtectionMinLevel;
+        public final ModConfigSpec.ConfigValue<Boolean> enableFactionChat;
+        public final ModConfigSpec.ConfigValue<Boolean> enableAllyChat;
+        public final ModConfigSpec.ConfigValue<Boolean> usePublicChatFormat;
+        public final ModConfigSpec.ConfigValue<String> factionChatFormat;
+        public final ModConfigSpec.ConfigValue<String> allyChatFormat;
+        public final ModConfigSpec.ConfigValue<String> publicChatFormat;
+        public final ModConfigSpec.ConfigValue<String> tabListFormat;
+        public final ModConfigSpec.ConfigValue<Integer> baseClaims;
+        public final ModConfigSpec.ConfigValue<Integer> claimsPerMember;
+        public final ModConfigSpec.ConfigValue<Integer> membersPerLevel;
+        public final ModConfigSpec.ConfigValue<Integer> maxFactionLevel;
+        public final ModConfigSpec.ConfigValue<Integer> bonusClaimsPerLevel;
+        public final ModConfigSpec.ConfigValue<Integer> claimCooldownSeconds;
+        public final ModConfigSpec.ConfigValue<Integer> claimCooldownReductionPerLevel;
+        public final ModConfigSpec.ConfigValue<Double> claimCooldownOwnerMultiplier;
+        public final ModConfigSpec.ConfigValue<Integer> unclaimCooldownSeconds;
+        public final ModConfigSpec.ConfigValue<Integer> unclaimCooldownReductionPerLevel;
+        public final ModConfigSpec.ConfigValue<Double> unclaimCooldownOwnerMultiplier;
+        public final ModConfigSpec.ConfigValue<Integer> inviteExpirationMinutes;
+        public final ModConfigSpec.ConfigValue<Integer> autoClaimCooldownSeconds;
+        public final ModConfigSpec.ConfigValue<Boolean> allowPvpInClaims;
+        public final ModConfigSpec.ConfigValue<Boolean> allowRedstoneInClaims;
+        public final ModConfigSpec.ConfigValue<Boolean> allowDoorUseInClaims;
+        public final ModConfigSpec.ConfigValue<Boolean> trustedAllowBuild;
+        public final ModConfigSpec.ConfigValue<Integer> adminBypassPermissionLevel;
+        public final ModConfigSpec.ConfigValue<Integer> accessLogSize;
+        public final ModConfigSpec.ConfigValue<Boolean> dynmapFullSyncOnStart;
+        public final ModConfigSpec.ConfigValue<Integer> claimMapRadiusChunks;
+        public final ModConfigSpec.ConfigValue<Boolean> claimMapFullSync;
+        public final ModConfigSpec.ConfigValue<List<? extends String>> safeZoneDimensions;
+        public final ModConfigSpec.ConfigValue<List<? extends String>> warZoneDimensions;
 
-        private Server(ForgeConfigSpec.Builder builder) {
+        private Server(ModConfigSpec.Builder builder) {
             builder.push("factions");
             defaultFactionColor = builder
                 .comment("Default faction chat color name (e.g. red, gold, blue).")

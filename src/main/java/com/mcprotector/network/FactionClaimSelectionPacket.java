@@ -1,17 +1,24 @@
 package com.mcprotector.network;
 
+import com.mcprotector.McProtectorMod;
 import com.mcprotector.service.FactionService;
-import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.ChunkPos;
-import net.minecraftforge.network.NetworkEvent;
+import net.neoforged.neoforge.network.handling.IPayloadContext;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.function.Supplier;
 
-public class FactionClaimSelectionPacket {
+public class FactionClaimSelectionPacket implements CustomPacketPayload {
+    public static final CustomPacketPayload.Type<FactionClaimSelectionPacket> TYPE =
+        new CustomPacketPayload.Type<>(new ResourceLocation(McProtectorMod.MOD_ID, "faction_claim_selection"));
+    public static final StreamCodec<RegistryFriendlyByteBuf, FactionClaimSelectionPacket> STREAM_CODEC =
+        StreamCodec.ofMember(FactionClaimSelectionPacket::write, FactionClaimSelectionPacket::decode);
     private final List<ChunkPos> chunks;
     private final ClaimType claimType;
     private final String factionName;
@@ -22,17 +29,17 @@ public class FactionClaimSelectionPacket {
         this.factionName = factionName;
     }
 
-    public static void encode(FactionClaimSelectionPacket packet, FriendlyByteBuf buffer) {
-        buffer.writeVarInt(packet.chunks.size());
-        for (ChunkPos chunk : packet.chunks) {
+    private void write(RegistryFriendlyByteBuf buffer) {
+        buffer.writeVarInt(chunks.size());
+        for (ChunkPos chunk : chunks) {
             buffer.writeInt(chunk.x);
             buffer.writeInt(chunk.z);
         }
-        buffer.writeEnum(packet.claimType);
-        buffer.writeUtf(packet.factionName == null ? "" : packet.factionName);
+        buffer.writeEnum(claimType);
+        buffer.writeUtf(factionName == null ? "" : factionName);
     }
 
-    public static FactionClaimSelectionPacket decode(FriendlyByteBuf buffer) {
+    public static FactionClaimSelectionPacket decode(RegistryFriendlyByteBuf buffer) {
         int count = buffer.readVarInt();
         List<ChunkPos> chunks = new ArrayList<>();
         for (int i = 0; i < count; i++) {
@@ -43,14 +50,11 @@ public class FactionClaimSelectionPacket {
         return new FactionClaimSelectionPacket(chunks, claimType, factionName);
     }
 
-    public static void handle(FactionClaimSelectionPacket packet, Supplier<NetworkEvent.Context> context) {
-        NetworkEvent.Context ctx = context.get();
-        ServerPlayer player = ctx.getSender();
-        if (player == null) {
-            ctx.setPacketHandled(true);
+    public static void handle(FactionClaimSelectionPacket packet, IPayloadContext context) {
+        if (!(context.player() instanceof ServerPlayer player)) {
             return;
         }
-        ctx.enqueueWork(() -> {
+        context.enqueueWork(() -> {
             if (packet.chunks.size() > 9) {
                 player.sendSystemMessage(Component.literal("Chunk selection is limited to 9 chunks."));
                 return;
@@ -67,7 +71,11 @@ public class FactionClaimSelectionPacket {
             NetworkHandler.sendToPlayer(player, FactionStatePacket.fromPlayer(player));
             NetworkHandler.sendToPlayer(player, FactionClaimMapPacket.fromPlayer(player));
         });
-        ctx.setPacketHandled(true);
+    }
+
+    @Override
+    public Type<? extends CustomPacketPayload> type() {
+        return TYPE;
     }
 
     public enum ClaimType {

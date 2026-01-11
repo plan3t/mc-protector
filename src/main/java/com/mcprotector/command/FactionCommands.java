@@ -942,7 +942,10 @@ public final class FactionCommands {
                 .resolve("mcprotector_backups");
             java.nio.file.Files.createDirectories(backupDir);
             var backupPath = backupDir.resolve(backupId);
-            net.minecraft.nbt.NbtIo.writeCompressed(data.save(new net.minecraft.nbt.CompoundTag()), backupPath.toFile());
+            net.minecraft.nbt.NbtIo.writeCompressed(
+                data.save(new net.minecraft.nbt.CompoundTag(), level.registryAccess()),
+                backupPath
+            );
             source.sendSuccess(() -> Component.literal("Backup created: " + backupId), true);
             return 1;
         } catch (Exception ex) {
@@ -966,7 +969,7 @@ public final class FactionCommands {
                 source.sendFailure(Component.literal("Backup file not found."));
                 return 0;
             }
-            var tag = net.minecraft.nbt.NbtIo.readCompressed(backupPath.toFile());
+            var tag = net.minecraft.nbt.NbtIo.readCompressed(backupPath, net.minecraft.nbt.NbtAccounter.unlimitedHeap());
             var data = FactionData.get(level);
             data.restoreFromTag(tag);
             source.sendSuccess(() -> Component.literal("Backup restored from " + fileName), true);

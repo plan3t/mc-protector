@@ -1,14 +1,20 @@
 package com.mcprotector.network;
 
+import com.mcprotector.McProtectorMod;
 import com.mcprotector.service.FactionService;
-import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraftforge.network.NetworkEvent;
+import net.neoforged.neoforge.network.handling.IPayloadContext;
 
-import java.util.function.Supplier;
-
-public class FactionActionPacket {
+public class FactionActionPacket implements CustomPacketPayload {
+    public static final CustomPacketPayload.Type<FactionActionPacket> TYPE =
+        new CustomPacketPayload.Type<>(new ResourceLocation(McProtectorMod.MOD_ID, "faction_action"));
+    public static final StreamCodec<RegistryFriendlyByteBuf, FactionActionPacket> STREAM_CODEC =
+        StreamCodec.ofMember(FactionActionPacket::write, FactionActionPacket::decode);
     private final ActionType action;
     private final String targetName;
     private final String role;
@@ -67,15 +73,15 @@ public class FactionActionPacket {
         return new FactionActionPacket(ActionType.DEMOTE_MEMBER, targetName, "", "", false);
     }
 
-    public static void encode(FactionActionPacket packet, FriendlyByteBuf buffer) {
-        buffer.writeEnum(packet.action);
-        buffer.writeUtf(packet.targetName);
-        buffer.writeUtf(packet.role);
-        buffer.writeUtf(packet.permission);
-        buffer.writeBoolean(packet.grant);
+    private void write(RegistryFriendlyByteBuf buffer) {
+        buffer.writeEnum(action);
+        buffer.writeUtf(targetName);
+        buffer.writeUtf(role);
+        buffer.writeUtf(permission);
+        buffer.writeBoolean(grant);
     }
 
-    public static FactionActionPacket decode(FriendlyByteBuf buffer) {
+    public static FactionActionPacket decode(RegistryFriendlyByteBuf buffer) {
         ActionType action = buffer.readEnum(ActionType.class);
         String targetName = buffer.readUtf();
         String role = buffer.readUtf();
@@ -84,14 +90,11 @@ public class FactionActionPacket {
         return new FactionActionPacket(action, targetName, role, permission, grant);
     }
 
-    public static void handle(FactionActionPacket packet, Supplier<NetworkEvent.Context> context) {
-        NetworkEvent.Context ctx = context.get();
-        ServerPlayer player = ctx.getSender();
-        if (player == null) {
-            ctx.setPacketHandled(true);
+    public static void handle(FactionActionPacket packet, IPayloadContext context) {
+        if (!(context.player() instanceof ServerPlayer player)) {
             return;
         }
-        ctx.enqueueWork(() -> {
+        context.enqueueWork(() -> {
             switch (packet.action) {
                 case INVITE -> {
                     ServerPlayer target = player.getServer().getPlayerList().getPlayerByName(packet.targetName);
@@ -194,7 +197,11 @@ public class FactionActionPacket {
             NetworkHandler.sendToPlayer(player, FactionStatePacket.fromPlayer(player));
             NetworkHandler.sendToPlayer(player, FactionClaimMapPacket.fromPlayer(player));
         });
-        ctx.setPacketHandled(true);
+    }
+
+    @Override
+    public Type<? extends CustomPacketPayload> type() {
+        return TYPE;
     }
 
     public enum ActionType {

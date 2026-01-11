@@ -1,27 +1,35 @@
 package com.mcprotector.network;
 
-import net.minecraft.network.FriendlyByteBuf;
+import com.mcprotector.McProtectorMod;
+import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraftforge.network.NetworkEvent;
+import net.neoforged.neoforge.network.handling.IPayloadContext;
 
-import java.util.function.Supplier;
+public class FactionClaimMapRequestPacket implements CustomPacketPayload {
+    public static final CustomPacketPayload.Type<FactionClaimMapRequestPacket> TYPE =
+        new CustomPacketPayload.Type<>(new ResourceLocation(McProtectorMod.MOD_ID, "faction_claim_map_request"));
+    public static final StreamCodec<RegistryFriendlyByteBuf, FactionClaimMapRequestPacket> STREAM_CODEC =
+        StreamCodec.ofMember(FactionClaimMapRequestPacket::write, FactionClaimMapRequestPacket::decode);
 
-public class FactionClaimMapRequestPacket {
-    public static void encode(FactionClaimMapRequestPacket packet, FriendlyByteBuf buffer) {
+    private void write(RegistryFriendlyByteBuf buffer) {
     }
 
-    public static FactionClaimMapRequestPacket decode(FriendlyByteBuf buffer) {
+    public static FactionClaimMapRequestPacket decode(RegistryFriendlyByteBuf buffer) {
         return new FactionClaimMapRequestPacket();
     }
 
-    public static void handle(FactionClaimMapRequestPacket packet, Supplier<NetworkEvent.Context> context) {
-        NetworkEvent.Context ctx = context.get();
-        ServerPlayer player = ctx.getSender();
-        if (player == null) {
-            ctx.setPacketHandled(true);
+    public static void handle(FactionClaimMapRequestPacket packet, IPayloadContext context) {
+        if (!(context.player() instanceof ServerPlayer player)) {
             return;
         }
-        ctx.enqueueWork(() -> NetworkHandler.sendToPlayer(player, FactionClaimMapPacket.fromPlayer(player)));
-        ctx.setPacketHandled(true);
+        context.enqueueWork(() -> NetworkHandler.sendToPlayer(player, FactionClaimMapPacket.fromPlayer(player)));
+    }
+
+    @Override
+    public Type<? extends CustomPacketPayload> type() {
+        return TYPE;
     }
 }
