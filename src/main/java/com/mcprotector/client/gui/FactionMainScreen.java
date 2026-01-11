@@ -29,7 +29,7 @@ public class FactionMainScreen extends Screen {
     private static final int TAB_BUTTON_WIDTH = 72;
     private static final int PANEL_PADDING = 16;
     private static final int BACKDROP_COLOR = 0x80000000;
-    private static final int PANEL_BG = 0xFF1B1B1B;
+    private static final int PANEL_BG = 0xD01B1B1B;
     private static final int PANEL_BORDER = 0xFF3B3B3B;
     private static final int PANEL_HIGHLIGHT = 0xFF4A4A4A;
     private static final DateTimeFormatter INVITE_TIME_FORMAT = DateTimeFormatter.ofPattern("HH:mm")
@@ -122,17 +122,18 @@ public class FactionMainScreen extends Screen {
             .bounds(PANEL_PADDING + 290, panelTop + 40, 70, 20)
             .build());
 
+        int bottomRowY = this.height - PANEL_PADDING - 20;
         refreshButton = this.addRenderableWidget(Button.builder(Component.literal("Refresh"), button -> {
             FactionClientData.requestUpdate();
             FactionMapClientData.requestUpdate();
         })
-            .bounds(this.width - PANEL_PADDING - 80, this.height - PANEL_PADDING - 20, 80, 20)
+            .bounds(this.width - PANEL_PADDING - 80, bottomRowY, 80, 20)
             .build());
         dynmapSyncButton = this.addRenderableWidget(Button.builder(Component.literal("Sync Dynmap"), button -> sendDynmapSync())
-            .bounds(PANEL_PADDING, this.height - PANEL_PADDING - 20, 110, 20)
+            .bounds(PANEL_PADDING, bottomRowY, 110, 20)
             .build());
         leaveFactionButton = this.addRenderableWidget(Button.builder(Component.literal("Leave Faction"), button -> leaveFaction())
-            .bounds(PANEL_PADDING, this.height - PANEL_PADDING - 20, 110, 20)
+            .bounds(PANEL_PADDING, bottomRowY, 110, 20)
             .build());
         safeZoneFactionField = new EditBox(this.font, PANEL_PADDING, panelTop + 10, 120, 16,
             Component.literal("Safe zone faction"));
@@ -514,7 +515,6 @@ public class FactionMainScreen extends Screen {
         int contentBottom = this.height - 6;
         drawPanel(guiGraphics, panelLeft, headerTop, panelRight, headerBottom);
         drawPanel(guiGraphics, panelLeft, contentTop, panelRight, contentBottom);
-        drawPanel(guiGraphics, panelLeft + 4, panelTop - 2, panelRight - 4, panelTop + 28);
     }
 
     private void renderBackdrop(GuiGraphics guiGraphics) {
