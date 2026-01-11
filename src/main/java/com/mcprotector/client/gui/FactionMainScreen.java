@@ -68,7 +68,7 @@ public class FactionMainScreen extends Screen {
     protected void init() {
         super.init();
         int startX = (this.width - (FactionTab.values().length * (TAB_BUTTON_WIDTH + 4))) / 2;
-        int y = 34;
+        int y = 42;
         for (FactionTab tab : FactionTab.values()) {
             int x = startX + tab.ordinal() * (TAB_BUTTON_WIDTH + 4);
             this.addRenderableWidget(Button.builder(Component.literal(tab.getLabel()), button -> {
@@ -590,9 +590,6 @@ public class FactionMainScreen extends Screen {
         for (String perm : visiblePerms) {
             guiGraphics.drawString(this.font, "- " + perm, PANEL_PADDING, y, 0xAAAAAA);
             y += lineHeight;
-        }
-        if (selected.permissions().size() > visibleLines) {
-            guiGraphics.drawString(this.font, "Scroll to view more...", PANEL_PADDING, this.height - 25, 0x777777);
         }
     }
 
