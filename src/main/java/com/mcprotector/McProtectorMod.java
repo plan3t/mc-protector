@@ -7,6 +7,8 @@ import com.mcprotector.command.FactionRelationCommands;
 import com.mcprotector.config.FactionConfig;
 import com.mcprotector.data.FactionData;
 import com.mcprotector.dynmap.DynmapBridge;
+import com.mcprotector.network.FactionClaimMapPacket;
+import com.mcprotector.network.FactionStatePacket;
 import com.mcprotector.network.NetworkHandler;
 import com.mcprotector.protection.ClaimProtectionHandler;
 import net.neoforged.bus.api.IEventBus;
@@ -16,7 +18,9 @@ import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.neoforged.fml.config.ModConfig;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
+import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.event.server.ServerStartedEvent;
+import net.minecraft.server.level.ServerPlayer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -31,6 +35,8 @@ public class McProtectorMod {
         modContainer.registerConfig(ModConfig.Type.SERVER, FactionConfig.SERVER_SPEC);
         NeoForge.EVENT_BUS.addListener(this::registerCommands);
         NeoForge.EVENT_BUS.addListener(this::onServerStarted);
+        NeoForge.EVENT_BUS.addListener(this::onPlayerLoggedIn);
+        NeoForge.EVENT_BUS.addListener(this::onPlayerChangedDimension);
         NeoForge.EVENT_BUS.register(new ClaimProtectionHandler());
         NeoForge.EVENT_BUS.register(new FactionChatHandler());
         NeoForge.EVENT_BUS.register(new FactionClaimHandler());
@@ -53,5 +59,22 @@ public class McProtectorMod {
                 DynmapBridge.syncClaims(level, FactionData.get(level));
             }
         }
+    }
+
+    private void onPlayerLoggedIn(PlayerEvent.PlayerLoggedInEvent event) {
+        if (event.getEntity() instanceof ServerPlayer player) {
+            syncPlayerClaimState(player);
+        }
+    }
+
+    private void onPlayerChangedDimension(PlayerEvent.PlayerChangedDimensionEvent event) {
+        if (event.getEntity() instanceof ServerPlayer player) {
+            syncPlayerClaimState(player);
+        }
+    }
+
+    private void syncPlayerClaimState(ServerPlayer player) {
+        NetworkHandler.sendToPlayer(player, FactionStatePacket.fromPlayer(player));
+        NetworkHandler.sendToPlayer(player, FactionClaimMapPacket.fromPlayer(player));
     }
 }

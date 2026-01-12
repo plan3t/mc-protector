@@ -6,6 +6,7 @@ import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
+import net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent;
 import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
@@ -36,13 +37,13 @@ public final class ClientModEvents {
     }
 
     private static void onClientTick(ClientTickEvent.Post event) {
-        if (factionUiKey == null) {
-            return;
-        }
         claimMapTickCounter++;
         if (claimMapTickCounter >= 40) {
             claimMapTickCounter = 0;
             FactionMapClientData.requestUpdate();
+        }
+        if (factionUiKey == null) {
+            return;
         }
         while (factionUiKey.consumeClick()) {
             Minecraft client = Minecraft.getInstance();
@@ -56,5 +57,11 @@ public final class ClientModEvents {
 
     private static void onRenderLevelStage(RenderLevelStageEvent event) {
         FactionClaimBorderRenderer.render(event);
+    }
+
+    @SubscribeEvent
+    public static void onClientLogin(ClientPlayerNetworkEvent.LoggingIn event) {
+        FactionClientData.requestUpdate();
+        FactionMapClientData.requestUpdate();
     }
 }
