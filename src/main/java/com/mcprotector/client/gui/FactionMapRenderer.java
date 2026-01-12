@@ -123,6 +123,18 @@ public final class FactionMapRenderer {
                                           int scrollOffset,
                                           int height,
                                           int panelPadding,
+                                          int controlsOffset,
+                                          Font font) {
+        return renderMapClaimsList(guiGraphics, claims, region, scrollOffset, height, panelPadding, 0, font);
+    }
+
+    public static int renderMapClaimsList(GuiGraphics guiGraphics,
+                                          List<com.mcprotector.network.FactionStatePacket.ClaimEntry> claims,
+                                          MapRegion region,
+                                          int scrollOffset,
+                                          int height,
+                                          int panelPadding,
+                                          int controlsOffset,
                                           Font font) {
         int startY = getMapClaimsListStart(region);
         guiGraphics.drawString(font, "Claims:", panelPadding, startY, 0xFFFFFF);
