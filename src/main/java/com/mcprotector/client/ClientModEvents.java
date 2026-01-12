@@ -6,6 +6,7 @@ import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
+import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.fml.common.Mod;
@@ -17,6 +18,7 @@ import org.lwjgl.glfw.GLFW;
 @EventBusSubscriber(modid = McProtectorMod.MOD_ID, value = Dist.CLIENT)
 public final class ClientModEvents {
     private static KeyMapping factionUiKey;
+    private static int claimMapTickCounter = 0;
 
     private ClientModEvents() {
     }
@@ -24,6 +26,7 @@ public final class ClientModEvents {
     @SubscribeEvent
     public static void onClientSetup(FMLClientSetupEvent event) {
         NeoForge.EVENT_BUS.addListener(ClientModEvents::onClientTick);
+        NeoForge.EVENT_BUS.addListener(ClientModEvents::onRenderLevelStage);
     }
 
     @SubscribeEvent
@@ -36,6 +39,11 @@ public final class ClientModEvents {
         if (factionUiKey == null) {
             return;
         }
+        claimMapTickCounter++;
+        if (claimMapTickCounter >= 40) {
+            claimMapTickCounter = 0;
+            FactionMapClientData.requestUpdate();
+        }
         while (factionUiKey.consumeClick()) {
             Minecraft client = Minecraft.getInstance();
             if (client.player == null) {
@@ -44,5 +52,9 @@ public final class ClientModEvents {
             client.setScreen(new FactionMainScreen());
             FactionClientData.requestUpdate();
         }
+    }
+
+    private static void onRenderLevelStage(RenderLevelStageEvent event) {
+        FactionClaimBorderRenderer.render(event);
     }
 }

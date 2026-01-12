@@ -4,11 +4,12 @@ import com.mcprotector.config.FactionConfig;
 import com.mcprotector.data.Faction;
 import com.mcprotector.data.FactionData;
 import com.mcprotector.data.FactionPermission;
+import com.mcprotector.data.FactionRelation;
 import com.mcprotector.dynmap.DynmapBridge;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.TextColor;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.ChunkPos;
@@ -33,7 +34,6 @@ public class FactionClaimHandler {
             handleAutoClaim(player, currentChunk);
             handleTerritoryOverlay(player);
         }
-        handleClaimBorder(player, currentChunk);
     }
 
     private void handleAutoClaim(ServerPlayer player, ChunkPos chunkPos) {
@@ -73,14 +73,17 @@ public class FactionClaimHandler {
         FactionData data = FactionData.get(level);
         BlockPos pos = player.blockPosition();
         Optional<Faction> owner = data.getFactionAt(pos);
+        boolean isSafeZone = data.isSafeZoneClaimed(pos);
+        boolean isPersonal = data.getPersonalClaimOwner(pos).isPresent();
         Optional<UUID> ownerId = owner.map(Faction::getId);
         Optional<UUID> lastOwner = FactionClaimManager.getLastTerritory(player.getUUID());
         if (!lastOwner.equals(ownerId)) {
             if (owner.isEmpty()) {
                 player.displayClientMessage(Component.literal("Entering wilderness").withStyle(ChatFormatting.GRAY), true);
             } else {
+                TextColor mapColor = getMapColor(player, data, ownerId.orElse(null), isSafeZone, isPersonal);
                 player.displayClientMessage(
-                    Component.literal("Entering " + owner.get().getName() + " territory").withStyle(owner.get().getColor()),
+                    Component.literal("Entering " + owner.get().getName() + " territory").withStyle(style -> style.withColor(mapColor)),
                     true
                 );
             }
@@ -88,35 +91,26 @@ public class FactionClaimHandler {
         FactionClaimManager.setLastTerritory(player.getUUID(), ownerId);
     }
 
-    private void handleClaimBorder(ServerPlayer player, ChunkPos chunkPos) {
-        if (!FactionClaimManager.isBorderEnabled(player.getUUID())) {
-            return;
+    private TextColor getMapColor(ServerPlayer player, FactionData data, UUID ownerId, boolean safeZone, boolean personal) {
+        if (safeZone) {
+            return TextColor.fromRgb(0xF9A825);
         }
-        long now = System.currentTimeMillis();
-        long lastParticle = FactionClaimManager.getLastBorderParticle(player.getUUID());
-        if (now - lastParticle < 1000L) {
-            return;
+        if (personal) {
+            return TextColor.fromRgb(0x9C27B0);
         }
-        FactionClaimManager.setLastBorderParticle(player.getUUID(), now);
-        ServerLevel level = player.serverLevel();
-        spawnBorderParticles(level, player, chunkPos);
-    }
-
-    private void spawnBorderParticles(ServerLevel level, ServerPlayer player, ChunkPos chunkPos) {
-        int minX = chunkPos.getMinBlockX();
-        int maxX = chunkPos.getMaxBlockX();
-        int minZ = chunkPos.getMinBlockZ();
-        int maxZ = chunkPos.getMaxBlockZ();
-        double y = player.getY() + 1.0;
-        int step = 4;
-        for (int x = minX; x <= maxX; x += step) {
-            level.sendParticles(player, ParticleTypes.FLAME, true, x + 0.5, y, minZ + 0.5, 2, 0.05, 0.05, 0.05, 0);
-            level.sendParticles(player, ParticleTypes.FLAME, true, x + 0.5, y, maxZ + 0.5, 2, 0.05, 0.05, 0.05, 0);
+        Optional<UUID> playerFactionId = data.getFactionIdByPlayer(player.getUUID());
+        if (ownerId == null || playerFactionId.isEmpty()) {
+            return TextColor.fromRgb(0x8D8D8D);
         }
-        for (int z = minZ; z <= maxZ; z += step) {
-            level.sendParticles(player, ParticleTypes.FLAME, true, minX + 0.5, y, z + 0.5, 2, 0.05, 0.05, 0.05, 0);
-            level.sendParticles(player, ParticleTypes.FLAME, true, maxX + 0.5, y, z + 0.5, 2, 0.05, 0.05, 0.05, 0);
+        if (ownerId.equals(playerFactionId.get())) {
+            return TextColor.fromRgb(0x4CAF50);
         }
+        FactionRelation relation = data.getRelation(playerFactionId.get(), ownerId);
+        return switch (relation) {
+            case ALLY -> TextColor.fromRgb(0x4FC3F7);
+            case WAR -> TextColor.fromRgb(0xEF5350);
+            default -> TextColor.fromRgb(0x8D8D8D);
+        };
     }
 
     private void ensureSettingsLoaded(ServerPlayer player) {
