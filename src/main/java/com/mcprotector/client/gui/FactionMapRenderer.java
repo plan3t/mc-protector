@@ -32,9 +32,6 @@ public final class FactionMapRenderer {
         return region.originY() + (region.cellSize() * (region.radius() * 2 + 1)) + 12;
     }
 
-    public static int getMapClaimsListStart(MapRegion region, int controlsOffset) {
-        return getMapClaimsListStart(region) + controlsOffset;
-    }
 
     public static ChunkPos getChunkFromMouse(MapRegion region, double mouseX, double mouseY,
                                              FactionMapClientData.MapSnapshot mapSnapshot) {
@@ -174,6 +171,7 @@ public final class FactionMapRenderer {
         }
         return clampedOffset;
     }
+
 
     private static int getMapColor(com.mcprotector.network.FactionClaimMapPacket.ClaimEntry entry) {
         if (entry == null) {
