@@ -53,6 +53,14 @@ public final class FactionMapRenderer {
 
     public static void renderMapGrid(GuiGraphics guiGraphics, FactionMapClientData.MapSnapshot mapSnapshot, MapRegion region) {
         int radius = region.radius();
+        int size = region.cellSize() * (radius * 2 + 1);
+        int mapX = region.originX();
+        int mapY = region.originY();
+        int mapEndX = mapX + size;
+        int mapEndY = mapY + size;
+        guiGraphics.fill(mapX - 2, mapY - 2, mapEndX + 2, mapEndY + 2, 0x66000000);
+        guiGraphics.renderOutline(mapX - 2, mapY - 2, size + 4, size + 4, 0xFFE6E6E6);
+        guiGraphics.renderOutline(mapX, mapY, size, size, 0xFFFFFFFF);
         for (int dz = -radius; dz <= radius; dz++) {
             for (int dx = -radius; dx <= radius; dx++) {
                 int chunkX = mapSnapshot.centerChunkX() + dx;
