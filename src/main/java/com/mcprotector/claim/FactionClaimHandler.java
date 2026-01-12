@@ -13,11 +13,17 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.ChunkPos;
 import net.neoforged.neoforge.event.tick.PlayerTickEvent;
 import net.neoforged.bus.api.SubscribeEvent;
+import org.joml.Vector3f;
 
 import java.util.Optional;
 import java.util.UUID;
 
 public class FactionClaimHandler {
+    private static final int SAFE_ZONE_COLOR = 0xFFF9A825;
+    private static final int PERSONAL_CLAIM_COLOR = 0xFF9C27B0;
+    private static final float FORCE_FIELD_SCALE = 1.2f;
+    private static final int MIN_RENDER_RADIUS = 2;
+
     @SubscribeEvent
     public void onPlayerTick(PlayerTickEvent.Post event) {
         if (!(event.getEntity() instanceof ServerPlayer player)) {
