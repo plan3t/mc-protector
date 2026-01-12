@@ -28,6 +28,9 @@ public class FactionMainScreen extends Screen {
     private static final int TAB_BUTTON_HEIGHT = 18;
     private static final int TAB_BUTTON_WIDTH = 72;
     private static final int PANEL_PADDING = 16;
+    private static final int CONTROL_TOP_OFFSET = 6;
+    private static final int CONTROL_ROW_SPACING = 24;
+    private static final int CONTENT_START_OFFSET = 54;
     private static final int BACKDROP_COLOR = 0x80000000;
     private static final int PANEL_BG = 0xD01B1B1B;
     private static final int PANEL_BORDER = 0xFF3B3B3B;
@@ -81,45 +84,47 @@ public class FactionMainScreen extends Screen {
             }).bounds(x, y, TAB_BUTTON_WIDTH, TAB_BUTTON_HEIGHT).build());
         }
         panelTop = y + TAB_BUTTON_HEIGHT + 10;
-        inviteNameField = new EditBox(this.font, PANEL_PADDING, panelTop + 30, 140, 18, Component.literal("Player name"));
+        int controlRowOne = panelTop + CONTROL_TOP_OFFSET;
+        int controlRowTwo = controlRowOne + CONTROL_ROW_SPACING;
+        inviteNameField = new EditBox(this.font, PANEL_PADDING, controlRowOne, 140, 18, Component.literal("Player name"));
         inviteNameField.setMaxLength(32);
         this.addRenderableWidget(inviteNameField);
         inviteButton = this.addRenderableWidget(Button.builder(Component.literal("Send Invite"), button -> sendInvite())
-            .bounds(PANEL_PADDING + 150, panelTop + 28, 100, 20)
+            .bounds(PANEL_PADDING + 150, controlRowOne - 2, 100, 20)
             .build());
         joinInviteButton = this.addRenderableWidget(Button.builder(Component.literal("Join Faction"), button -> acceptInvite())
-            .bounds(PANEL_PADDING, panelTop + 55, 110, 20)
+            .bounds(PANEL_PADDING, controlRowTwo, 110, 20)
             .build());
         declineInviteButton = this.addRenderableWidget(Button.builder(Component.literal("Decline"), button -> declineInvite())
-            .bounds(PANEL_PADDING + 120, panelTop + 55, 80, 20)
+            .bounds(PANEL_PADDING + 120, controlRowTwo, 80, 20)
             .build());
 
         roleButton = this.addRenderableWidget(Button.builder(Component.literal("Role: " + currentRole().name()), button -> {
             roleIndex = (roleIndex + 1) % FactionRole.values().length;
             updatePermissionLabels();
-        }).bounds(PANEL_PADDING, panelTop + 30, 140, 20).build());
+        }).bounds(PANEL_PADDING, controlRowOne, 140, 20).build());
         permissionButton = this.addRenderableWidget(Button.builder(Component.literal("Perm: " + currentPermission().name()), button -> {
             permissionIndex = (permissionIndex + 1) % FactionPermission.values().length;
             updatePermissionLabels();
-        }).bounds(PANEL_PADDING + 150, panelTop + 30, 140, 20).build());
+        }).bounds(PANEL_PADDING + 150, controlRowOne, 140, 20).build());
         grantButton = this.addRenderableWidget(Button.builder(Component.literal("Grant"), button -> sendPermission(true))
-            .bounds(PANEL_PADDING, panelTop + 55, 70, 20)
+            .bounds(PANEL_PADDING, controlRowTwo, 70, 20)
             .build());
         revokeButton = this.addRenderableWidget(Button.builder(Component.literal("Revoke"), button -> sendPermission(false))
-            .bounds(PANEL_PADDING + 80, panelTop + 55, 70, 20)
+            .bounds(PANEL_PADDING + 80, controlRowTwo, 70, 20)
             .build());
 
-        memberNameField = new EditBox(this.font, PANEL_PADDING, panelTop + 40, 140, 18, Component.literal("Member name"));
+        memberNameField = new EditBox(this.font, PANEL_PADDING, controlRowOne + 10, 140, 18, Component.literal("Member name"));
         memberNameField.setMaxLength(32);
         this.addRenderableWidget(memberNameField);
         kickMemberButton = this.addRenderableWidget(Button.builder(Component.literal("Kick"), button -> sendMemberAction(MemberAction.KICK))
-            .bounds(PANEL_PADDING + 150, panelTop + 40, 60, 20)
+            .bounds(PANEL_PADDING + 150, controlRowOne + 8, 60, 20)
             .build());
         promoteMemberButton = this.addRenderableWidget(Button.builder(Component.literal("Promote"), button -> sendMemberAction(MemberAction.PROMOTE))
-            .bounds(PANEL_PADDING + 215, panelTop + 40, 70, 20)
+            .bounds(PANEL_PADDING + 215, controlRowOne + 8, 70, 20)
             .build());
         demoteMemberButton = this.addRenderableWidget(Button.builder(Component.literal("Demote"), button -> sendMemberAction(MemberAction.DEMOTE))
-            .bounds(PANEL_PADDING + 290, panelTop + 40, 70, 20)
+            .bounds(PANEL_PADDING + 290, controlRowOne + 8, 70, 20)
             .build());
 
         int bottomRowY = this.height - PANEL_PADDING - 20;
@@ -135,16 +140,16 @@ public class FactionMainScreen extends Screen {
         leaveFactionButton = this.addRenderableWidget(Button.builder(Component.literal("Leave Faction"), button -> leaveFaction())
             .bounds(PANEL_PADDING, bottomRowY, 110, 20)
             .build());
-        safeZoneFactionField = new EditBox(this.font, PANEL_PADDING, panelTop + 10, 120, 16,
+        safeZoneFactionField = new EditBox(this.font, PANEL_PADDING, controlRowOne, 120, 16,
             Component.literal("Safe zone faction"));
         safeZoneFactionField.setMaxLength(32);
         this.addRenderableWidget(safeZoneFactionField);
         claimTypeButton = this.addRenderableWidget(Button.builder(Component.literal("Claim: " + selectedClaimType.getLabel()),
                 button -> cycleClaimType())
-            .bounds(PANEL_PADDING + 130, panelTop + 8, 120, 16)
+            .bounds(PANEL_PADDING + 130, controlRowOne - 2, 120, 16)
             .build());
         submitClaimsButton = this.addRenderableWidget(Button.builder(Component.literal("✓"), button -> promptClaimConfirm())
-            .bounds(PANEL_PADDING + 255, panelTop + 8, 16, 16)
+            .bounds(PANEL_PADDING + 255, controlRowOne - 2, 16, 16)
             .build());
 
         updateVisibility();
@@ -202,14 +207,7 @@ public class FactionMainScreen extends Screen {
                 + " | Protection " + snapshot.protectionTier();
             guiGraphics.drawString(this.font, stats, PANEL_PADDING, 28, 0xBDBDBD);
         }
-        int contentStart = selectedTab == FactionTab.INVITES
-            || selectedTab == FactionTab.PERMISSIONS
-            ? panelTop + 85
-            : selectedTab == FactionTab.FACTION_MAP
-            ? panelTop + 40
-            : selectedTab == FactionTab.MEMBERS && snapshot.inFaction()
-            ? panelTop + 70
-            : 80;
+        int contentStart = getContentStart(snapshot);
         switch (selectedTab) {
             case MEMBERS -> renderMembers(guiGraphics, snapshot.members(), contentStart);
             case INVITES -> renderInvites(guiGraphics, snapshot, contentStart);
@@ -229,7 +227,7 @@ public class FactionMainScreen extends Screen {
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
         if (selectedTab == FactionTab.PERMISSIONS) {
             int lineHeight = 10;
-            int listStart = panelTop + 85 + 22;
+            int listStart = panelTop + CONTENT_START_OFFSET + 22;
             int availableHeight = Math.max(0, this.height - listStart - 30);
             int visibleLines = Math.max(1, availableHeight / lineHeight);
             int maxOffset = Math.max(0, getSelectedPermissions().size() - visibleLines);
@@ -242,12 +240,12 @@ public class FactionMainScreen extends Screen {
         }
         if (selectedTab == FactionTab.FACTION_MAP) {
             FactionMapClientData.MapSnapshot mapSnapshot = FactionMapClientData.getSnapshot();
-            FactionMapRenderer.MapRegion region = FactionMapRenderer.buildMapRegion(panelTop + 40, mapSnapshot.radius(),
+            FactionMapRenderer.MapRegion region = FactionMapRenderer.buildMapRegion(getContentStart(FactionClientData.getSnapshot()), mapSnapshot.radius(),
                 this.width, this.height, PANEL_PADDING);
             int listStart = FactionMapRenderer.getMapClaimsListStart(region);
             if (mouseY >= listStart) {
                 int lineHeight = 10;
-                int availableHeight = Math.max(0, this.height - listStart - 30);
+                int availableHeight = Math.max(0, getMapClaimsBottomRow() - listStart - 6);
                 int visibleLines = Math.max(1, availableHeight / lineHeight);
                 int maxOffset = Math.max(0, FactionClientData.getSnapshot().claims().size() - visibleLines);
                 if (scrollY < 0) {
@@ -265,7 +263,7 @@ public class FactionMainScreen extends Screen {
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         if (selectedTab == FactionTab.FACTION_MAP && button == 0) {
             FactionMapClientData.MapSnapshot mapSnapshot = FactionMapClientData.getSnapshot();
-            FactionMapRenderer.MapRegion region = FactionMapRenderer.buildMapRegion(panelTop + 40, mapSnapshot.radius(),
+            FactionMapRenderer.MapRegion region = FactionMapRenderer.buildMapRegion(getContentStart(FactionClientData.getSnapshot()), mapSnapshot.radius(),
                 this.width, this.height, PANEL_PADDING);
             ChunkPos clicked = FactionMapRenderer.getChunkFromMouse(region, mouseX, mouseY, mapSnapshot);
             if (clicked != null) {
@@ -280,7 +278,7 @@ public class FactionMainScreen extends Screen {
     public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
         if (selectedTab == FactionTab.FACTION_MAP && button == 0 && selectionActive) {
             FactionMapClientData.MapSnapshot mapSnapshot = FactionMapClientData.getSnapshot();
-            FactionMapRenderer.MapRegion region = FactionMapRenderer.buildMapRegion(panelTop + 40, mapSnapshot.radius(),
+            FactionMapRenderer.MapRegion region = FactionMapRenderer.buildMapRegion(getContentStart(FactionClientData.getSnapshot()), mapSnapshot.radius(),
                 this.width, this.height, PANEL_PADDING);
             ChunkPos hovered = FactionMapRenderer.getChunkFromMouse(region, mouseX, mouseY, mapSnapshot);
             if (hovered != null) {
@@ -650,6 +648,7 @@ public class FactionMainScreen extends Screen {
             return;
         }
         FactionMapRenderer.MapRegion region = FactionMapRenderer.buildMapRegion(startY, radius, this.width, this.height, PANEL_PADDING);
+        updateMapControlLayout();
         FactionMapRenderer.renderMapGrid(guiGraphics, mapSnapshot, region);
         if (!selectedChunks.isEmpty()) {
             FactionMapRenderer.renderSelectionOverlay(guiGraphics, mapSnapshot, region, selectedChunks);
@@ -660,12 +659,61 @@ public class FactionMainScreen extends Screen {
         if (hovered != null) {
             FactionMapRenderer.renderMapTooltip(guiGraphics, mapSnapshot, hovered, mouseX, mouseY, this.font);
         }
-        mapClaimsScrollOffset = FactionMapRenderer.renderMapClaimsList(guiGraphics, snapshot.claims(), region,
-            mapClaimsScrollOffset, this.height, PANEL_PADDING, this.font);
+        mapClaimsScrollOffset = renderMapClaimsList(guiGraphics, snapshot.claims(), region, mapClaimsScrollOffset);
         if (!selectedChunks.isEmpty()) {
             guiGraphics.drawString(this.font, "Selected " + selectedChunks.size() + " chunk(s)",
                 PANEL_PADDING, startY + 14, 0xF9A825);
         }
+    }
+
+    private int renderMapClaimsList(GuiGraphics guiGraphics,
+                                    List<com.mcprotector.network.FactionStatePacket.ClaimEntry> claims,
+                                    FactionMapRenderer.MapRegion region,
+                                    int scrollOffset) {
+        int startY = FactionMapRenderer.getMapClaimsListStart(region);
+        guiGraphics.drawString(this.font, "Claims:", PANEL_PADDING, startY, 0xFFFFFF);
+        int y = startY + 12;
+        if (claims.isEmpty()) {
+            guiGraphics.drawString(this.font, "No claims.", PANEL_PADDING, y, 0x777777);
+            return 0;
+        }
+        int lineHeight = 10;
+        int availableHeight = Math.max(0, getMapClaimsBottomRow() - y - 6);
+        int visibleLines = Math.max(1, availableHeight / lineHeight);
+        int maxOffset = Math.max(0, claims.size() - visibleLines);
+        int clampedOffset = Math.min(scrollOffset, maxOffset);
+        List<com.mcprotector.network.FactionStatePacket.ClaimEntry> visibleClaims = claims
+            .subList(clampedOffset, Math.min(claims.size(), clampedOffset + visibleLines));
+        for (var claim : visibleClaims) {
+            guiGraphics.drawString(this.font, "Chunk " + claim.chunkX() + ", " + claim.chunkZ(), PANEL_PADDING, y, 0xCCCCCC);
+            y += lineHeight;
+        }
+        return clampedOffset;
+    }
+
+    private int getContentStart(FactionClientData.FactionSnapshot snapshot) {
+        boolean hasControls = selectedTab == FactionTab.INVITES
+            || selectedTab == FactionTab.PERMISSIONS
+            || (selectedTab == FactionTab.MEMBERS && snapshot.inFaction());
+        return panelTop + (hasControls ? CONTENT_START_OFFSET : CONTROL_TOP_OFFSET);
+    }
+
+    private int getMapClaimsBottomRow() {
+        return this.height - PANEL_PADDING - 20;
+    }
+
+    private void updateMapControlLayout() {
+        int controlsY = getMapClaimsBottomRow();
+        int claimBlockWidth = 120 + 4 + 16;
+        int leftLimit = PANEL_PADDING + 120;
+        int rightLimit = this.width - PANEL_PADDING - 80 - 8;
+        int claimStart = Math.max(leftLimit, (leftLimit + rightLimit - claimBlockWidth) / 2);
+        claimTypeButton.setX(claimStart);
+        claimTypeButton.setY(controlsY);
+        submitClaimsButton.setX(claimStart + 124);
+        submitClaimsButton.setY(controlsY);
+        safeZoneFactionField.setX(claimStart);
+        safeZoneFactionField.setY(controlsY - 22);
     }
 
     private enum MemberAction {
