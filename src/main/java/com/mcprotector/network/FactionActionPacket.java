@@ -65,14 +65,6 @@ public class FactionActionPacket implements CustomPacketPayload {
         return new FactionActionPacket(ActionType.KICK_MEMBER, targetName, "", "", false);
     }
 
-    public static FactionActionPacket promoteMember(String targetName) {
-        return new FactionActionPacket(ActionType.PROMOTE_MEMBER, targetName, "", "", false);
-    }
-
-    public static FactionActionPacket demoteMember(String targetName) {
-        return new FactionActionPacket(ActionType.DEMOTE_MEMBER, targetName, "", "", false);
-    }
-
     public static FactionActionPacket setRole(String targetName, String role) {
         return new FactionActionPacket(ActionType.SET_ROLE, targetName, role, "", false);
     }
@@ -185,30 +177,6 @@ public class FactionActionPacket implements CustomPacketPayload {
                         player.sendSystemMessage(Component.literal("Failed to kick member: " + ex.getMessage()));
                     }
                 }
-                case PROMOTE_MEMBER -> {
-                    ServerPlayer target = player.getServer().getPlayerList().getPlayerByName(packet.targetName);
-                    if (target == null) {
-                        player.sendSystemMessage(Component.literal("Player not found."));
-                        return;
-                    }
-                    try {
-                        FactionService.setRole(player.createCommandSourceStack(), target, com.mcprotector.data.FactionRole.OFFICER);
-                    } catch (Exception ex) {
-                        player.sendSystemMessage(Component.literal("Failed to promote member: " + ex.getMessage()));
-                    }
-                }
-                case DEMOTE_MEMBER -> {
-                    ServerPlayer target = player.getServer().getPlayerList().getPlayerByName(packet.targetName);
-                    if (target == null) {
-                        player.sendSystemMessage(Component.literal("Player not found."));
-                        return;
-                    }
-                    try {
-                        FactionService.setRole(player.createCommandSourceStack(), target, com.mcprotector.data.FactionRole.MEMBER);
-                    } catch (Exception ex) {
-                        player.sendSystemMessage(Component.literal("Failed to demote member: " + ex.getMessage()));
-                    }
-                }
                 case SET_ROLE -> {
                     ServerPlayer target = player.getServer().getPlayerList().getPlayerByName(packet.targetName);
                     if (target == null) {
@@ -264,8 +232,6 @@ public class FactionActionPacket implements CustomPacketPayload {
         DECLINE_INVITE,
         LEAVE_FACTION,
         KICK_MEMBER,
-        PROMOTE_MEMBER,
-        DEMOTE_MEMBER,
         SET_ROLE,
         SET_RELATION_PERMISSION,
         ADD_RULE,
