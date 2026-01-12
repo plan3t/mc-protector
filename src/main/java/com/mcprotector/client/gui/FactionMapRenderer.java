@@ -32,6 +32,10 @@ public final class FactionMapRenderer {
         return region.originY() + (region.cellSize() * (region.radius() * 2 + 1)) + 12;
     }
 
+    public static int getMapClaimsListStart(MapRegion region, int controlsOffset) {
+        return getMapClaimsListStart(region) + controlsOffset;
+    }
+
     public static ChunkPos getChunkFromMouse(MapRegion region, double mouseX, double mouseY,
                                              FactionMapClientData.MapSnapshot mapSnapshot) {
         if (region == null) {
@@ -122,6 +126,35 @@ public final class FactionMapRenderer {
                                           int controlsOffset,
                                           Font font) {
         int startY = region.originY() + (region.cellSize() * (region.radius() * 2 + 1)) + 12 + controlsOffset;
+        guiGraphics.drawString(font, "Claims:", panelPadding, startY, 0xFFFFFF);
+        int y = startY + 12;
+        if (claims.isEmpty()) {
+            guiGraphics.drawString(font, "No claims.", panelPadding, y, 0x777777);
+            return 0;
+        }
+        int lineHeight = 10;
+        int availableHeight = Math.max(0, height - y - 6);
+        int visibleLines = Math.max(1, availableHeight / lineHeight);
+        int maxOffset = Math.max(0, claims.size() - visibleLines);
+        int clampedOffset = Math.min(scrollOffset, maxOffset);
+        List<com.mcprotector.network.FactionStatePacket.ClaimEntry> visibleClaims = claims
+            .subList(clampedOffset, Math.min(claims.size(), clampedOffset + visibleLines));
+        for (var claim : visibleClaims) {
+            guiGraphics.drawString(font, "Chunk " + claim.chunkX() + ", " + claim.chunkZ(), panelPadding, y, 0xCCCCCC);
+            y += lineHeight;
+        }
+        return clampedOffset;
+    }
+
+    public static int renderMapClaimsList(GuiGraphics guiGraphics,
+                                          List<com.mcprotector.network.FactionStatePacket.ClaimEntry> claims,
+                                          MapRegion region,
+                                          int scrollOffset,
+                                          int height,
+                                          int panelPadding,
+                                          int controlsOffset,
+                                          Font font) {
+        int startY = getMapClaimsListStart(region, controlsOffset);
         guiGraphics.drawString(font, "Claims:", panelPadding, startY, 0xFFFFFF);
         int y = startY + 12;
         if (claims.isEmpty()) {
