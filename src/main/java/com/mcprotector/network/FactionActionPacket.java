@@ -73,6 +73,22 @@ public class FactionActionPacket implements CustomPacketPayload {
         return new FactionActionPacket(ActionType.DEMOTE_MEMBER, targetName, "", "", false);
     }
 
+    public static FactionActionPacket setRole(String targetName, String role) {
+        return new FactionActionPacket(ActionType.SET_ROLE, targetName, role, "", false);
+    }
+
+    public static FactionActionPacket setRelationPermission(String relation, String permission, boolean grant) {
+        return new FactionActionPacket(ActionType.SET_RELATION_PERMISSION, "", relation, permission, grant);
+    }
+
+    public static FactionActionPacket addRule(String rule) {
+        return new FactionActionPacket(ActionType.ADD_RULE, rule, "", "", false);
+    }
+
+    public static FactionActionPacket removeRule(String rule) {
+        return new FactionActionPacket(ActionType.REMOVE_RULE, rule, "", "", false);
+    }
+
     private void write(RegistryFriendlyByteBuf buffer) {
         buffer.writeEnum(action);
         buffer.writeUtf(targetName);
@@ -193,6 +209,40 @@ public class FactionActionPacket implements CustomPacketPayload {
                         player.sendSystemMessage(Component.literal("Failed to demote member: " + ex.getMessage()));
                     }
                 }
+                case SET_ROLE -> {
+                    ServerPlayer target = player.getServer().getPlayerList().getPlayerByName(packet.targetName);
+                    if (target == null) {
+                        player.sendSystemMessage(Component.literal("Player not found."));
+                        return;
+                    }
+                    try {
+                        FactionService.setRole(player.createCommandSourceStack(), target,
+                            com.mcprotector.data.FactionRole.valueOf(packet.role.toUpperCase()));
+                    } catch (Exception ex) {
+                        player.sendSystemMessage(Component.literal("Failed to set role: " + ex.getMessage()));
+                    }
+                }
+                case SET_RELATION_PERMISSION -> {
+                    try {
+                        FactionService.updateRelationPermission(player.createCommandSourceStack(), packet.role, packet.permission, packet.grant);
+                    } catch (Exception ex) {
+                        player.sendSystemMessage(Component.literal("Failed to update relation permissions: " + ex.getMessage()));
+                    }
+                }
+                case ADD_RULE -> {
+                    try {
+                        FactionService.addRule(player.createCommandSourceStack(), packet.targetName);
+                    } catch (Exception ex) {
+                        player.sendSystemMessage(Component.literal("Failed to add rule: " + ex.getMessage()));
+                    }
+                }
+                case REMOVE_RULE -> {
+                    try {
+                        FactionService.removeRule(player.createCommandSourceStack(), packet.targetName);
+                    } catch (Exception ex) {
+                        player.sendSystemMessage(Component.literal("Failed to remove rule: " + ex.getMessage()));
+                    }
+                }
             }
             NetworkHandler.sendToPlayer(player, FactionStatePacket.fromPlayer(player));
             NetworkHandler.sendToPlayer(player, FactionClaimMapPacket.fromPlayer(player));
@@ -215,6 +265,10 @@ public class FactionActionPacket implements CustomPacketPayload {
         LEAVE_FACTION,
         KICK_MEMBER,
         PROMOTE_MEMBER,
-        DEMOTE_MEMBER
+        DEMOTE_MEMBER,
+        SET_ROLE,
+        SET_RELATION_PERMISSION,
+        ADD_RULE,
+        REMOVE_RULE
     }
 }

@@ -4,6 +4,7 @@ public enum FactionTab {
     MEMBERS("Members"),
     INVITES("Invites"),
     PERMISSIONS("Permissions"),
+    RULES("Rules"),
     RELATIONS("Relations"),
     FACTION_MAP("Faction Map");
 

@@ -59,6 +59,15 @@ public class FactionMainScreen extends Screen {
     private Button kickMemberButton;
     private Button promoteMemberButton;
     private Button demoteMemberButton;
+    private Button memberRoleButton;
+    private Button setRoleButton;
+    private EditBox ruleField;
+    private Button addRuleButton;
+    private Button removeRuleButton;
+    private Button relationTypeButton;
+    private Button relationPermissionButton;
+    private Button relationGrantButton;
+    private Button relationRevokeButton;
     private Button leaveFactionButton;
     private Button refreshButton;
     private Button dynmapSyncButton;
@@ -67,6 +76,9 @@ public class FactionMainScreen extends Screen {
     private Button submitClaimsButton;
     private int roleIndex;
     private int permissionIndex;
+    private int memberRoleIndex;
+    private int relationTypeIndex;
+    private int relationPermissionIndex;
     private int panelTop;
     private int permissionsScrollOffset;
     private int mapClaimsScrollOffset;
@@ -134,6 +146,38 @@ public class FactionMainScreen extends Screen {
         demoteMemberButton = this.addRenderableWidget(Button.builder(Component.literal("Demote"), button -> sendMemberAction(MemberAction.DEMOTE))
             .bounds(PANEL_PADDING + 290, controlRowOne + 8, 70, 20)
             .build());
+        memberRoleButton = this.addRenderableWidget(Button.builder(Component.literal("Role: " + currentMemberRole().name()), button -> {
+            memberRoleIndex = (memberRoleIndex + 1) % FactionRole.values().length;
+            updateMemberRoleLabel();
+        }).bounds(PANEL_PADDING, controlRowTwo + 8, 140, 20).build());
+        setRoleButton = this.addRenderableWidget(Button.builder(Component.literal("Set Role"), button -> sendMemberRole())
+            .bounds(PANEL_PADDING + 150, controlRowTwo + 8, 90, 20)
+            .build());
+
+        ruleField = new EditBox(this.font, PANEL_PADDING, controlRowOne, 200, 18, Component.literal("New rule"));
+        ruleField.setMaxLength(120);
+        this.addRenderableWidget(ruleField);
+        addRuleButton = this.addRenderableWidget(Button.builder(Component.literal("Add"), button -> sendRuleAction(true))
+            .bounds(PANEL_PADDING + 210, controlRowOne - 2, 60, 20)
+            .build());
+        removeRuleButton = this.addRenderableWidget(Button.builder(Component.literal("Remove"), button -> sendRuleAction(false))
+            .bounds(PANEL_PADDING + 275, controlRowOne - 2, 70, 20)
+            .build());
+
+        relationTypeButton = this.addRenderableWidget(Button.builder(Component.literal("Relation: " + currentRelation().name()), button -> {
+            relationTypeIndex = (relationTypeIndex + 1) % relationOptions().size();
+            updateRelationLabels();
+        }).bounds(PANEL_PADDING, controlRowOne, 140, 20).build());
+        relationPermissionButton = this.addRenderableWidget(Button.builder(Component.literal("Perm: " + currentRelationPermission().name()), button -> {
+            relationPermissionIndex = (relationPermissionIndex + 1) % FactionPermission.values().length;
+            updateRelationLabels();
+        }).bounds(PANEL_PADDING + 150, controlRowOne, 140, 20).build());
+        relationGrantButton = this.addRenderableWidget(Button.builder(Component.literal("Grant"), button -> sendRelationPermission(true))
+            .bounds(PANEL_PADDING, controlRowTwo, 70, 20)
+            .build());
+        relationRevokeButton = this.addRenderableWidget(Button.builder(Component.literal("Revoke"), button -> sendRelationPermission(false))
+            .bounds(PANEL_PADDING + 80, controlRowTwo, 70, 20)
+            .build());
 
         int bottomRowY = this.height - PANEL_PADDING - 20;
         refreshButton = this.addRenderableWidget(Button.builder(Component.literal("Refresh"), button -> {
@@ -181,6 +225,9 @@ public class FactionMainScreen extends Screen {
         if (safeZoneFactionField != null && safeZoneFactionField.isFocused()) {
             return safeZoneFactionField.keyPressed(keyCode, scanCode, modifiers);
         }
+        if (ruleField != null && ruleField.isFocused()) {
+            return ruleField.keyPressed(keyCode, scanCode, modifiers);
+        }
         return super.keyPressed(keyCode, scanCode, modifiers);
     }
 
@@ -194,6 +241,9 @@ public class FactionMainScreen extends Screen {
         }
         if (safeZoneFactionField != null && safeZoneFactionField.isFocused()) {
             return safeZoneFactionField.charTyped(codePoint, modifiers);
+        }
+        if (ruleField != null && ruleField.isFocused()) {
+            return ruleField.charTyped(codePoint, modifiers);
         }
         return super.charTyped(codePoint, modifiers);
     }
@@ -220,7 +270,8 @@ public class FactionMainScreen extends Screen {
             case MEMBERS -> renderMembers(guiGraphics, snapshot.members(), contentStart);
             case INVITES -> renderInvites(guiGraphics, snapshot, contentStart);
             case PERMISSIONS -> renderPermissions(guiGraphics, snapshot.permissions(), contentStart);
-            case RELATIONS -> renderRelations(guiGraphics, snapshot.relations(), contentStart);
+            case RULES -> renderRules(guiGraphics, snapshot.rules(), contentStart);
+            case RELATIONS -> renderRelations(guiGraphics, snapshot.relations(), snapshot.relationPermissions(), contentStart);
             case FACTION_MAP -> renderFactionMap(guiGraphics, snapshot, contentStart, mouseX, mouseY);
         }
     }
@@ -321,6 +372,8 @@ public class FactionMainScreen extends Screen {
         boolean invites = selectedTab == FactionTab.INVITES;
         boolean permissions = selectedTab == FactionTab.PERMISSIONS;
         boolean members = selectedTab == FactionTab.MEMBERS;
+        boolean rules = selectedTab == FactionTab.RULES;
+        boolean relations = selectedTab == FactionTab.RELATIONS;
         inviteNameField.setVisible(invites);
         inviteButton.visible = invites;
         joinInviteButton.visible = invites;
@@ -334,6 +387,15 @@ public class FactionMainScreen extends Screen {
         kickMemberButton.visible = members;
         promoteMemberButton.visible = members;
         demoteMemberButton.visible = members;
+        memberRoleButton.visible = members;
+        setRoleButton.visible = members;
+        ruleField.setVisible(rules);
+        addRuleButton.visible = rules;
+        removeRuleButton.visible = rules;
+        relationTypeButton.visible = relations;
+        relationPermissionButton.visible = relations;
+        relationGrantButton.visible = relations;
+        relationRevokeButton.visible = relations;
         leaveFactionButton.visible = members;
         boolean mapTab = selectedTab == FactionTab.FACTION_MAP;
         claimTypeButton.visible = mapTab;
@@ -363,7 +425,18 @@ public class FactionMainScreen extends Screen {
         kickMemberButton.visible = members && inFaction;
         promoteMemberButton.visible = members && inFaction;
         demoteMemberButton.visible = members && inFaction;
+        memberRoleButton.visible = members && inFaction;
+        setRoleButton.visible = members && inFaction;
         leaveFactionButton.visible = members && inFaction;
+        boolean rules = selectedTab == FactionTab.RULES;
+        ruleField.setVisible(rules && inFaction);
+        addRuleButton.visible = rules && inFaction;
+        removeRuleButton.visible = rules && inFaction;
+        boolean relations = selectedTab == FactionTab.RELATIONS;
+        relationTypeButton.visible = relations && inFaction;
+        relationPermissionButton.visible = relations && inFaction;
+        relationGrantButton.visible = relations && inFaction;
+        relationRevokeButton.visible = relations && inFaction;
     }
 
     private void updatePermissionLabels() {
@@ -372,12 +445,38 @@ public class FactionMainScreen extends Screen {
         permissionsScrollOffset = 0;
     }
 
+    private void updateMemberRoleLabel() {
+        memberRoleButton.setMessage(Component.literal("Role: " + currentMemberRole().name()));
+    }
+
+    private void updateRelationLabels() {
+        relationTypeButton.setMessage(Component.literal("Relation: " + currentRelation().name()));
+        relationPermissionButton.setMessage(Component.literal("Perm: " + currentRelationPermission().name()));
+    }
+
     private FactionRole currentRole() {
         return FactionRole.values()[roleIndex % FactionRole.values().length];
     }
 
     private FactionPermission currentPermission() {
         return FactionPermission.values()[permissionIndex % FactionPermission.values().length];
+    }
+
+    private FactionRole currentMemberRole() {
+        return FactionRole.values()[memberRoleIndex % FactionRole.values().length];
+    }
+
+    private List<com.mcprotector.data.FactionRelation> relationOptions() {
+        return List.of(com.mcprotector.data.FactionRelation.ALLY, com.mcprotector.data.FactionRelation.WAR);
+    }
+
+    private com.mcprotector.data.FactionRelation currentRelation() {
+        List<com.mcprotector.data.FactionRelation> options = relationOptions();
+        return options.get(relationTypeIndex % options.size());
+    }
+
+    private FactionPermission currentRelationPermission() {
+        return FactionPermission.values()[relationPermissionIndex % FactionPermission.values().length];
     }
 
     private void sendInvite() {
@@ -405,6 +504,12 @@ public class FactionMainScreen extends Screen {
         );
     }
 
+    private void sendRelationPermission(boolean grant) {
+        ClientNetworkSender.sendToServer(
+            FactionActionPacket.setRelationPermission(currentRelation().name(), currentRelationPermission().name(), grant)
+        );
+    }
+
     private void sendDynmapSync() {
         ClientNetworkSender.sendToServer(FactionActionPacket.syncDynmap());
     }
@@ -420,6 +525,28 @@ public class FactionMainScreen extends Screen {
             case DEMOTE -> ClientNetworkSender.sendToServer(FactionActionPacket.demoteMember(name));
         }
         memberNameField.setValue("");
+    }
+
+    private void sendMemberRole() {
+        String name = memberNameField.getValue().trim();
+        if (name.isEmpty()) {
+            return;
+        }
+        ClientNetworkSender.sendToServer(FactionActionPacket.setRole(name, currentMemberRole().name()));
+        memberNameField.setValue("");
+    }
+
+    private void sendRuleAction(boolean add) {
+        String rule = ruleField.getValue().trim();
+        if (rule.isEmpty()) {
+            return;
+        }
+        if (add) {
+            ClientNetworkSender.sendToServer(FactionActionPacket.addRule(rule));
+        } else {
+            ClientNetworkSender.sendToServer(FactionActionPacket.removeRule(rule));
+        }
+        ruleField.setValue("");
     }
 
     private void leaveFaction() {
@@ -634,16 +761,51 @@ public class FactionMainScreen extends Screen {
             .orElse(List.of());
     }
 
-    private void renderRelations(GuiGraphics guiGraphics, List<com.mcprotector.network.FactionStatePacket.RelationEntry> relations, int startY) {
+    private void renderRelations(GuiGraphics guiGraphics,
+                                 List<com.mcprotector.network.FactionStatePacket.RelationEntry> relations,
+                                 List<com.mcprotector.network.FactionStatePacket.RelationPermissionEntry> relationPermissions,
+                                 int startY) {
         guiGraphics.drawString(this.font, "Relations:", PANEL_PADDING, startY, 0xFFFFFF);
         int y = startY + 12;
         if (relations.isEmpty()) {
             guiGraphics.drawString(this.font, "No active relations.", PANEL_PADDING, y, 0x777777);
+            y += 12;
+        } else {
+            for (var relation : relations) {
+                guiGraphics.drawString(this.font, relation.factionName() + " - " + relation.relation(), PANEL_PADDING, y, 0xCCCCCC);
+                y += 10;
+            }
+        }
+        y += 6;
+        String relationLabel = currentRelation().name();
+        guiGraphics.drawString(this.font, "Relation Permissions (" + relationLabel + "):", PANEL_PADDING, y, 0xFFFFFF);
+        y += 12;
+        com.mcprotector.network.FactionStatePacket.RelationPermissionEntry selected = relationPermissions.stream()
+            .filter(entry -> entry.relation().equalsIgnoreCase(relationLabel))
+            .findFirst()
+            .orElse(null);
+        if (selected == null || selected.permissions().isEmpty()) {
+            guiGraphics.drawString(this.font, "No permissions configured.", PANEL_PADDING, y, 0x777777);
             return;
         }
-        for (var relation : relations) {
-            guiGraphics.drawString(this.font, relation.factionName() + " - " + relation.relation(), PANEL_PADDING, y, 0xCCCCCC);
+        for (String perm : selected.permissions()) {
+            guiGraphics.drawString(this.font, "- " + perm, PANEL_PADDING, y, 0xAAAAAA);
             y += 10;
+        }
+    }
+
+    private void renderRules(GuiGraphics guiGraphics, List<String> rules, int startY) {
+        guiGraphics.drawString(this.font, "Rules:", PANEL_PADDING, startY, 0xFFFFFF);
+        int y = startY + 12;
+        if (rules.isEmpty()) {
+            guiGraphics.drawString(this.font, "No rules set yet.", PANEL_PADDING, y, 0x777777);
+            return;
+        }
+        int index = 1;
+        for (String rule : rules) {
+            guiGraphics.drawString(this.font, index + ". " + rule, PANEL_PADDING, y, 0xCCCCCC);
+            y += 10;
+            index++;
         }
     }
 
@@ -743,7 +905,9 @@ public class FactionMainScreen extends Screen {
     private int getContentStart(FactionClientData.FactionSnapshot snapshot) {
         boolean hasControls = selectedTab == FactionTab.INVITES
             || selectedTab == FactionTab.PERMISSIONS
-            || (selectedTab == FactionTab.MEMBERS && snapshot.inFaction());
+            || (selectedTab == FactionTab.RELATIONS && snapshot.inFaction())
+            || (selectedTab == FactionTab.MEMBERS && snapshot.inFaction())
+            || (selectedTab == FactionTab.RULES && snapshot.inFaction());
         return panelTop + (hasControls ? CONTENT_START_OFFSET : CONTROL_TOP_OFFSET);
     }
 

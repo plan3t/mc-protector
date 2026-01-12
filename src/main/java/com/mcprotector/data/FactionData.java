@@ -26,7 +26,7 @@ import java.util.UUID;
 
 public class FactionData extends SavedData {
     private static final String DATA_NAME = "mcprotector_factions";
-    private static final int DATA_VERSION = 5;
+    private static final int DATA_VERSION = 6;
 
     private final Map<UUID, Faction> factions = new HashMap<>();
     private final Map<UUID, UUID> playerFaction = new HashMap<>();
@@ -107,6 +107,26 @@ public class FactionData extends SavedData {
                     perms.add(FactionPermission.valueOf(permTag.getAsString()));
                 }
                 faction.setPermissions(role, perms);
+            }
+            if (factionTag.contains("Rules")) {
+                ListTag rulesTag = factionTag.getList("Rules", Tag.TAG_STRING);
+                for (Tag ruleTag : rulesTag) {
+                    faction.addRule(ruleTag.getAsString());
+                }
+            }
+            if (factionTag.contains("RelationPermissions")) {
+                CompoundTag relationPermissionsTag = factionTag.getCompound("RelationPermissions");
+                for (FactionRelation relation : FactionRelation.values()) {
+                    if (!relationPermissionsTag.contains(relation.name())) {
+                        continue;
+                    }
+                    ListTag permsList = relationPermissionsTag.getList(relation.name(), Tag.TAG_STRING);
+                    EnumSet<FactionPermission> perms = EnumSet.noneOf(FactionPermission.class);
+                    for (Tag permTag : permsList) {
+                        perms.add(FactionPermission.valueOf(permTag.getAsString()));
+                    }
+                    faction.setRelationPermissions(relation, perms);
+                }
             }
             data.factions.put(id, faction);
         }
@@ -270,6 +290,20 @@ public class FactionData extends SavedData {
                 permissionsTag.put(entry.getKey().name(), permsList);
             }
             factionTag.put("Permissions", permissionsTag);
+            ListTag rulesTag = new ListTag();
+            for (String rule : faction.getRules()) {
+                rulesTag.add(net.minecraft.nbt.StringTag.valueOf(rule));
+            }
+            factionTag.put("Rules", rulesTag);
+            CompoundTag relationPermissionsTag = new CompoundTag();
+            for (Map.Entry<FactionRelation, EnumSet<FactionPermission>> entry : faction.getRelationPermissions().entrySet()) {
+                ListTag permsList = new ListTag();
+                for (FactionPermission permission : entry.getValue()) {
+                    permsList.add(net.minecraft.nbt.StringTag.valueOf(permission.name()));
+                }
+                relationPermissionsTag.put(entry.getKey().name(), permsList);
+            }
+            factionTag.put("RelationPermissions", relationPermissionsTag);
             factionsTag.add(factionTag);
         }
         tag.put("Factions", factionsTag);
@@ -669,7 +703,7 @@ public class FactionData extends SavedData {
             return isAllowedForAllies(permission, ownerFaction.get());
         }
         if (relation == FactionRelation.WAR) {
-            return isAllowedForWar(permission);
+            return isAllowedForWar(permission, ownerFaction.get());
         }
         return false;
     }
@@ -708,20 +742,17 @@ public class FactionData extends SavedData {
     }
 
     private boolean isAllowedForAllies(FactionPermission permission, Faction faction) {
-        FactionProtectionTier tier = faction != null ? faction.getProtectionTier() : FactionProtectionTier.STANDARD;
-        return switch (permission) {
-            case BLOCK_USE -> true;
-            case CONTAINER_OPEN, ENTITY_INTERACT, CREATE_MACHINE_INTERACT -> tier != FactionProtectionTier.STRICT;
-            case REDSTONE_TOGGLE -> tier == FactionProtectionTier.RELAXED;
-            default -> false;
-        };
+        if (faction == null) {
+            return false;
+        }
+        return faction.getRelationPermissions(FactionRelation.ALLY).contains(permission);
     }
 
-    private boolean isAllowedForWar(FactionPermission permission) {
-        return switch (permission) {
-            case BLOCK_BREAK, BLOCK_PLACE, BLOCK_USE, CONTAINER_OPEN, REDSTONE_TOGGLE, ENTITY_INTERACT, CREATE_MACHINE_INTERACT -> true;
-            default -> false;
-        };
+    private boolean isAllowedForWar(FactionPermission permission, Faction faction) {
+        if (faction == null) {
+            return false;
+        }
+        return faction.getRelationPermissions(FactionRelation.WAR).contains(permission);
     }
 
     public void setRelation(UUID source, UUID target, FactionRelation relation) {
