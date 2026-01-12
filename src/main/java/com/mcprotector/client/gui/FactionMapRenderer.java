@@ -32,9 +32,6 @@ public final class FactionMapRenderer {
         return region.originY() + (region.cellSize() * (region.radius() * 2 + 1)) + 12;
     }
 
-    public static int getMapClaimsListStart(MapRegion region, int controlsOffset) {
-        return getMapClaimsListStart(region) + controlsOffset;
-    }
 
 
 
@@ -139,7 +136,7 @@ public final class FactionMapRenderer {
                                           int panelPadding,
                                           int controlsOffset,
                                           Font font) {
-        int startY = getMapClaimsListStart(region, controlsOffset);
+        int startY = getMapClaimsListStart(region);
         guiGraphics.drawString(font, "Claims:", panelPadding, startY, 0xFFFFFF);
         int y = startY + 12;
         if (claims.isEmpty()) {
