@@ -31,7 +31,6 @@ public class FactionMainScreen extends Screen {
     private static final int CONTROL_TOP_OFFSET = 6;
     private static final int CONTROL_ROW_SPACING = 24;
     private static final int CONTENT_START_OFFSET = 54;
-    private static final int MAP_CONTROL_OFFSET = 22;
     private static final int BACKDROP_COLOR = 0x80000000;
     private static final int PANEL_BG = 0xD01B1B1B;
     private static final int PANEL_BORDER = 0xFF3B3B3B;
@@ -208,7 +207,7 @@ public class FactionMainScreen extends Screen {
                 + " | Protection " + snapshot.protectionTier();
             guiGraphics.drawString(this.font, stats, PANEL_PADDING, 28, 0xBDBDBD);
         }
-        int contentStart = panelTop + CONTENT_START_OFFSET;
+        int contentStart = getContentStart(snapshot);
         switch (selectedTab) {
             case MEMBERS -> renderMembers(guiGraphics, snapshot.members(), contentStart);
             case INVITES -> renderInvites(guiGraphics, snapshot, contentStart);
@@ -241,12 +240,12 @@ public class FactionMainScreen extends Screen {
         }
         if (selectedTab == FactionTab.FACTION_MAP) {
             FactionMapClientData.MapSnapshot mapSnapshot = FactionMapClientData.getSnapshot();
-            FactionMapRenderer.MapRegion region = FactionMapRenderer.buildMapRegion(panelTop + CONTENT_START_OFFSET, mapSnapshot.radius(),
+            FactionMapRenderer.MapRegion region = FactionMapRenderer.buildMapRegion(getContentStart(FactionClientData.getSnapshot()), mapSnapshot.radius(),
                 this.width, this.height, PANEL_PADDING);
             int listStart = FactionMapRenderer.getMapClaimsListStart(region, MAP_CONTROL_OFFSET);
             if (mouseY >= listStart) {
                 int lineHeight = 10;
-                int availableHeight = Math.max(0, this.height - listStart - 30);
+                int availableHeight = Math.max(0, getMapClaimsBottomRow() - listStart - 6);
                 int visibleLines = Math.max(1, availableHeight / lineHeight);
                 int maxOffset = Math.max(0, FactionClientData.getSnapshot().claims().size() - visibleLines);
                 if (scrollY < 0) {
@@ -264,7 +263,7 @@ public class FactionMainScreen extends Screen {
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         if (selectedTab == FactionTab.FACTION_MAP && button == 0) {
             FactionMapClientData.MapSnapshot mapSnapshot = FactionMapClientData.getSnapshot();
-            FactionMapRenderer.MapRegion region = FactionMapRenderer.buildMapRegion(panelTop + CONTENT_START_OFFSET, mapSnapshot.radius(),
+            FactionMapRenderer.MapRegion region = FactionMapRenderer.buildMapRegion(getContentStart(FactionClientData.getSnapshot()), mapSnapshot.radius(),
                 this.width, this.height, PANEL_PADDING);
             ChunkPos clicked = FactionMapRenderer.getChunkFromMouse(region, mouseX, mouseY, mapSnapshot);
             if (clicked != null) {
@@ -279,7 +278,7 @@ public class FactionMainScreen extends Screen {
     public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
         if (selectedTab == FactionTab.FACTION_MAP && button == 0 && selectionActive) {
             FactionMapClientData.MapSnapshot mapSnapshot = FactionMapClientData.getSnapshot();
-            FactionMapRenderer.MapRegion region = FactionMapRenderer.buildMapRegion(panelTop + CONTENT_START_OFFSET, mapSnapshot.radius(),
+            FactionMapRenderer.MapRegion region = FactionMapRenderer.buildMapRegion(getContentStart(FactionClientData.getSnapshot()), mapSnapshot.radius(),
                 this.width, this.height, PANEL_PADDING);
             ChunkPos hovered = FactionMapRenderer.getChunkFromMouse(region, mouseX, mouseY, mapSnapshot);
             if (hovered != null) {
@@ -649,7 +648,7 @@ public class FactionMainScreen extends Screen {
             return;
         }
         FactionMapRenderer.MapRegion region = FactionMapRenderer.buildMapRegion(startY, radius, this.width, this.height, PANEL_PADDING);
-        updateMapControlLayout(region);
+        updateMapControlLayout();
         FactionMapRenderer.renderMapGrid(guiGraphics, mapSnapshot, region);
         if (!selectedChunks.isEmpty()) {
             FactionMapRenderer.renderSelectionOverlay(guiGraphics, mapSnapshot, region, selectedChunks);
@@ -661,22 +660,36 @@ public class FactionMainScreen extends Screen {
             FactionMapRenderer.renderMapTooltip(guiGraphics, mapSnapshot, hovered, mouseX, mouseY, this.font);
         }
         mapClaimsScrollOffset = FactionMapRenderer.renderMapClaimsList(guiGraphics, snapshot.claims(), region,
-            mapClaimsScrollOffset, this.height, PANEL_PADDING, MAP_CONTROL_OFFSET, this.font);
+            mapClaimsScrollOffset, getMapClaimsBottomRow(), PANEL_PADDING, this.font);
         if (!selectedChunks.isEmpty()) {
             guiGraphics.drawString(this.font, "Selected " + selectedChunks.size() + " chunk(s)",
                 PANEL_PADDING, startY + 14, 0xF9A825);
         }
     }
 
-    private void updateMapControlLayout(FactionMapRenderer.MapRegion region) {
-        int mapSize = region.cellSize() * (region.radius() * 2 + 1);
-        int controlsY = region.originY() + mapSize + 4;
-        safeZoneFactionField.setX(PANEL_PADDING);
-        safeZoneFactionField.setY(controlsY);
-        claimTypeButton.setX(PANEL_PADDING + 130);
+    private int getContentStart(FactionClientData.FactionSnapshot snapshot) {
+        boolean hasControls = selectedTab == FactionTab.INVITES
+            || selectedTab == FactionTab.PERMISSIONS
+            || (selectedTab == FactionTab.MEMBERS && snapshot.inFaction());
+        return panelTop + (hasControls ? CONTENT_START_OFFSET : CONTROL_TOP_OFFSET);
+    }
+
+    private int getMapClaimsBottomRow() {
+        return this.height - PANEL_PADDING - 20;
+    }
+
+    private void updateMapControlLayout() {
+        int controlsY = getMapClaimsBottomRow();
+        int claimBlockWidth = 120 + 4 + 16;
+        int leftLimit = PANEL_PADDING + 120;
+        int rightLimit = this.width - PANEL_PADDING - 80 - 8;
+        int claimStart = Math.max(leftLimit, (leftLimit + rightLimit - claimBlockWidth) / 2);
+        claimTypeButton.setX(claimStart);
         claimTypeButton.setY(controlsY);
-        submitClaimsButton.setX(PANEL_PADDING + 255);
+        submitClaimsButton.setX(claimStart + 124);
         submitClaimsButton.setY(controlsY);
+        safeZoneFactionField.setX(claimStart);
+        safeZoneFactionField.setY(controlsY - 22);
     }
 
     private enum MemberAction {
