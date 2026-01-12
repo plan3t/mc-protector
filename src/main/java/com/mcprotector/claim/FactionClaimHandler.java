@@ -7,7 +7,6 @@ import com.mcprotector.data.FactionPermission;
 import com.mcprotector.dynmap.DynmapBridge;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -33,7 +32,6 @@ public class FactionClaimHandler {
             handleAutoClaim(player, currentChunk);
             handleTerritoryOverlay(player);
         }
-        handleClaimBorder(player, currentChunk);
     }
 
     private void handleAutoClaim(ServerPlayer player, ChunkPos chunkPos) {
@@ -86,37 +84,6 @@ public class FactionClaimHandler {
             }
         }
         FactionClaimManager.setLastTerritory(player.getUUID(), ownerId);
-    }
-
-    private void handleClaimBorder(ServerPlayer player, ChunkPos chunkPos) {
-        if (!FactionClaimManager.isBorderEnabled(player.getUUID())) {
-            return;
-        }
-        long now = System.currentTimeMillis();
-        long lastParticle = FactionClaimManager.getLastBorderParticle(player.getUUID());
-        if (now - lastParticle < 1000L) {
-            return;
-        }
-        FactionClaimManager.setLastBorderParticle(player.getUUID(), now);
-        ServerLevel level = player.serverLevel();
-        spawnBorderParticles(level, player, chunkPos);
-    }
-
-    private void spawnBorderParticles(ServerLevel level, ServerPlayer player, ChunkPos chunkPos) {
-        int minX = chunkPos.getMinBlockX();
-        int maxX = chunkPos.getMaxBlockX();
-        int minZ = chunkPos.getMinBlockZ();
-        int maxZ = chunkPos.getMaxBlockZ();
-        double y = player.getY() + 1.0;
-        int step = 4;
-        for (int x = minX; x <= maxX; x += step) {
-            level.sendParticles(player, ParticleTypes.FLAME, true, x + 0.5, y, minZ + 0.5, 2, 0.05, 0.05, 0.05, 0);
-            level.sendParticles(player, ParticleTypes.FLAME, true, x + 0.5, y, maxZ + 0.5, 2, 0.05, 0.05, 0.05, 0);
-        }
-        for (int z = minZ; z <= maxZ; z += step) {
-            level.sendParticles(player, ParticleTypes.FLAME, true, minX + 0.5, y, z + 0.5, 2, 0.05, 0.05, 0.05, 0);
-            level.sendParticles(player, ParticleTypes.FLAME, true, maxX + 0.5, y, z + 0.5, 2, 0.05, 0.05, 0.05, 0);
-        }
     }
 
     private void ensureSettingsLoaded(ServerPlayer player) {
