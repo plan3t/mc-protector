@@ -20,6 +20,7 @@ import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.event.server.ServerStartedEvent;
+import net.neoforged.neoforge.event.tick.ServerTickEvent;
 import net.minecraft.server.level.ServerPlayer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -28,6 +29,8 @@ import org.slf4j.LoggerFactory;
 public class McProtectorMod {
     public static final String MOD_ID = "mcprotector";
     public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
+    private static final int CLAIM_MAP_SYNC_INTERVAL_TICKS = 100;
+    private int claimMapSyncTicks;
 
     public McProtectorMod(IEventBus modEventBus, ModContainer modContainer) {
         modEventBus.addListener(this::onCommonSetup);
@@ -37,6 +40,7 @@ public class McProtectorMod {
         NeoForge.EVENT_BUS.addListener(this::onServerStarted);
         NeoForge.EVENT_BUS.addListener(this::onPlayerLoggedIn);
         NeoForge.EVENT_BUS.addListener(this::onPlayerChangedDimension);
+        NeoForge.EVENT_BUS.addListener(this::onServerTick);
         NeoForge.EVENT_BUS.register(new ClaimProtectionHandler());
         NeoForge.EVENT_BUS.register(new FactionChatHandler());
         NeoForge.EVENT_BUS.register(new FactionClaimHandler());
@@ -70,6 +74,16 @@ public class McProtectorMod {
     private void onPlayerChangedDimension(PlayerEvent.PlayerChangedDimensionEvent event) {
         if (event.getEntity() instanceof ServerPlayer player) {
             syncPlayerClaimState(player);
+        }
+    }
+
+    private void onServerTick(ServerTickEvent.Post event) {
+        if (++claimMapSyncTicks < CLAIM_MAP_SYNC_INTERVAL_TICKS) {
+            return;
+        }
+        claimMapSyncTicks = 0;
+        for (ServerPlayer player : event.getServer().getPlayerList().getPlayers()) {
+            NetworkHandler.sendToPlayer(player, FactionClaimMapPacket.fromPlayer(player));
         }
     }
 
