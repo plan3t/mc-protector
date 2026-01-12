@@ -31,7 +31,7 @@ public final class ClientPacketDispatcher {
         } catch (ClassNotFoundException ignored) {
             // Client handler is not present in server-only environments.
         } catch (ReflectiveOperationException ex) {
-            McProtectorMod.LOGGER.warn("Failed to invoke client packet handler: {}", ex.getMessage());
+            McProtectorMod.LOGGER.warn("Failed to invoke client packet handler {}: {}", methodName, ex.getMessage());
         }
     }
 }
