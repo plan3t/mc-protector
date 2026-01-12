@@ -3,10 +3,12 @@ package com.mcprotector.data;
 import com.mcprotector.config.FactionConfig;
 import net.minecraft.ChatFormatting;
 
+import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -18,7 +20,9 @@ public class Faction {
     private final Map<UUID, FactionRole> members = new HashMap<>();
     private final EnumMap<FactionRole, EnumSet<FactionPermission>> permissions = new EnumMap<>(FactionRole.class);
     private final EnumMap<FactionRole, String> rankNames = new EnumMap<>(FactionRole.class);
+    private final EnumMap<FactionRelation, EnumSet<FactionPermission>> relationPermissions = new EnumMap<>(FactionRelation.class);
     private final Set<UUID> trustedPlayers = new HashSet<>();
+    private final List<String> rules = new ArrayList<>();
     private String colorName;
     private String motd;
     private String description;
@@ -43,6 +47,7 @@ public class Faction {
             FactionPermission.CREATE_MACHINE_INTERACT,
             FactionPermission.CHUNK_CLAIM
         ));
+        applyRelationDefaults();
     }
 
     public UUID getId() {
@@ -96,6 +101,18 @@ public class Faction {
 
     public void setPermissions(FactionRole role, EnumSet<FactionPermission> perms) {
         permissions.put(role, perms);
+    }
+
+    public EnumMap<FactionRelation, EnumSet<FactionPermission>> getRelationPermissions() {
+        return relationPermissions;
+    }
+
+    public EnumSet<FactionPermission> getRelationPermissions(FactionRelation relation) {
+        return relationPermissions.getOrDefault(relation, EnumSet.noneOf(FactionPermission.class));
+    }
+
+    public void setRelationPermissions(FactionRelation relation, EnumSet<FactionPermission> permissions) {
+        relationPermissions.put(relation, permissions);
     }
 
     public String getRankName(FactionRole role) {
@@ -170,6 +187,24 @@ public class Faction {
         this.protectionTier = protectionTier;
     }
 
+    public List<String> getRules() {
+        return rules;
+    }
+
+    public boolean addRule(String rule) {
+        String trimmed = rule == null ? "" : rule.trim();
+        if (trimmed.isEmpty() || rules.contains(trimmed)) {
+            return false;
+        }
+        rules.add(trimmed);
+        return true;
+    }
+
+    public boolean removeRule(String rule) {
+        String trimmed = rule == null ? "" : rule.trim();
+        return rules.remove(trimmed);
+    }
+
     private void applyDefaults() {
         colorName = FactionConfig.getDefaultColorName();
         motd = FactionConfig.getDefaultMotd();
@@ -177,5 +212,41 @@ public class Faction {
         bannerColor = FactionConfig.getDefaultBannerColor();
         protectionTier = FactionConfig.getDefaultProtectionTier();
         rankNames.putAll(FactionConfig.getDefaultRankNames());
+    }
+
+    private void applyRelationDefaults() {
+        relationPermissions.put(FactionRelation.ALLY, defaultAllyPermissions());
+        relationPermissions.put(FactionRelation.WAR, defaultWarPermissions());
+    }
+
+    private EnumSet<FactionPermission> defaultAllyPermissions() {
+        return switch (protectionTier) {
+            case STRICT -> EnumSet.of(FactionPermission.BLOCK_USE);
+            case RELAXED -> EnumSet.of(
+                FactionPermission.BLOCK_USE,
+                FactionPermission.CONTAINER_OPEN,
+                FactionPermission.ENTITY_INTERACT,
+                FactionPermission.CREATE_MACHINE_INTERACT,
+                FactionPermission.REDSTONE_TOGGLE
+            );
+            case STANDARD -> EnumSet.of(
+                FactionPermission.BLOCK_USE,
+                FactionPermission.CONTAINER_OPEN,
+                FactionPermission.ENTITY_INTERACT,
+                FactionPermission.CREATE_MACHINE_INTERACT
+            );
+        };
+    }
+
+    private EnumSet<FactionPermission> defaultWarPermissions() {
+        return EnumSet.of(
+            FactionPermission.BLOCK_BREAK,
+            FactionPermission.BLOCK_PLACE,
+            FactionPermission.BLOCK_USE,
+            FactionPermission.CONTAINER_OPEN,
+            FactionPermission.REDSTONE_TOGGLE,
+            FactionPermission.ENTITY_INTERACT,
+            FactionPermission.CREATE_MACHINE_INTERACT
+        );
     }
 }

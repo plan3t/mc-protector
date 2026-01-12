@@ -4,6 +4,7 @@ import com.mcprotector.config.FactionConfig;
 import com.mcprotector.data.Faction;
 import com.mcprotector.data.FactionData;
 import com.mcprotector.data.FactionPermission;
+import com.mcprotector.data.FactionRelation;
 import com.mcprotector.data.FactionRole;
 import com.mcprotector.dynmap.DynmapBridge;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
@@ -497,6 +498,91 @@ public final class FactionService {
         faction.get().setRole(target.getUUID(), role);
         data.setDirty();
         source.sendSuccess(() -> Component.literal("Set " + target.getName().getString() + " to " + role.name()), true);
+        return 1;
+    }
+
+    public static int updateRelationPermission(CommandSourceStack source, String relationName, String permissionName, boolean grant)
+        throws CommandSyntaxException {
+        ServerPlayer player = source.getPlayerOrException();
+        FactionData data = FactionData.get(player.serverLevel());
+        Optional<Faction> faction = data.getFactionByPlayer(player.getUUID());
+        if (faction.isEmpty()) {
+            source.sendFailure(Component.literal("You are not in a faction."));
+            return 0;
+        }
+        if (!faction.get().hasPermission(player.getUUID(), FactionPermission.MANAGE_PERMISSIONS)) {
+            source.sendFailure(Component.literal("You lack permission to manage permissions."));
+            return 0;
+        }
+        FactionRelation relation;
+        try {
+            relation = FactionRelation.valueOf(relationName.toUpperCase());
+        } catch (IllegalArgumentException ex) {
+            source.sendFailure(Component.literal("Unknown relation."));
+            return 0;
+        }
+        if (relation == FactionRelation.NEUTRAL) {
+            source.sendFailure(Component.literal("Neutral relations do not have configurable permissions."));
+            return 0;
+        }
+        FactionPermission permission;
+        try {
+            permission = FactionPermission.valueOf(permissionName.toUpperCase());
+        } catch (IllegalArgumentException ex) {
+            source.sendFailure(Component.literal("Unknown permission."));
+            return 0;
+        }
+        EnumSet<FactionPermission> perms = EnumSet.copyOf(faction.get().getRelationPermissions(relation));
+        if (grant) {
+            perms.add(permission);
+        } else {
+            perms.remove(permission);
+        }
+        faction.get().setRelationPermissions(relation, perms);
+        data.setDirty();
+        source.sendSuccess(() -> Component.literal((grant ? "Granted " : "Revoked ") + permission.name() + " for " + relation.name()), true);
+        return 1;
+    }
+
+    public static int addRule(CommandSourceStack source, String rule) throws CommandSyntaxException {
+        ServerPlayer player = source.getPlayerOrException();
+        FactionData data = FactionData.get(player.serverLevel());
+        Optional<Faction> faction = data.getFactionByPlayer(player.getUUID());
+        if (faction.isEmpty()) {
+            source.sendFailure(Component.literal("You are not in a faction."));
+            return 0;
+        }
+        if (!faction.get().hasPermission(player.getUUID(), FactionPermission.MANAGE_SETTINGS)) {
+            source.sendFailure(Component.literal("You lack permission to manage faction rules."));
+            return 0;
+        }
+        if (!faction.get().addRule(rule)) {
+            source.sendFailure(Component.literal("Rule was empty or already exists."));
+            return 0;
+        }
+        data.setDirty();
+        source.sendSuccess(() -> Component.literal("Added a new faction rule."), true);
+        return 1;
+    }
+
+    public static int removeRule(CommandSourceStack source, String rule) throws CommandSyntaxException {
+        ServerPlayer player = source.getPlayerOrException();
+        FactionData data = FactionData.get(player.serverLevel());
+        Optional<Faction> faction = data.getFactionByPlayer(player.getUUID());
+        if (faction.isEmpty()) {
+            source.sendFailure(Component.literal("You are not in a faction."));
+            return 0;
+        }
+        if (!faction.get().hasPermission(player.getUUID(), FactionPermission.MANAGE_SETTINGS)) {
+            source.sendFailure(Component.literal("You lack permission to manage faction rules."));
+            return 0;
+        }
+        if (!faction.get().removeRule(rule)) {
+            source.sendFailure(Component.literal("Rule not found."));
+            return 0;
+        }
+        data.setDirty();
+        source.sendSuccess(() -> Component.literal("Removed a faction rule."), true);
         return 1;
     }
 
