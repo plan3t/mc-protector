@@ -2,7 +2,6 @@ package com.mcprotector.chat;
 
 import com.mcprotector.config.FactionConfig;
 import com.mcprotector.data.Faction;
-import com.mcprotector.data.FactionRole;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
@@ -36,8 +35,8 @@ public final class FactionTextFormatter {
         replacements.put("{message}", message);
         replacements.put("{faction_color}", color.toString());
         replacements.put("{reset}", ChatFormatting.RESET.toString());
-        FactionRole role = faction != null ? faction.getRole(sender.getUUID()) : null;
-        replacements.put("{role}", role != null ? faction.getRankName(role) : "Wanderer");
+        String role = faction != null ? faction.getRole(sender.getUUID()) : null;
+        replacements.put("{role}", role != null ? faction.getRoleDisplayName(role) : "Wanderer");
         String result = format;
         for (Map.Entry<String, String> entry : replacements.entrySet()) {
             result = result.replace(entry.getKey(), entry.getValue());

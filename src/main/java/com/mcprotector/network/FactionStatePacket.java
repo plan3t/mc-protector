@@ -5,7 +5,6 @@ import com.mcprotector.data.Faction;
 import com.mcprotector.data.FactionData;
 import com.mcprotector.data.FactionPermission;
 import com.mcprotector.data.FactionRelation;
-import com.mcprotector.data.FactionRole;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
@@ -29,6 +28,7 @@ public class FactionStatePacket implements CustomPacketPayload {
     private final boolean inFaction;
     private final String factionName;
     private final String roleName;
+    private final List<RoleEntry> roles;
     private final List<MemberEntry> members;
     private final List<InviteEntry> invites;
     private final List<PermissionEntry> permissions;
@@ -42,14 +42,15 @@ public class FactionStatePacket implements CustomPacketPayload {
     private final String protectionTier;
     private final int factionLevel;
 
-    public FactionStatePacket(boolean inFaction, String factionName, String roleName, List<MemberEntry> members,
-                              List<InviteEntry> invites, List<PermissionEntry> permissions,
+    public FactionStatePacket(boolean inFaction, String factionName, String roleName, List<RoleEntry> roles,
+                              List<MemberEntry> members, List<InviteEntry> invites, List<PermissionEntry> permissions,
                               List<RelationPermissionEntry> relationPermissions, List<RelationEntry> relations,
                               List<String> rules, List<ClaimEntry> claims, String pendingInviteFaction, int claimCount,
                               int maxClaims, String protectionTier, int factionLevel) {
         this.inFaction = inFaction;
         this.factionName = factionName;
         this.roleName = roleName;
+        this.roles = roles;
         this.members = members;
         this.invites = invites;
         this.permissions = permissions;
@@ -72,15 +73,19 @@ public class FactionStatePacket implements CustomPacketPayload {
                 .flatMap(invite -> data.getFaction(invite.factionId()))
                 .map(Faction::getName)
                 .orElse("");
-            return new FactionStatePacket(false, "", "", List.of(), List.of(), List.of(), List.of(), List.of(),
+            return new FactionStatePacket(false, "", "", List.of(), List.of(), List.of(), List.of(), List.of(), List.of(),
                 List.of(), List.of(), inviteFactionName, 0, 0, "", 0);
         }
         Faction factionData = faction.get();
         MinecraftServer server = player.getServer();
+        List<RoleEntry> roles = new ArrayList<>();
+        for (Map.Entry<String, String> entry : factionData.getRoleDisplayNames().entrySet()) {
+            roles.add(new RoleEntry(entry.getKey(), entry.getValue()));
+        }
         List<MemberEntry> members = new ArrayList<>();
-        for (Map.Entry<UUID, FactionRole> entry : factionData.getMembers().entrySet()) {
+        for (Map.Entry<UUID, String> entry : factionData.getMembers().entrySet()) {
             String name = resolveName(server, entry.getKey());
-            members.add(new MemberEntry(entry.getKey(), name, entry.getValue().name()));
+            members.add(new MemberEntry(entry.getKey(), name, entry.getValue()));
         }
         List<InviteEntry> invites = new ArrayList<>();
         for (Map.Entry<UUID, FactionData.FactionInvite> entry : data.getInvitesForFaction(factionData.getId()).entrySet()) {
@@ -88,9 +93,9 @@ public class FactionStatePacket implements CustomPacketPayload {
             invites.add(new InviteEntry(entry.getKey(), name, entry.getValue().expiresAt()));
         }
         List<PermissionEntry> permissions = new ArrayList<>();
-        for (Map.Entry<FactionRole, EnumSet<FactionPermission>> entry : factionData.getPermissions().entrySet()) {
+        for (Map.Entry<String, EnumSet<FactionPermission>> entry : factionData.getPermissions().entrySet()) {
             List<String> perms = entry.getValue().stream().map(Enum::name).toList();
-            permissions.add(new PermissionEntry(entry.getKey().name(), perms));
+            permissions.add(new PermissionEntry(entry.getKey(), perms));
         }
         List<RelationPermissionEntry> relationPermissions = new ArrayList<>();
         for (Map.Entry<FactionRelation, EnumSet<FactionPermission>> entry : factionData.getRelationPermissions().entrySet()) {
@@ -118,12 +123,12 @@ public class FactionStatePacket implements CustomPacketPayload {
             int z = (int) (key >> 32);
             claims.add(new ClaimEntry(x, z));
         }
-        String roleName = factionData.getRole(player.getUUID()).name();
+        String roleName = Optional.ofNullable(factionData.getRole(player.getUUID())).orElse("");
         int claimCount = data.getClaimCount(factionData.getId());
         int maxClaims = data.getMaxClaims(factionData.getId());
         int factionLevel = data.getFactionLevel(factionData.getId());
         String protectionTier = factionData.getProtectionTier().name();
-        return new FactionStatePacket(true, factionData.getName(), roleName, members, invites, permissions, relationPermissions,
+        return new FactionStatePacket(true, factionData.getName(), roleName, roles, members, invites, permissions, relationPermissions,
             relations, factionData.getRules(), claims, "", claimCount, maxClaims, protectionTier, factionLevel);
     }
 
@@ -143,6 +148,11 @@ public class FactionStatePacket implements CustomPacketPayload {
         buffer.writeUtf(factionName);
         buffer.writeUtf(roleName);
         buffer.writeUtf(pendingInviteFaction);
+        buffer.writeVarInt(roles.size());
+        for (RoleEntry entry : roles) {
+            buffer.writeUtf(entry.name());
+            buffer.writeUtf(entry.displayName());
+        }
         buffer.writeVarInt(members.size());
         for (MemberEntry entry : members) {
             buffer.writeUUID(entry.playerId());
@@ -197,6 +207,11 @@ public class FactionStatePacket implements CustomPacketPayload {
         String factionName = buffer.readUtf();
         String roleName = buffer.readUtf();
         String pendingInviteFaction = buffer.readUtf();
+        int roleCount = buffer.readVarInt();
+        List<RoleEntry> roles = new ArrayList<>();
+        for (int i = 0; i < roleCount; i++) {
+            roles.add(new RoleEntry(buffer.readUtf(), buffer.readUtf()));
+        }
         int memberCount = buffer.readVarInt();
         List<MemberEntry> members = new ArrayList<>();
         for (int i = 0; i < memberCount; i++) {
@@ -248,7 +263,7 @@ public class FactionStatePacket implements CustomPacketPayload {
         int maxClaims = buffer.readVarInt();
         String protectionTier = buffer.readUtf();
         int factionLevel = buffer.readVarInt();
-        return new FactionStatePacket(inFaction, factionName, roleName, members, invites, permissions, relationPermissions,
+        return new FactionStatePacket(inFaction, factionName, roleName, roles, members, invites, permissions, relationPermissions,
             relations, rules, claims, pendingInviteFaction, factionClaimCount, maxClaims, protectionTier, factionLevel);
     }
 
@@ -271,6 +286,10 @@ public class FactionStatePacket implements CustomPacketPayload {
 
     public String roleName() {
         return roleName;
+    }
+
+    public List<RoleEntry> roles() {
+        return roles;
     }
 
     public List<MemberEntry> members() {
@@ -319,6 +338,9 @@ public class FactionStatePacket implements CustomPacketPayload {
 
     public int factionLevel() {
         return factionLevel;
+    }
+
+    public record RoleEntry(String name, String displayName) {
     }
 
     public record MemberEntry(UUID playerId, String name, String role) {

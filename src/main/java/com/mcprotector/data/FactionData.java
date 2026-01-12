@@ -26,7 +26,7 @@ import java.util.UUID;
 
 public class FactionData extends SavedData {
     private static final String DATA_NAME = "mcprotector_factions";
-    private static final int DATA_VERSION = 6;
+    private static final int DATA_VERSION = 7;
 
     private final Map<UUID, Faction> factions = new HashMap<>();
     private final Map<UUID, UUID> playerFaction = new HashMap<>();
@@ -76,10 +76,25 @@ public class FactionData extends SavedData {
             if (factionTag.contains("ProtectionTier")) {
                 faction.setProtectionTier(FactionProtectionTier.valueOf(factionTag.getString("ProtectionTier")));
             }
-            CompoundTag ranksTag = factionTag.getCompound("RankNames");
-            for (FactionRole role : FactionRole.values()) {
-                if (ranksTag.contains(role.name())) {
-                    faction.setRankName(role, ranksTag.getString(role.name()));
+            if (factionTag.contains("Roles")) {
+                ListTag rolesTag = factionTag.getList("Roles", Tag.TAG_COMPOUND);
+                if (!rolesTag.isEmpty()) {
+                    faction.clearRolesAndPermissions();
+                    for (Tag roleEntry : rolesTag) {
+                        CompoundTag roleTag = (CompoundTag) roleEntry;
+                        String roleName = roleTag.getString("Name");
+                        if (roleName == null || roleName.isBlank()) {
+                            continue;
+                        }
+                        String displayName = roleTag.contains("Display") ? roleTag.getString("Display") : roleName;
+                        faction.addRole(roleName, displayName);
+                    }
+                    faction.ensureReservedRoles();
+                }
+            } else if (factionTag.contains("RankNames")) {
+                CompoundTag ranksTag = factionTag.getCompound("RankNames");
+                for (String roleName : ranksTag.getAllKeys()) {
+                    faction.setRoleDisplayName(roleName, ranksTag.getString(roleName));
                 }
             }
             if (factionTag.contains("TrustedPlayers")) {
@@ -92,21 +107,25 @@ public class FactionData extends SavedData {
             for (Tag memberTag : members) {
                 CompoundTag member = (CompoundTag) memberTag;
                 UUID memberId = member.getUUID("Id");
-                FactionRole role = FactionRole.valueOf(member.getString("Role"));
+                String role = member.getString("Role");
                 faction.setRole(memberId, role);
                 data.playerFaction.put(memberId, id);
             }
+            faction.setRole(owner, Faction.ROLE_OWNER);
             CompoundTag permissionsTag = factionTag.getCompound("Permissions");
-            for (FactionRole role : FactionRole.values()) {
-                if (!permissionsTag.contains(role.name())) {
-                    continue;
+            if (!permissionsTag.isEmpty()) {
+                for (String roleName : permissionsTag.getAllKeys()) {
+                    ListTag permsList = permissionsTag.getList(roleName, Tag.TAG_STRING);
+                    EnumSet<FactionPermission> perms = EnumSet.noneOf(FactionPermission.class);
+                    for (Tag permTag : permsList) {
+                        perms.add(FactionPermission.valueOf(permTag.getAsString()));
+                    }
+                    String normalizedRole = Faction.normalizeRoleName(roleName);
+                    if (!faction.hasRole(normalizedRole)) {
+                        faction.addRole(normalizedRole, normalizedRole);
+                    }
+                    faction.setPermissions(normalizedRole, perms);
                 }
-                ListTag permsList = permissionsTag.getList(role.name(), Tag.TAG_STRING);
-                EnumSet<FactionPermission> perms = EnumSet.noneOf(FactionPermission.class);
-                for (Tag permTag : permsList) {
-                    perms.add(FactionPermission.valueOf(permTag.getAsString()));
-                }
-                faction.setPermissions(role, perms);
             }
             if (factionTag.contains("Rules")) {
                 ListTag rulesTag = factionTag.getList("Rules", Tag.TAG_STRING);
@@ -263,31 +282,34 @@ public class FactionData extends SavedData {
             factionTag.putString("Description", faction.getDescription());
             factionTag.putString("BannerColor", faction.getBannerColor());
             factionTag.putString("ProtectionTier", faction.getProtectionTier().name());
-            CompoundTag ranksTag = new CompoundTag();
-            for (Map.Entry<FactionRole, String> entry : faction.getRankNames().entrySet()) {
-                ranksTag.putString(entry.getKey().name(), entry.getValue());
+            ListTag rolesTag = new ListTag();
+            for (Map.Entry<String, String> entry : faction.getRoleDisplayNames().entrySet()) {
+                CompoundTag roleTag = new CompoundTag();
+                roleTag.putString("Name", entry.getKey());
+                roleTag.putString("Display", entry.getValue());
+                rolesTag.add(roleTag);
             }
-            factionTag.put("RankNames", ranksTag);
+            factionTag.put("Roles", rolesTag);
             ListTag trustedTag = new ListTag();
             for (UUID trusted : faction.getTrustedPlayers()) {
                 trustedTag.add(net.minecraft.nbt.StringTag.valueOf(trusted.toString()));
             }
             factionTag.put("TrustedPlayers", trustedTag);
             ListTag membersTag = new ListTag();
-            for (Map.Entry<UUID, FactionRole> member : faction.getMembers().entrySet()) {
+            for (Map.Entry<UUID, String> member : faction.getMembers().entrySet()) {
                 CompoundTag memberTag = new CompoundTag();
                 memberTag.putUUID("Id", member.getKey());
-                memberTag.putString("Role", member.getValue().name());
+                memberTag.putString("Role", member.getValue());
                 membersTag.add(memberTag);
             }
             factionTag.put("Members", membersTag);
             CompoundTag permissionsTag = new CompoundTag();
-            for (Map.Entry<FactionRole, EnumSet<FactionPermission>> entry : faction.getPermissions().entrySet()) {
+            for (Map.Entry<String, EnumSet<FactionPermission>> entry : faction.getPermissions().entrySet()) {
                 ListTag permsList = new ListTag();
                 for (FactionPermission permission : entry.getValue()) {
                     permsList.add(net.minecraft.nbt.StringTag.valueOf(permission.name()));
                 }
-                permissionsTag.put(entry.getKey().name(), permsList);
+                permissionsTag.put(entry.getKey(), permsList);
             }
             factionTag.put("Permissions", permissionsTag);
             ListTag rulesTag = new ListTag();
@@ -450,9 +472,12 @@ public class FactionData extends SavedData {
         return faction;
     }
 
-    public boolean addMember(UUID factionId, UUID playerId, FactionRole role) {
+    public boolean addMember(UUID factionId, UUID playerId, String role) {
         Faction faction = factions.get(factionId);
         if (faction == null) {
+            return false;
+        }
+        if (!faction.hasRole(role)) {
             return false;
         }
         faction.setRole(playerId, role);

@@ -5,7 +5,6 @@ import com.mcprotector.data.Faction;
 import com.mcprotector.data.FactionData;
 import com.mcprotector.data.FactionPermission;
 import com.mcprotector.data.FactionRelation;
-import com.mcprotector.data.FactionRole;
 import com.mcprotector.dynmap.DynmapBridge;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import net.minecraft.commands.CommandSourceStack;
@@ -14,6 +13,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.ChunkPos;
 
 import java.util.EnumSet;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -161,10 +161,8 @@ public final class FactionService {
             source.sendFailure(Component.literal("You lack permission to manage permissions."));
             return 0;
         }
-        FactionRole role;
-        try {
-            role = FactionRole.valueOf(roleName.toUpperCase());
-        } catch (IllegalArgumentException ex) {
+        String role = Faction.normalizeRoleName(roleName);
+        if (!faction.get().hasRole(role)) {
             source.sendFailure(Component.literal("Unknown role."));
             return 0;
         }
@@ -183,7 +181,7 @@ public final class FactionService {
         }
         faction.get().setPermissions(role, perms);
         data.setDirty();
-        source.sendSuccess(() -> Component.literal((grant ? "Granted " : "Revoked ") + permission.name() + " for " + role.name()), true);
+        source.sendSuccess(() -> Component.literal((grant ? "Granted " : "Revoked ") + permission.name() + " for " + role), true);
         return 1;
     }
 
@@ -404,7 +402,7 @@ public final class FactionService {
             source.sendFailure(Component.literal("You do not have an invite to that faction."));
             return 0;
         }
-        if (!data.addMember(faction.get().getId(), player.getUUID(), FactionRole.MEMBER)) {
+        if (!data.addMember(faction.get().getId(), player.getUUID(), Faction.ROLE_MEMBER)) {
             source.sendFailure(Component.literal("Failed to join faction."));
             return 0;
         }
@@ -474,7 +472,7 @@ public final class FactionService {
         return 1;
     }
 
-    public static int setRole(CommandSourceStack source, ServerPlayer target, FactionRole role) throws CommandSyntaxException {
+    public static int setRole(CommandSourceStack source, ServerPlayer target, String roleName) throws CommandSyntaxException {
         ServerPlayer player = source.getPlayerOrException();
         FactionData data = FactionData.get(player.serverLevel());
         Optional<Faction> faction = data.getFactionByPlayer(player.getUUID());
@@ -490,6 +488,15 @@ public final class FactionService {
             source.sendFailure(Component.literal("You cannot change the owner's role."));
             return 0;
         }
+        String role = Faction.normalizeRoleName(roleName);
+        if (!faction.get().hasRole(role)) {
+            source.sendFailure(Component.literal("Unknown role."));
+            return 0;
+        }
+        if (Faction.ROLE_OWNER.equals(role)) {
+            source.sendFailure(Component.literal("You cannot assign the owner role."));
+            return 0;
+        }
         Optional<UUID> targetFactionId = data.getFactionIdByPlayer(target.getUUID());
         if (targetFactionId.isEmpty() || !targetFactionId.get().equals(faction.get().getId())) {
             source.sendFailure(Component.literal("That player is not in your faction."));
@@ -497,7 +504,7 @@ public final class FactionService {
         }
         faction.get().setRole(target.getUUID(), role);
         data.setDirty();
-        source.sendSuccess(() -> Component.literal("Set " + target.getName().getString() + " to " + role.name()), true);
+        source.sendSuccess(() -> Component.literal("Set " + target.getName().getString() + " to " + role), true);
         return 1;
     }
 
@@ -600,9 +607,80 @@ public final class FactionService {
     }
 
     private static int applyOwnerCooldownMultiplier(int baseSeconds, Faction faction, UUID playerId, double multiplier) {
-        if (faction.getRole(playerId) == FactionRole.OWNER) {
+        if (Faction.ROLE_OWNER.equals(faction.getRole(playerId))) {
             return Math.max(0, (int) Math.ceil(baseSeconds * Math.max(0.0, multiplier)));
         }
         return baseSeconds;
+    }
+
+    public static int createRole(CommandSourceStack source, String roleName, String displayName) throws CommandSyntaxException {
+        ServerPlayer player = source.getPlayerOrException();
+        FactionData data = FactionData.get(player.serverLevel());
+        Optional<Faction> faction = data.getFactionByPlayer(player.getUUID());
+        if (faction.isEmpty()) {
+            source.sendFailure(Component.literal("You are not in a faction."));
+            return 0;
+        }
+        Faction factionData = faction.get();
+        if (!factionData.hasPermission(player.getUUID(), FactionPermission.MANAGE_PERMISSIONS)) {
+            source.sendFailure(Component.literal("You lack permission to manage roles."));
+            return 0;
+        }
+        String normalized = Faction.normalizeRoleName(roleName);
+        if (normalized.isBlank()) {
+            source.sendFailure(Component.literal("Role name cannot be empty."));
+            return 0;
+        }
+        if (Faction.isReservedRole(normalized)) {
+            source.sendFailure(Component.literal("That role name is reserved."));
+            return 0;
+        }
+        if (!factionData.addRole(normalized, displayName)) {
+            source.sendFailure(Component.literal("That role already exists."));
+            return 0;
+        }
+        data.setDirty();
+        source.sendSuccess(() -> Component.literal("Created role " + normalized + "."), true);
+        return 1;
+    }
+
+    public static int deleteRole(CommandSourceStack source, String roleName) throws CommandSyntaxException {
+        ServerPlayer player = source.getPlayerOrException();
+        FactionData data = FactionData.get(player.serverLevel());
+        Optional<Faction> faction = data.getFactionByPlayer(player.getUUID());
+        if (faction.isEmpty()) {
+            source.sendFailure(Component.literal("You are not in a faction."));
+            return 0;
+        }
+        Faction factionData = faction.get();
+        if (!factionData.hasPermission(player.getUUID(), FactionPermission.MANAGE_PERMISSIONS)) {
+            source.sendFailure(Component.literal("You lack permission to manage roles."));
+            return 0;
+        }
+        String normalized = Faction.normalizeRoleName(roleName);
+        if (!factionData.hasRole(normalized)) {
+            source.sendFailure(Component.literal("Role not found."));
+            return 0;
+        }
+        if (Faction.isReservedRole(normalized)) {
+            source.sendFailure(Component.literal("You cannot remove a reserved role."));
+            return 0;
+        }
+        for (Map.Entry<UUID, String> entry : factionData.getMembers().entrySet()) {
+            if (normalized.equals(entry.getValue())) {
+                if (factionData.getOwner().equals(entry.getKey())) {
+                    factionData.setRole(entry.getKey(), Faction.ROLE_OWNER);
+                } else {
+                    factionData.setRole(entry.getKey(), Faction.ROLE_MEMBER);
+                }
+            }
+        }
+        if (!factionData.removeRole(normalized)) {
+            source.sendFailure(Component.literal("Failed to remove role."));
+            return 0;
+        }
+        data.setDirty();
+        source.sendSuccess(() -> Component.literal("Removed role " + normalized + "."), true);
+        return 1;
     }
 }

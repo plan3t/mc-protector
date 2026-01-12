@@ -1,11 +1,11 @@
 package com.mcprotector.config;
 
-import com.mcprotector.data.FactionRole;
+import com.mcprotector.data.Faction;
 import com.mcprotector.data.FactionProtectionTier;
 import net.minecraft.ChatFormatting;
 import net.neoforged.neoforge.common.ModConfigSpec;
 
-import java.util.EnumMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -48,21 +48,21 @@ public final class FactionConfig {
         }
     }
 
-    public static EnumMap<FactionRole, String> getDefaultRankNames() {
+    public static Map<String, String> getDefaultRoleDisplayNames() {
         String preset = SERVER.defaultRankPreset.get();
-        Map<FactionRole, String> names = getPresetNames(preset);
-        EnumMap<FactionRole, String> result = new EnumMap<>(FactionRole.class);
+        Map<String, String> names = getPresetRoleDisplayNames(preset);
+        Map<String, String> result = new LinkedHashMap<>();
         if (names.isEmpty()) {
-            result.put(FactionRole.OWNER, "Owner");
-            result.put(FactionRole.OFFICER, "Officer");
-            result.put(FactionRole.MEMBER, "Member");
+            result.put(Faction.ROLE_OWNER, "Owner");
+            result.put(Faction.ROLE_OFFICER, "Officer");
+            result.put(Faction.ROLE_MEMBER, "Member");
             return result;
         }
         result.putAll(names);
         return result;
     }
 
-    public static Map<FactionRole, String> getPresetNames(String presetName) {
+    public static Map<String, String> getPresetRoleDisplayNames(String presetName) {
         if (presetName == null) {
             return Map.of();
         }
@@ -79,10 +79,10 @@ public final class FactionConfig {
             if (names.length < 3) {
                 continue;
             }
-            EnumMap<FactionRole, String> map = new EnumMap<>(FactionRole.class);
-            map.put(FactionRole.OWNER, names[0].trim());
-            map.put(FactionRole.OFFICER, names[1].trim());
-            map.put(FactionRole.MEMBER, names[2].trim());
+            Map<String, String> map = new LinkedHashMap<>();
+            map.put(Faction.ROLE_OWNER, names[0].trim());
+            map.put(Faction.ROLE_OFFICER, names[1].trim());
+            map.put(Faction.ROLE_MEMBER, names[2].trim());
             return map;
         }
         return Map.of();

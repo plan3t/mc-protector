@@ -11,7 +11,6 @@ import com.mcprotector.data.FactionData;
 import com.mcprotector.data.FactionPermission;
 import com.mcprotector.data.FactionProtectionTier;
 import com.mcprotector.data.FactionRelation;
-import com.mcprotector.data.FactionRole;
 import com.mcprotector.dynmap.DynmapBridge;
 import com.mcprotector.service.FactionService;
 import com.mojang.brigadier.CommandDispatcher;
@@ -87,10 +86,22 @@ public final class FactionCommands {
                         .executes(context -> kickMember(context.getSource(), EntityArgument.getPlayer(context, "player")))))
                 .then(Commands.literal("promote")
                     .then(Commands.argument("player", EntityArgument.player())
-                        .executes(context -> setRole(context.getSource(), EntityArgument.getPlayer(context, "player"), FactionRole.OFFICER))))
+                        .executes(context -> setRole(context.getSource(), EntityArgument.getPlayer(context, "player"), Faction.ROLE_OFFICER))))
                 .then(Commands.literal("demote")
                     .then(Commands.argument("player", EntityArgument.player())
-                        .executes(context -> setRole(context.getSource(), EntityArgument.getPlayer(context, "player"), FactionRole.MEMBER))))
+                        .executes(context -> setRole(context.getSource(), EntityArgument.getPlayer(context, "player"), Faction.ROLE_MEMBER))))
+                .then(Commands.literal("role")
+                    .then(Commands.literal("list")
+                        .executes(context -> listRoles(context.getSource())))
+                    .then(Commands.literal("add")
+                        .then(Commands.argument("name", StringArgumentType.word())
+                            .executes(context -> addRole(context.getSource(), StringArgumentType.getString(context, "name"), null))
+                            .then(Commands.argument("display", StringArgumentType.greedyString())
+                                .executes(context -> addRole(context.getSource(), StringArgumentType.getString(context, "name"),
+                                    StringArgumentType.getString(context, "display"))))))
+                    .then(Commands.literal("remove")
+                        .then(Commands.argument("name", StringArgumentType.word())
+                            .executes(context -> removeRole(context.getSource(), StringArgumentType.getString(context, "name"))))))
                 .then(Commands.literal("perms")
                     .then(Commands.literal("list")
                         .executes(context -> listPermissions(context.getSource())))
@@ -310,9 +321,10 @@ public final class FactionCommands {
         int claims = data.getClaimCount(faction.get().getId());
         int maxClaims = data.getMaxClaims(faction.get().getId());
         int level = data.getFactionLevel(faction.get().getId());
-        FactionRole role = faction.get().getRole(player.getUUID());
+        String role = faction.get().getRole(player.getUUID());
+        String roleDisplay = role != null ? faction.get().getRoleDisplayName(role) : "Unknown";
         String message = "Faction: " + faction.get().getName()
-            + " | Role: " + faction.get().getRankName(role)
+            + " | Role: " + roleDisplay
             + " | Color: " + faction.get().getColorName()
             + " | Level: " + level
             + " | Claims: " + claims + "/" + maxClaims
@@ -346,7 +358,7 @@ public final class FactionCommands {
             source.sendFailure(Component.literal("You do not have an invite to that faction."));
             return 0;
         }
-        if (!data.addMember(faction.get().getId(), player.getUUID(), FactionRole.MEMBER)) {
+        if (!data.addMember(faction.get().getId(), player.getUUID(), Faction.ROLE_MEMBER)) {
             source.sendFailure(Component.literal("Failed to join faction."));
             return 0;
         }
@@ -404,31 +416,30 @@ public final class FactionCommands {
         return 1;
     }
 
-    private static int setRole(CommandSourceStack source, ServerPlayer target, FactionRole role) throws CommandSyntaxException {
-        ServerPlayer player = source.getPlayerOrException();
-        FactionData data = FactionData.get(player.serverLevel());
-        Optional<Faction> faction = data.getFactionByPlayer(player.getUUID());
+    private static int setRole(CommandSourceStack source, ServerPlayer target, String role) throws CommandSyntaxException {
+        return FactionService.setRole(source, target, role);
+    }
+
+    private static int listRoles(CommandSourceStack source) throws CommandSyntaxException {
+        Optional<Faction> faction = getFactionForMember(source);
         if (faction.isEmpty()) {
-            source.sendFailure(Component.literal("You are not in a faction."));
             return 0;
         }
-        if (!faction.get().hasPermission(player.getUUID(), FactionPermission.MANAGE_MEMBERS)) {
-            source.sendFailure(Component.literal("You lack permission to manage members."));
-            return 0;
+        StringBuilder message = new StringBuilder("Faction roles:");
+        for (var entry : faction.get().getRoleDisplayNames().entrySet()) {
+            message.append("\n").append(entry.getKey()).append(": ").append(entry.getValue());
         }
-        if (faction.get().getOwner().equals(target.getUUID())) {
-            source.sendFailure(Component.literal("You cannot change the owner's role."));
-            return 0;
-        }
-        Optional<UUID> targetFactionId = data.getFactionIdByPlayer(target.getUUID());
-        if (targetFactionId.isEmpty() || !targetFactionId.get().equals(faction.get().getId())) {
-            source.sendFailure(Component.literal("That player is not in your faction."));
-            return 0;
-        }
-        faction.get().setRole(target.getUUID(), role);
-        data.setDirty();
-        source.sendSuccess(() -> Component.literal("Set " + target.getName().getString() + " to " + role.name()), true);
+        source.sendSuccess(() -> Component.literal(message.toString()), false);
         return 1;
+    }
+
+    private static int addRole(CommandSourceStack source, String roleName, String displayName) throws CommandSyntaxException {
+        String display = displayName == null ? roleName : displayName;
+        return FactionService.createRole(source, roleName, display);
+    }
+
+    private static int removeRole(CommandSourceStack source, String roleName) throws CommandSyntaxException {
+        return FactionService.deleteRole(source, roleName);
     }
 
     private static int listPermissions(CommandSourceStack source) throws CommandSyntaxException {
@@ -441,7 +452,7 @@ public final class FactionCommands {
         }
         StringBuilder message = new StringBuilder("Permissions:");
         for (var entry : faction.get().getPermissions().entrySet()) {
-            message.append("\n").append(entry.getKey().name()).append(": ").append(entry.getValue());
+            message.append("\n").append(entry.getKey()).append(": ").append(entry.getValue());
         }
         source.sendSuccess(() -> Component.literal(message.toString()), false);
         return 1;
@@ -644,9 +655,9 @@ public final class FactionCommands {
         if (faction.isEmpty()) {
             return 0;
         }
-        StringBuilder message = new StringBuilder("Faction ranks:");
-        for (FactionRole role : FactionRole.values()) {
-            message.append("\n").append(role.name()).append(": ").append(faction.get().getRankName(role));
+        StringBuilder message = new StringBuilder("Faction roles:");
+        for (var entry : faction.get().getRoleDisplayNames().entrySet()) {
+            message.append("\n").append(entry.getKey()).append(": ").append(entry.getValue());
         }
         source.sendSuccess(() -> Component.literal(message.toString()), false);
         return 1;
@@ -657,16 +668,14 @@ public final class FactionCommands {
         if (faction.isEmpty()) {
             return 0;
         }
-        FactionRole role;
-        try {
-            role = FactionRole.valueOf(roleName.toUpperCase());
-        } catch (IllegalArgumentException ex) {
+        String normalized = Faction.normalizeRoleName(roleName);
+        if (!faction.get().hasRole(normalized)) {
             source.sendFailure(Component.literal("Unknown role."));
             return 0;
         }
-        faction.get().setRankName(role, name);
+        faction.get().setRoleDisplayName(normalized, name);
         FactionData.get(source.getLevel()).setDirty();
-        source.sendSuccess(() -> Component.literal("Rank name updated for " + role.name()), true);
+        source.sendSuccess(() -> Component.literal("Role display name updated for " + normalized), true);
         return 1;
     }
 
@@ -675,13 +684,13 @@ public final class FactionCommands {
         if (faction.isEmpty()) {
             return 0;
         }
-        var preset = FactionConfig.getPresetNames(presetName);
+        var preset = FactionConfig.getPresetRoleDisplayNames(presetName);
         if (preset.isEmpty()) {
             source.sendFailure(Component.literal("Unknown preset name."));
             return 0;
         }
         for (var entry : preset.entrySet()) {
-            faction.get().setRankName(entry.getKey(), entry.getValue());
+            faction.get().setRoleDisplayName(entry.getKey(), entry.getValue());
         }
         FactionData.get(source.getLevel()).setDirty();
         source.sendSuccess(() -> Component.literal("Applied rank preset " + presetName), true);

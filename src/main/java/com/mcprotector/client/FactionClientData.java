@@ -18,6 +18,7 @@ public final class FactionClientData {
             packet.inFaction(),
             packet.factionName(),
             packet.roleName(),
+            packet.roles(),
             packet.members(),
             packet.invites(),
             packet.permissions(),
@@ -45,6 +46,7 @@ public final class FactionClientData {
     }
 
     public record FactionSnapshot(boolean inFaction, String factionName, String roleName,
+                                 List<FactionStatePacket.RoleEntry> roles,
                                  List<FactionStatePacket.MemberEntry> members,
                                  List<FactionStatePacket.InviteEntry> invites,
                                  List<FactionStatePacket.PermissionEntry> permissions,
@@ -59,7 +61,7 @@ public final class FactionClientData {
                                  int factionLevel) {
         public static FactionSnapshot empty() {
             return new FactionSnapshot(false, "", "", new ArrayList<>(), new ArrayList<>(), new ArrayList<>(),
-                new ArrayList<>(), new ArrayList<>(), new ArrayList<>(), new ArrayList<>(), "", 0, 0, "", 0);
+                new ArrayList<>(), new ArrayList<>(), new ArrayList<>(), new ArrayList<>(), new ArrayList<>(), "", 0, 0, "", 0);
         }
     }
 }
