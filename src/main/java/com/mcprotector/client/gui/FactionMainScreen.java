@@ -57,8 +57,6 @@ public class FactionMainScreen extends Screen {
     private Button revokeButton;
     private EditBox memberNameField;
     private Button kickMemberButton;
-    private Button promoteMemberButton;
-    private Button demoteMemberButton;
     private Button memberRoleButton;
     private Button setRoleButton;
     private EditBox ruleField;
@@ -137,21 +135,15 @@ public class FactionMainScreen extends Screen {
         memberNameField = new EditBox(this.font, PANEL_PADDING, controlRowOne + 10, 140, 18, Component.literal("Member name"));
         memberNameField.setMaxLength(32);
         this.addRenderableWidget(memberNameField);
-        kickMemberButton = this.addRenderableWidget(Button.builder(Component.literal("Kick"), button -> sendMemberAction(MemberAction.KICK))
+        kickMemberButton = this.addRenderableWidget(Button.builder(Component.literal("Kick"), button -> sendMemberAction())
             .bounds(PANEL_PADDING + 150, controlRowOne + 8, 60, 20)
-            .build());
-        promoteMemberButton = this.addRenderableWidget(Button.builder(Component.literal("Promote"), button -> sendMemberAction(MemberAction.PROMOTE))
-            .bounds(PANEL_PADDING + 215, controlRowOne + 8, 70, 20)
-            .build());
-        demoteMemberButton = this.addRenderableWidget(Button.builder(Component.literal("Demote"), button -> sendMemberAction(MemberAction.DEMOTE))
-            .bounds(PANEL_PADDING + 290, controlRowOne + 8, 70, 20)
             .build());
         memberRoleButton = this.addRenderableWidget(Button.builder(Component.literal("Role: " + currentMemberRole().name()), button -> {
             memberRoleIndex = (memberRoleIndex + 1) % FactionRole.values().length;
             updateMemberRoleLabel();
-        }).bounds(PANEL_PADDING, controlRowTwo + 8, 140, 20).build());
+        }).bounds(PANEL_PADDING + 215, controlRowOne + 8, 70, 20).build());
         setRoleButton = this.addRenderableWidget(Button.builder(Component.literal("Set Role"), button -> sendMemberRole())
-            .bounds(PANEL_PADDING + 150, controlRowTwo + 8, 90, 20)
+            .bounds(PANEL_PADDING + 290, controlRowOne + 8, 70, 20)
             .build());
 
         ruleField = new EditBox(this.font, PANEL_PADDING, controlRowOne, 200, 18, Component.literal("New rule"));
@@ -385,8 +377,6 @@ public class FactionMainScreen extends Screen {
         revokeButton.visible = permissions;
         memberNameField.setVisible(members);
         kickMemberButton.visible = members;
-        promoteMemberButton.visible = members;
-        demoteMemberButton.visible = members;
         memberRoleButton.visible = members;
         setRoleButton.visible = members;
         ruleField.setVisible(rules);
@@ -423,8 +413,6 @@ public class FactionMainScreen extends Screen {
         boolean members = selectedTab == FactionTab.MEMBERS;
         memberNameField.setVisible(members && inFaction);
         kickMemberButton.visible = members && inFaction;
-        promoteMemberButton.visible = members && inFaction;
-        demoteMemberButton.visible = members && inFaction;
         memberRoleButton.visible = members && inFaction;
         setRoleButton.visible = members && inFaction;
         leaveFactionButton.visible = members && inFaction;
@@ -514,16 +502,12 @@ public class FactionMainScreen extends Screen {
         ClientNetworkSender.sendToServer(FactionActionPacket.syncDynmap());
     }
 
-    private void sendMemberAction(MemberAction action) {
+    private void sendMemberAction() {
         String name = memberNameField.getValue().trim();
         if (name.isEmpty()) {
             return;
         }
-        switch (action) {
-            case KICK -> ClientNetworkSender.sendToServer(FactionActionPacket.kickMember(name));
-            case PROMOTE -> ClientNetworkSender.sendToServer(FactionActionPacket.promoteMember(name));
-            case DEMOTE -> ClientNetworkSender.sendToServer(FactionActionPacket.demoteMember(name));
-        }
+        ClientNetworkSender.sendToServer(FactionActionPacket.kickMember(name));
         memberNameField.setValue("");
     }
 
@@ -933,12 +917,6 @@ public class FactionMainScreen extends Screen {
         claimTypeButton.setY(controlsY);
         submitClaimsButton.setX(claimTypeButton.getX() + 120 + CLAIM_CONTROL_GAP);
         submitClaimsButton.setY(controlsY);
-    }
-
-    private enum MemberAction {
-        KICK,
-        PROMOTE,
-        DEMOTE
     }
 
     private enum ClaimType {
