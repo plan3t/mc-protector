@@ -35,6 +35,12 @@ public class FactionMainScreen extends Screen {
     private static final int PANEL_BG = 0xD01B1B1B;
     private static final int PANEL_BORDER = 0xFF3B3B3B;
     private static final int PANEL_HIGHLIGHT = 0xFF4A4A4A;
+    private static final int MAP_COLOR_OWN = 0xFF4CAF50;
+    private static final int MAP_COLOR_ALLY = 0xFF4FC3F7;
+    private static final int MAP_COLOR_WAR = 0xFFEF5350;
+    private static final int MAP_COLOR_NEUTRAL = 0xFF8D8D8D;
+    private static final int MAP_COLOR_SAFE = 0xFFF9A825;
+    private static final int MAP_COLOR_PERSONAL = 0xFF9C27B0;
     private static final DateTimeFormatter INVITE_TIME_FORMAT = DateTimeFormatter.ofPattern("HH:mm")
         .withZone(ZoneId.systemDefault());
 
@@ -650,6 +656,7 @@ public class FactionMainScreen extends Screen {
         FactionMapRenderer.MapRegion region = FactionMapRenderer.buildMapRegion(startY, radius, this.width, this.height, PANEL_PADDING);
         updateMapControlLayout();
         FactionMapRenderer.renderMapGrid(guiGraphics, mapSnapshot, region);
+        renderMapCardinalMarkers(guiGraphics, region);
         if (!selectedChunks.isEmpty()) {
             FactionMapRenderer.renderSelectionOverlay(guiGraphics, mapSnapshot, region, selectedChunks);
         } else {
@@ -659,6 +666,7 @@ public class FactionMainScreen extends Screen {
         if (hovered != null) {
             FactionMapRenderer.renderMapTooltip(guiGraphics, mapSnapshot, hovered, mouseX, mouseY, this.font);
         }
+        renderMapLegend(guiGraphics, region);
         mapClaimsScrollOffset = renderMapClaimsList(guiGraphics, snapshot.claims(), region, mapClaimsScrollOffset);
         if (!selectedChunks.isEmpty()) {
             guiGraphics.drawString(this.font, "Selected " + selectedChunks.size() + " chunk(s)",
@@ -689,6 +697,45 @@ public class FactionMainScreen extends Screen {
             y += lineHeight;
         }
         return clampedOffset;
+    }
+
+    private void renderMapLegend(GuiGraphics guiGraphics, FactionMapRenderer.MapRegion region) {
+        int gridSize = region.cellSize() * (region.radius() * 2 + 1);
+        int y = region.originY() + gridSize + 2;
+        int x = PANEL_PADDING;
+        String[] labels = {"Own", "Ally", "War", "Neutral", "Safe", "Personal"};
+        int[] colors = {MAP_COLOR_OWN, MAP_COLOR_ALLY, MAP_COLOR_WAR, MAP_COLOR_NEUTRAL, MAP_COLOR_SAFE, MAP_COLOR_PERSONAL};
+        for (int i = 0; i < labels.length; i++) {
+            String label = labels[i];
+            guiGraphics.drawString(this.font, label, x, y, colors[i]);
+            x += this.font.width(label);
+            if (i < labels.length - 1) {
+                String separator = " / ";
+                guiGraphics.drawString(this.font, separator, x, y, 0x777777);
+                x += this.font.width(separator);
+            }
+        }
+    }
+
+    private void renderMapCardinalMarkers(GuiGraphics guiGraphics, FactionMapRenderer.MapRegion region) {
+        int gridSize = region.cellSize() * (region.radius() * 2 + 1);
+        int mapX = region.originX();
+        int mapY = region.originY();
+        int mapEndX = mapX + gridSize;
+        int mapEndY = mapY + gridSize;
+        int centerX = mapX + gridSize / 2;
+        int centerY = mapY + gridSize / 2;
+        int color = 0xFFE0E0E0;
+        String north = "N";
+        guiGraphics.drawString(this.font, north, centerX - this.font.width(north) / 2, mapY + 2, color);
+        String south = "S";
+        guiGraphics.drawString(this.font, south, centerX - this.font.width(south) / 2,
+            mapEndY - this.font.lineHeight - 2, color);
+        String west = "W";
+        guiGraphics.drawString(this.font, west, mapX + 2, centerY - this.font.lineHeight / 2, color);
+        String east = "E";
+        guiGraphics.drawString(this.font, east, mapEndX - this.font.width(east) - 2,
+            centerY - this.font.lineHeight / 2, color);
     }
 
     private int getContentStart(FactionClientData.FactionSnapshot snapshot) {
