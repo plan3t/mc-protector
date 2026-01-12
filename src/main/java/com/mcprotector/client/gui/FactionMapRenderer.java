@@ -126,6 +126,7 @@ public final class FactionMapRenderer {
                                           int scrollOffset,
                                           int height,
                                           int panelPadding,
+                                          int controlsOffset,
                                           Font font) {
         return renderMapClaimsList(guiGraphics, claims, region, scrollOffset, height, panelPadding, 0, font);
     }
