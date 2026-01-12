@@ -4,10 +4,12 @@ import com.mcprotector.config.FactionConfig;
 import com.mcprotector.data.Faction;
 import com.mcprotector.data.FactionData;
 import com.mcprotector.data.FactionPermission;
+import com.mcprotector.data.FactionRelation;
 import com.mcprotector.dynmap.DynmapBridge;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.TextColor;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.ChunkPos;
@@ -77,19 +79,44 @@ public class FactionClaimHandler {
         FactionData data = FactionData.get(level);
         BlockPos pos = player.blockPosition();
         Optional<Faction> owner = data.getFactionAt(pos);
+        boolean isSafeZone = data.isSafeZoneClaimed(pos);
+        boolean isPersonal = data.getPersonalClaimOwner(pos).isPresent();
         Optional<UUID> ownerId = owner.map(Faction::getId);
         Optional<UUID> lastOwner = FactionClaimManager.getLastTerritory(player.getUUID());
         if (!lastOwner.equals(ownerId)) {
             if (owner.isEmpty()) {
                 player.displayClientMessage(Component.literal("Entering wilderness").withStyle(ChatFormatting.GRAY), true);
             } else {
+                TextColor mapColor = getMapColor(player, data, ownerId.orElse(null), isSafeZone, isPersonal);
                 player.displayClientMessage(
-                    Component.literal("Entering " + owner.get().getName() + " territory").withStyle(owner.get().getColor()),
+                    Component.literal("Entering " + owner.get().getName() + " territory").withStyle(style -> style.withColor(mapColor)),
                     true
                 );
             }
         }
         FactionClaimManager.setLastTerritory(player.getUUID(), ownerId);
+    }
+
+    private TextColor getMapColor(ServerPlayer player, FactionData data, UUID ownerId, boolean safeZone, boolean personal) {
+        if (safeZone) {
+            return TextColor.fromRgb(0xF9A825);
+        }
+        if (personal) {
+            return TextColor.fromRgb(0x9C27B0);
+        }
+        Optional<UUID> playerFactionId = data.getFactionIdByPlayer(player.getUUID());
+        if (ownerId == null || playerFactionId.isEmpty()) {
+            return TextColor.fromRgb(0x8D8D8D);
+        }
+        if (ownerId.equals(playerFactionId.get())) {
+            return TextColor.fromRgb(0x4CAF50);
+        }
+        FactionRelation relation = data.getRelation(playerFactionId.get(), ownerId);
+        return switch (relation) {
+            case ALLY -> TextColor.fromRgb(0x4FC3F7);
+            case WAR -> TextColor.fromRgb(0xEF5350);
+            default -> TextColor.fromRgb(0x8D8D8D);
+        };
     }
 
     private void ensureSettingsLoaded(ServerPlayer player) {

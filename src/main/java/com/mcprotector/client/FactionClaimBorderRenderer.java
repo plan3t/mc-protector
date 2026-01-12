@@ -22,8 +22,6 @@ public final class FactionClaimBorderRenderer {
     private static final int SAFE_ZONE_COLOR = 0xFFF9A825;
     private static final int PERSONAL_CLAIM_COLOR = 0xFF9C27B0;
     private static final float BORDER_ALPHA = 0.35f;
-    private static final double BORDER_HEIGHT = 4.0;
-
     private FactionClaimBorderRenderer() {
     }
 
@@ -70,8 +68,8 @@ public final class FactionClaimBorderRenderer {
             double maxX = chunkPos.getMaxBlockX() + 1.0;
             double minZ = chunkPos.getMinBlockZ();
             double maxZ = chunkPos.getMaxBlockZ() + 1.0;
-            double minY = client.player.getY() - 1.0;
-            double maxY = minY + BORDER_HEIGHT;
+            double minY = client.level.getMinBuildHeight();
+            double maxY = client.level.getMaxBuildHeight();
             drawVerticalQuad(consumer, pose, minX, minZ, minX, maxZ, minY, maxY, red, green, blue, BORDER_ALPHA,
                 u0, u1, v0, v1);
             drawVerticalQuad(consumer, pose, maxX, minZ, maxX, maxZ, minY, maxY, red, green, blue, BORDER_ALPHA,
