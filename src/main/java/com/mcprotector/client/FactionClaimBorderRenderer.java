@@ -109,24 +109,24 @@ public final class FactionClaimBorderRenderer {
             .setUv(u0, v1)
             .setOverlay(OverlayTexture.NO_OVERLAY)
             .setLight(light)
-            .setNormal(pose.normal(), 0.0f, 1.0f, 0.0f);
+            .setNormal(0.0f, 1.0f, 0.0f);
         consumer.addVertex(pose.pose(), (float) x1, (float) maxY, (float) z1)
             .setColor(red, green, blue, alpha)
             .setUv(u0, v0)
             .setOverlay(OverlayTexture.NO_OVERLAY)
             .setLight(light)
-            .setNormal(pose.normal(), 0.0f, 1.0f, 0.0f);
+            .setNormal(0.0f, 1.0f, 0.0f);
         consumer.addVertex(pose.pose(), (float) x2, (float) maxY, (float) z2)
             .setColor(red, green, blue, alpha)
             .setUv(u1, v0)
             .setOverlay(OverlayTexture.NO_OVERLAY)
             .setLight(light)
-            .setNormal(pose.normal(), 0.0f, 1.0f, 0.0f);
+            .setNormal(0.0f, 1.0f, 0.0f);
         consumer.addVertex(pose.pose(), (float) x2, (float) minY, (float) z2)
             .setColor(red, green, blue, alpha)
             .setUv(u1, v1)
             .setOverlay(OverlayTexture.NO_OVERLAY)
             .setLight(light)
-            .setNormal(pose.normal(), 0.0f, 1.0f, 0.0f);
+            .setNormal(0.0f, 1.0f, 0.0f);
     }
 }
