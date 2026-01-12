@@ -41,6 +41,8 @@ public class FactionMainScreen extends Screen {
     private static final int MAP_COLOR_NEUTRAL = 0xFF8D8D8D;
     private static final int MAP_COLOR_SAFE = 0xFFF9A825;
     private static final int MAP_COLOR_PERSONAL = 0xFF9C27B0;
+    private static final int SAFEZONE_FIELD_WIDTH = 90;
+    private static final int CLAIM_CONTROL_GAP = 6;
     private static final DateTimeFormatter INVITE_TIME_FORMAT = DateTimeFormatter.ofPattern("HH:mm")
         .withZone(ZoneId.systemDefault());
 
@@ -146,16 +148,16 @@ public class FactionMainScreen extends Screen {
         leaveFactionButton = this.addRenderableWidget(Button.builder(Component.literal("Leave Faction"), button -> leaveFaction())
             .bounds(PANEL_PADDING, bottomRowY, 110, 20)
             .build());
-        safeZoneFactionField = new EditBox(this.font, PANEL_PADDING, controlRowOne, 120, 16,
+        safeZoneFactionField = new EditBox(this.font, PANEL_PADDING, controlRowOne, SAFEZONE_FIELD_WIDTH, 16,
             Component.literal("Safe zone faction"));
         safeZoneFactionField.setMaxLength(32);
         this.addRenderableWidget(safeZoneFactionField);
         claimTypeButton = this.addRenderableWidget(Button.builder(Component.literal("Claim: " + selectedClaimType.getLabel()),
                 button -> cycleClaimType())
-            .bounds(PANEL_PADDING + 130, controlRowOne - 2, 120, 16)
+            .bounds(PANEL_PADDING + SAFEZONE_FIELD_WIDTH + CLAIM_CONTROL_GAP, controlRowOne - 2, 120, 16)
             .build());
         submitClaimsButton = this.addRenderableWidget(Button.builder(Component.literal("✓"), button -> promptClaimConfirm())
-            .bounds(PANEL_PADDING + 255, controlRowOne - 2, 16, 16)
+            .bounds(PANEL_PADDING + SAFEZONE_FIELD_WIDTH + CLAIM_CONTROL_GAP + 124, controlRowOne - 2, 16, 16)
             .build());
 
         updateVisibility();
@@ -751,16 +753,22 @@ public class FactionMainScreen extends Screen {
 
     private void updateMapControlLayout() {
         int controlsY = getMapClaimsBottomRow();
-        int claimBlockWidth = 120 + 4 + 16;
+        boolean showSafeZoneField = safeZoneFactionField.isVisible();
+        int claimBlockWidth = (showSafeZoneField ? SAFEZONE_FIELD_WIDTH + CLAIM_CONTROL_GAP : 0) + 120 + CLAIM_CONTROL_GAP + 16;
         int leftLimit = PANEL_PADDING + 120;
         int rightLimit = this.width - PANEL_PADDING - 80 - 8;
         int claimStart = Math.max(leftLimit, (leftLimit + rightLimit - claimBlockWidth) / 2);
-        claimTypeButton.setX(claimStart);
+        if (showSafeZoneField) {
+            safeZoneFactionField.setX(claimStart);
+            claimTypeButton.setX(claimStart + SAFEZONE_FIELD_WIDTH + CLAIM_CONTROL_GAP);
+        } else {
+            claimTypeButton.setX(claimStart);
+            safeZoneFactionField.setX(claimStart - SAFEZONE_FIELD_WIDTH - CLAIM_CONTROL_GAP);
+        }
+        safeZoneFactionField.setY(controlsY);
         claimTypeButton.setY(controlsY);
-        submitClaimsButton.setX(claimStart + 124);
+        submitClaimsButton.setX(claimTypeButton.getX() + 120 + CLAIM_CONTROL_GAP);
         submitClaimsButton.setY(controlsY);
-        safeZoneFactionField.setX(claimStart);
-        safeZoneFactionField.setY(controlsY - 22);
     }
 
     private enum MemberAction {
