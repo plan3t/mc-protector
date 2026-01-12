@@ -242,7 +242,7 @@ public class FactionMainScreen extends Screen {
             FactionMapClientData.MapSnapshot mapSnapshot = FactionMapClientData.getSnapshot();
             FactionMapRenderer.MapRegion region = FactionMapRenderer.buildMapRegion(getContentStart(FactionClientData.getSnapshot()), mapSnapshot.radius(),
                 this.width, this.height, PANEL_PADDING);
-            int listStart = FactionMapRenderer.getMapClaimsListStart(region, MAP_CONTROL_OFFSET);
+            int listStart = FactionMapRenderer.getMapClaimsListStart(region);
             if (mouseY >= listStart) {
                 int lineHeight = 10;
                 int availableHeight = Math.max(0, getMapClaimsBottomRow() - listStart - 6);
