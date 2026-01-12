@@ -7,18 +7,23 @@ import com.mcprotector.data.FactionPermission;
 import com.mcprotector.dynmap.DynmapBridge;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.core.particles.DustParticleOptions;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.ChunkPos;
 import net.neoforged.neoforge.event.tick.PlayerTickEvent;
 import net.neoforged.bus.api.SubscribeEvent;
+import org.joml.Vector3f;
 
 import java.util.Optional;
 import java.util.UUID;
 
 public class FactionClaimHandler {
+    private static final int SAFE_ZONE_COLOR = 0xFFF9A825;
+    private static final int PERSONAL_CLAIM_COLOR = 0xFF9C27B0;
+    private static final float FORCE_FIELD_SCALE = 1.2f;
+
     @SubscribeEvent
     public void onPlayerTick(PlayerTickEvent.Post event) {
         if (!(event.getEntity() instanceof ServerPlayer player)) {
@@ -99,24 +104,40 @@ public class FactionClaimHandler {
         }
         FactionClaimManager.setLastBorderParticle(player.getUUID(), now);
         ServerLevel level = player.serverLevel();
-        spawnBorderParticles(level, player, chunkPos);
+        FactionData data = FactionData.get(level);
+        boolean isSafeZone = data.isSafeZoneClaimed(chunkPos);
+        boolean isPersonal = data.getPersonalClaimOwner(chunkPos).isPresent();
+        if (!isSafeZone && !isPersonal) {
+            return;
+        }
+        int color = isSafeZone ? SAFE_ZONE_COLOR : PERSONAL_CLAIM_COLOR;
+        spawnBorderParticles(level, player, chunkPos, color);
     }
 
-    private void spawnBorderParticles(ServerLevel level, ServerPlayer player, ChunkPos chunkPos) {
+    private void spawnBorderParticles(ServerLevel level, ServerPlayer player, ChunkPos chunkPos, int color) {
         int minX = chunkPos.getMinBlockX();
         int maxX = chunkPos.getMaxBlockX();
         int minZ = chunkPos.getMinBlockZ();
         int maxZ = chunkPos.getMaxBlockZ();
         double y = player.getY() + 1.0;
-        int step = 4;
+        int step = 3;
+        DustParticleOptions particle = buildBorderParticle(color);
         for (int x = minX; x <= maxX; x += step) {
-            level.sendParticles(player, ParticleTypes.FLAME, true, x + 0.5, y, minZ + 0.5, 2, 0.05, 0.05, 0.05, 0);
-            level.sendParticles(player, ParticleTypes.FLAME, true, x + 0.5, y, maxZ + 0.5, 2, 0.05, 0.05, 0.05, 0);
+            level.sendParticles(player, particle, true, x + 0.5, y, minZ + 0.5, 2, 0.05, 0.05, 0.05, 0);
+            level.sendParticles(player, particle, true, x + 0.5, y, maxZ + 0.5, 2, 0.05, 0.05, 0.05, 0);
         }
         for (int z = minZ; z <= maxZ; z += step) {
-            level.sendParticles(player, ParticleTypes.FLAME, true, minX + 0.5, y, z + 0.5, 2, 0.05, 0.05, 0.05, 0);
-            level.sendParticles(player, ParticleTypes.FLAME, true, maxX + 0.5, y, z + 0.5, 2, 0.05, 0.05, 0.05, 0);
+            level.sendParticles(player, particle, true, minX + 0.5, y, z + 0.5, 2, 0.05, 0.05, 0.05, 0);
+            level.sendParticles(player, particle, true, maxX + 0.5, y, z + 0.5, 2, 0.05, 0.05, 0.05, 0);
         }
+    }
+
+    private DustParticleOptions buildBorderParticle(int color) {
+        int red = (color >> 16) & 0xFF;
+        int green = (color >> 8) & 0xFF;
+        int blue = color & 0xFF;
+        Vector3f rgb = new Vector3f(red / 255.0f, green / 255.0f, blue / 255.0f);
+        return new DustParticleOptions(rgb, FORCE_FIELD_SCALE);
     }
 
     private void ensureSettingsLoaded(ServerPlayer player) {
