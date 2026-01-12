@@ -659,12 +659,36 @@ public class FactionMainScreen extends Screen {
         if (hovered != null) {
             FactionMapRenderer.renderMapTooltip(guiGraphics, mapSnapshot, hovered, mouseX, mouseY, this.font);
         }
-        mapClaimsScrollOffset = FactionMapRenderer.renderMapClaimsList(guiGraphics, snapshot.claims(), region,
-            mapClaimsScrollOffset, getMapClaimsBottomRow(), PANEL_PADDING, this.font);
+        mapClaimsScrollOffset = renderMapClaimsList(guiGraphics, snapshot.claims(), region, mapClaimsScrollOffset);
         if (!selectedChunks.isEmpty()) {
             guiGraphics.drawString(this.font, "Selected " + selectedChunks.size() + " chunk(s)",
                 PANEL_PADDING, startY + 14, 0xF9A825);
         }
+    }
+
+    private int renderMapClaimsList(GuiGraphics guiGraphics,
+                                    List<com.mcprotector.network.FactionStatePacket.ClaimEntry> claims,
+                                    FactionMapRenderer.MapRegion region,
+                                    int scrollOffset) {
+        int startY = FactionMapRenderer.getMapClaimsListStart(region);
+        guiGraphics.drawString(this.font, "Claims:", PANEL_PADDING, startY, 0xFFFFFF);
+        int y = startY + 12;
+        if (claims.isEmpty()) {
+            guiGraphics.drawString(this.font, "No claims.", PANEL_PADDING, y, 0x777777);
+            return 0;
+        }
+        int lineHeight = 10;
+        int availableHeight = Math.max(0, getMapClaimsBottomRow() - y - 6);
+        int visibleLines = Math.max(1, availableHeight / lineHeight);
+        int maxOffset = Math.max(0, claims.size() - visibleLines);
+        int clampedOffset = Math.min(scrollOffset, maxOffset);
+        List<com.mcprotector.network.FactionStatePacket.ClaimEntry> visibleClaims = claims
+            .subList(clampedOffset, Math.min(claims.size(), clampedOffset + visibleLines));
+        for (var claim : visibleClaims) {
+            guiGraphics.drawString(this.font, "Chunk " + claim.chunkX() + ", " + claim.chunkZ(), PANEL_PADDING, y, 0xCCCCCC);
+            y += lineHeight;
+        }
+        return clampedOffset;
     }
 
     private int getContentStart(FactionClientData.FactionSnapshot snapshot) {
