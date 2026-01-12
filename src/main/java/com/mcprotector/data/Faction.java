@@ -8,18 +8,24 @@ import java.util.EnumMap;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
 public class Faction {
+    public static final String ROLE_OWNER = "OWNER";
+    public static final String ROLE_OFFICER = "OFFICER";
+    public static final String ROLE_MEMBER = "MEMBER";
+    private static final Set<String> RESERVED_ROLES = Set.of(ROLE_OWNER, ROLE_OFFICER, ROLE_MEMBER);
     private final UUID id;
     private String name;
     private final UUID owner;
-    private final Map<UUID, FactionRole> members = new HashMap<>();
-    private final EnumMap<FactionRole, EnumSet<FactionPermission>> permissions = new EnumMap<>(FactionRole.class);
-    private final EnumMap<FactionRole, String> rankNames = new EnumMap<>(FactionRole.class);
+    private final Map<UUID, String> members = new HashMap<>();
+    private final Map<String, EnumSet<FactionPermission>> permissions = new LinkedHashMap<>();
+    private final Map<String, String> roleDisplayNames = new LinkedHashMap<>();
     private final EnumMap<FactionRelation, EnumSet<FactionPermission>> relationPermissions = new EnumMap<>(FactionRelation.class);
     private final Set<UUID> trustedPlayers = new HashSet<>();
     private final List<String> rules = new ArrayList<>();
@@ -33,11 +39,11 @@ public class Faction {
         this.id = id;
         this.name = name;
         this.owner = owner;
-        members.put(owner, FactionRole.OWNER);
+        members.put(owner, ROLE_OWNER);
         applyDefaults();
-        permissions.put(FactionRole.OWNER, EnumSet.allOf(FactionPermission.class));
-        permissions.put(FactionRole.OFFICER, EnumSet.allOf(FactionPermission.class));
-        permissions.put(FactionRole.MEMBER, EnumSet.of(
+        permissions.put(ROLE_OWNER, EnumSet.allOf(FactionPermission.class));
+        permissions.put(ROLE_OFFICER, EnumSet.allOf(FactionPermission.class));
+        permissions.put(ROLE_MEMBER, EnumSet.of(
             FactionPermission.BLOCK_BREAK,
             FactionPermission.BLOCK_PLACE,
             FactionPermission.BLOCK_USE,
@@ -66,7 +72,7 @@ public class Faction {
         return owner;
     }
 
-    public Map<UUID, FactionRole> getMembers() {
+    public Map<UUID, String> getMembers() {
         return members;
     }
 
@@ -74,11 +80,15 @@ public class Faction {
         return members.size();
     }
 
-    public void setRole(UUID player, FactionRole role) {
-        members.put(player, role);
+    public void setRole(UUID player, String role) {
+        String normalized = normalizeRoleName(role);
+        if (!roleDisplayNames.containsKey(normalized)) {
+            normalized = ROLE_MEMBER;
+        }
+        members.put(player, normalized);
     }
 
-    public FactionRole getRole(UUID player) {
+    public String getRole(UUID player) {
         return members.get(player);
     }
 
@@ -87,20 +97,24 @@ public class Faction {
     }
 
     public boolean hasPermission(UUID player, FactionPermission permission) {
-        FactionRole role = members.get(player);
-        if (role == null) {
+        String role = members.get(player);
+        if (role == null || role.isBlank()) {
             return false;
         }
-        Set<FactionPermission> allowed = permissions.get(role);
+        Set<FactionPermission> allowed = permissions.get(normalizeRoleName(role));
         return allowed != null && allowed.contains(permission);
     }
 
-    public EnumMap<FactionRole, EnumSet<FactionPermission>> getPermissions() {
+    public Map<String, EnumSet<FactionPermission>> getPermissions() {
         return permissions;
     }
 
-    public void setPermissions(FactionRole role, EnumSet<FactionPermission> perms) {
-        permissions.put(role, perms);
+    public void setPermissions(String role, EnumSet<FactionPermission> perms) {
+        String normalized = normalizeRoleName(role);
+        if (normalized.isBlank()) {
+            return;
+        }
+        permissions.put(normalized, perms);
     }
 
     public EnumMap<FactionRelation, EnumSet<FactionPermission>> getRelationPermissions() {
@@ -115,16 +129,54 @@ public class Faction {
         relationPermissions.put(relation, permissions);
     }
 
-    public String getRankName(FactionRole role) {
-        return rankNames.getOrDefault(role, role.name());
+    public String getRoleDisplayName(String role) {
+        String normalized = normalizeRoleName(role);
+        return roleDisplayNames.getOrDefault(normalized, normalized);
     }
 
-    public void setRankName(FactionRole role, String name) {
-        rankNames.put(role, name);
+    public void setRoleDisplayName(String role, String name) {
+        String normalized = normalizeRoleName(role);
+        if (normalized.isBlank()) {
+            return;
+        }
+        String displayName = name == null || name.isBlank() ? normalized : name.trim();
+        roleDisplayNames.put(normalized, displayName);
     }
 
-    public EnumMap<FactionRole, String> getRankNames() {
-        return rankNames;
+    public Map<String, String> getRoleDisplayNames() {
+        return roleDisplayNames;
+    }
+
+    public List<String> getRoleNames() {
+        return new ArrayList<>(roleDisplayNames.keySet());
+    }
+
+    public boolean hasRole(String role) {
+        String normalized = normalizeRoleName(role);
+        return roleDisplayNames.containsKey(normalized);
+    }
+
+    public boolean addRole(String roleName, String displayName) {
+        String normalized = normalizeRoleName(roleName);
+        if (normalized.isBlank() || roleDisplayNames.containsKey(normalized)) {
+            return false;
+        }
+        String display = displayName == null || displayName.isBlank() ? normalized : displayName.trim();
+        roleDisplayNames.put(normalized, display);
+        permissions.putIfAbsent(normalized, EnumSet.noneOf(FactionPermission.class));
+        return true;
+    }
+
+    public boolean removeRole(String roleName) {
+        String normalized = normalizeRoleName(roleName);
+        if (normalized.isBlank() || isReservedRole(normalized)) {
+            return false;
+        }
+        if (roleDisplayNames.remove(normalized) == null) {
+            return false;
+        }
+        permissions.remove(normalized);
+        return true;
     }
 
     public Set<UUID> getTrustedPlayers() {
@@ -211,7 +263,7 @@ public class Faction {
         description = FactionConfig.getDefaultDescription();
         bannerColor = FactionConfig.getDefaultBannerColor();
         protectionTier = FactionConfig.getDefaultProtectionTier();
-        rankNames.putAll(FactionConfig.getDefaultRankNames());
+        roleDisplayNames.putAll(FactionConfig.getDefaultRoleDisplayNames());
     }
 
     private void applyRelationDefaults() {
@@ -248,5 +300,30 @@ public class Faction {
             FactionPermission.ENTITY_INTERACT,
             FactionPermission.CREATE_MACHINE_INTERACT
         );
+    }
+
+    public static String normalizeRoleName(String roleName) {
+        if (roleName == null) {
+            return "";
+        }
+        return roleName.trim().toUpperCase(Locale.ROOT);
+    }
+
+    public static boolean isReservedRole(String roleName) {
+        String normalized = normalizeRoleName(roleName);
+        return RESERVED_ROLES.contains(normalized);
+    }
+
+    public void ensureReservedRoles() {
+        Map<String, String> defaults = FactionConfig.getDefaultRoleDisplayNames();
+        for (String reserved : RESERVED_ROLES) {
+            roleDisplayNames.putIfAbsent(reserved, defaults.getOrDefault(reserved, reserved));
+            permissions.putIfAbsent(reserved, EnumSet.noneOf(FactionPermission.class));
+        }
+    }
+
+    public void clearRolesAndPermissions() {
+        roleDisplayNames.clear();
+        permissions.clear();
     }
 }

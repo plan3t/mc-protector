@@ -4,9 +4,9 @@ import com.mcprotector.client.FactionClientData;
 import com.mcprotector.client.FactionMapClientData;
 import com.mcprotector.config.FactionConfig;
 import com.mcprotector.data.FactionPermission;
-import com.mcprotector.data.FactionRole;
 import com.mcprotector.network.FactionActionPacket;
 import com.mcprotector.network.FactionClaimSelectionPacket;
+import com.mcprotector.network.FactionStatePacket;
 import com.mcprotector.client.ClientNetworkSender;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -55,6 +55,9 @@ public class FactionMainScreen extends Screen {
     private Button permissionButton;
     private Button grantButton;
     private Button revokeButton;
+    private EditBox roleNameField;
+    private Button createRoleButton;
+    private Button deleteRoleButton;
     private EditBox memberNameField;
     private Button kickMemberButton;
     private Button memberRoleButton;
@@ -106,6 +109,7 @@ public class FactionMainScreen extends Screen {
         panelTop = y + TAB_BUTTON_HEIGHT + 10;
         int controlRowOne = panelTop + CONTROL_TOP_OFFSET;
         int controlRowTwo = controlRowOne + CONTROL_ROW_SPACING;
+        int controlRowThree = controlRowTwo + CONTROL_ROW_SPACING;
         inviteNameField = new EditBox(this.font, PANEL_PADDING, controlRowOne, 140, 18, Component.literal("Player name"));
         inviteNameField.setMaxLength(32);
         this.addRenderableWidget(inviteNameField);
@@ -119,9 +123,12 @@ public class FactionMainScreen extends Screen {
             .bounds(PANEL_PADDING + 120, controlRowTwo, 80, 20)
             .build());
 
-        roleButton = this.addRenderableWidget(Button.builder(Component.literal("Role: " + currentRole().name()), button -> {
-            roleIndex = (roleIndex + 1) % FactionRole.values().length;
-            updatePermissionLabels();
+        roleButton = this.addRenderableWidget(Button.builder(Component.literal("Role: " + currentRoleDisplay()), button -> {
+            int roleCount = getRoleOptions().size();
+            if (roleCount > 0) {
+                roleIndex = (roleIndex + 1) % roleCount;
+                updatePermissionLabels();
+            }
         }).bounds(PANEL_PADDING, controlRowOne, 140, 20).build());
         permissionButton = this.addRenderableWidget(Button.builder(Component.literal("Perm: " + currentPermission().name()), button -> {
             permissionIndex = (permissionIndex + 1) % FactionPermission.values().length;
@@ -133,6 +140,15 @@ public class FactionMainScreen extends Screen {
         revokeButton = this.addRenderableWidget(Button.builder(Component.literal("Revoke"), button -> sendPermission(false))
             .bounds(PANEL_PADDING + 80, controlRowTwo, 70, 20)
             .build());
+        roleNameField = new EditBox(this.font, PANEL_PADDING, controlRowThree, 140, 18, Component.literal("Role name"));
+        roleNameField.setMaxLength(32);
+        this.addRenderableWidget(roleNameField);
+        createRoleButton = this.addRenderableWidget(Button.builder(Component.literal("Create Role"), button -> sendCreateRole())
+            .bounds(PANEL_PADDING + 150, controlRowThree - 2, 100, 20)
+            .build());
+        deleteRoleButton = this.addRenderableWidget(Button.builder(Component.literal("Delete Role"), button -> sendDeleteRole())
+            .bounds(PANEL_PADDING + 260, controlRowThree - 2, 100, 20)
+            .build());
 
         memberNameField = new EditBox(this.font, PANEL_PADDING, controlRowOne + 10, 140, 18, Component.literal("Member name"));
         memberNameField.setMaxLength(32);
@@ -140,12 +156,15 @@ public class FactionMainScreen extends Screen {
         kickMemberButton = this.addRenderableWidget(Button.builder(Component.literal("Kick"), button -> sendMemberAction())
             .bounds(PANEL_PADDING + 150, controlRowOne + 8, 60, 20)
             .build());
-        memberRoleButton = this.addRenderableWidget(Button.builder(Component.literal("Role: " + currentMemberRole().name()), button -> {
-            memberRoleIndex = (memberRoleIndex + 1) % FactionRole.values().length;
-            updateMemberRoleLabel();
-        }).bounds(PANEL_PADDING + 215, controlRowOne + 8, 70, 20).build());
+        memberRoleButton = this.addRenderableWidget(Button.builder(Component.literal("Role: " + currentMemberRoleDisplay()), button -> {
+            int roleCount = getRoleOptions().size();
+            if (roleCount > 0) {
+                memberRoleIndex = (memberRoleIndex + 1) % roleCount;
+                updateMemberRoleLabel();
+            }
+        }).bounds(PANEL_PADDING + 215, controlRowOne + 8, 90, 20).build());
         setRoleButton = this.addRenderableWidget(Button.builder(Component.literal("Set Role"), button -> sendMemberRole())
-            .bounds(PANEL_PADDING + 290, controlRowOne + 8, 70, 20)
+            .bounds(PANEL_PADDING + 310, controlRowOne + 8, 70, 20)
             .build());
 
         ruleField = new EditBox(this.font, PANEL_PADDING, controlRowOne, 200, 18, Component.literal("New rule"));
@@ -222,6 +241,9 @@ public class FactionMainScreen extends Screen {
         if (ruleField != null && ruleField.isFocused()) {
             return ruleField.keyPressed(keyCode, scanCode, modifiers);
         }
+        if (roleNameField != null && roleNameField.isFocused()) {
+            return roleNameField.keyPressed(keyCode, scanCode, modifiers);
+        }
         return super.keyPressed(keyCode, scanCode, modifiers);
     }
 
@@ -239,6 +261,9 @@ public class FactionMainScreen extends Screen {
         if (ruleField != null && ruleField.isFocused()) {
             return ruleField.charTyped(codePoint, modifiers);
         }
+        if (roleNameField != null && roleNameField.isFocused()) {
+            return roleNameField.charTyped(codePoint, modifiers);
+        }
         return super.charTyped(codePoint, modifiers);
     }
 
@@ -250,7 +275,7 @@ public class FactionMainScreen extends Screen {
         updateClaimTypeOptions(snapshot);
         guiGraphics.drawCenteredString(this.font, this.title, this.width / 2, 6, 0xFFFFFF);
         String headline = snapshot.inFaction()
-            ? "Faction: " + snapshot.factionName() + " (" + snapshot.roleName() + ")"
+            ? "Faction: " + snapshot.factionName() + " (" + getRoleDisplayName(snapshot, snapshot.roleName()) + ")"
             : "No faction";
         guiGraphics.drawString(this.font, headline, PANEL_PADDING, 18, 0xE0E0E0);
         if (snapshot.inFaction()) {
@@ -409,6 +434,9 @@ public class FactionMainScreen extends Screen {
         permissionButton.visible = permissions;
         grantButton.visible = permissions;
         revokeButton.visible = permissions;
+        roleNameField.setVisible(permissions);
+        createRoleButton.visible = permissions;
+        deleteRoleButton.visible = permissions;
         memberNameField.setVisible(members);
         kickMemberButton.visible = members;
         memberRoleButton.visible = members;
@@ -443,16 +471,32 @@ public class FactionMainScreen extends Screen {
     private void updateDynamicVisibility(FactionClientData.FactionSnapshot snapshot) {
         boolean invites = selectedTab == FactionTab.INVITES;
         boolean inFaction = snapshot.inFaction();
+        updateRoleIndices(snapshot);
         inviteNameField.setVisible(invites && inFaction);
         inviteButton.visible = invites && inFaction;
         boolean hasInvite = invites && !snapshot.pendingInviteFaction().isEmpty() && !snapshot.inFaction();
         joinInviteButton.visible = hasInvite;
         declineInviteButton.visible = hasInvite;
+        boolean permissions = selectedTab == FactionTab.PERMISSIONS;
+        roleButton.visible = permissions && inFaction;
+        permissionButton.visible = permissions && inFaction;
+        grantButton.visible = permissions && inFaction;
+        revokeButton.visible = permissions && inFaction;
+        roleNameField.setVisible(permissions && inFaction);
+        createRoleButton.visible = permissions && inFaction;
+        deleteRoleButton.visible = permissions && inFaction;
+        if (permissions && inFaction) {
+            roleButton.setMessage(Component.literal("Role: " + currentRoleDisplay()));
+            permissionButton.setMessage(Component.literal("Perm: " + currentPermission().name()));
+        }
         boolean members = selectedTab == FactionTab.MEMBERS;
         memberNameField.setVisible(members && inFaction);
         kickMemberButton.visible = members && inFaction;
         memberRoleButton.visible = members && inFaction;
         setRoleButton.visible = members && inFaction;
+        if (members && inFaction) {
+            memberRoleButton.setMessage(Component.literal("Role: " + currentMemberRoleDisplay()));
+        }
         leaveFactionButton.visible = members && inFaction;
         boolean rules = selectedTab == FactionTab.RULES;
         ruleField.setVisible(rules && inFaction);
@@ -466,13 +510,13 @@ public class FactionMainScreen extends Screen {
     }
 
     private void updatePermissionLabels() {
-        roleButton.setMessage(Component.literal("Role: " + currentRole().name()));
+        roleButton.setMessage(Component.literal("Role: " + currentRoleDisplay()));
         permissionButton.setMessage(Component.literal("Perm: " + currentPermission().name()));
         permissionsScrollOffset = 0;
     }
 
     private void updateMemberRoleLabel() {
-        memberRoleButton.setMessage(Component.literal("Role: " + currentMemberRole().name()));
+        memberRoleButton.setMessage(Component.literal("Role: " + currentMemberRoleDisplay()));
     }
 
     private void updateRelationLabels() {
@@ -480,16 +524,80 @@ public class FactionMainScreen extends Screen {
         relationPermissionButton.setMessage(Component.literal("Perm: " + currentRelationPermission().name()));
     }
 
-    private FactionRole currentRole() {
-        return FactionRole.values()[roleIndex % FactionRole.values().length];
-    }
-
     private FactionPermission currentPermission() {
         return FactionPermission.values()[permissionIndex % FactionPermission.values().length];
     }
 
-    private FactionRole currentMemberRole() {
-        return FactionRole.values()[memberRoleIndex % FactionRole.values().length];
+    private List<FactionStatePacket.RoleEntry> getRoleOptions() {
+        return getRoleOptions(FactionClientData.getSnapshot());
+    }
+
+    private List<FactionStatePacket.RoleEntry> getRoleOptions(FactionClientData.FactionSnapshot snapshot) {
+        if (!snapshot.roles().isEmpty()) {
+            return snapshot.roles();
+        }
+        List<FactionStatePacket.RoleEntry> fallback = new ArrayList<>();
+        for (var entry : snapshot.permissions()) {
+            fallback.add(new FactionStatePacket.RoleEntry(entry.role(), entry.role()));
+        }
+        return fallback;
+    }
+
+    private void updateRoleIndices(FactionClientData.FactionSnapshot snapshot) {
+        int roleCount = getRoleOptions(snapshot).size();
+        if (roleCount > 0) {
+            roleIndex = Math.floorMod(roleIndex, roleCount);
+            memberRoleIndex = Math.floorMod(memberRoleIndex, roleCount);
+        } else {
+            roleIndex = 0;
+            memberRoleIndex = 0;
+        }
+    }
+
+    private String currentRoleName() {
+        List<FactionStatePacket.RoleEntry> roles = getRoleOptions();
+        if (roles.isEmpty()) {
+            return "";
+        }
+        return roles.get(Math.floorMod(roleIndex, roles.size())).name();
+    }
+
+    private String currentRoleDisplay() {
+        List<FactionStatePacket.RoleEntry> roles = getRoleOptions();
+        if (roles.isEmpty()) {
+            return "-";
+        }
+        FactionStatePacket.RoleEntry role = roles.get(Math.floorMod(roleIndex, roles.size()));
+        return role.displayName() == null || role.displayName().isBlank() ? role.name() : role.displayName();
+    }
+
+    private String currentMemberRoleName() {
+        List<FactionStatePacket.RoleEntry> roles = getRoleOptions();
+        if (roles.isEmpty()) {
+            return "";
+        }
+        return roles.get(Math.floorMod(memberRoleIndex, roles.size())).name();
+    }
+
+    private String currentMemberRoleDisplay() {
+        List<FactionStatePacket.RoleEntry> roles = getRoleOptions();
+        if (roles.isEmpty()) {
+            return "-";
+        }
+        FactionStatePacket.RoleEntry role = roles.get(Math.floorMod(memberRoleIndex, roles.size()));
+        return role.displayName() == null || role.displayName().isBlank() ? role.name() : role.displayName();
+    }
+
+    private String getRoleDisplayName(FactionClientData.FactionSnapshot snapshot, String roleName) {
+        if (roleName == null || roleName.isBlank()) {
+            return "-";
+        }
+        for (FactionStatePacket.RoleEntry entry : getRoleOptions(snapshot)) {
+            if (entry.name().equalsIgnoreCase(roleName)) {
+                return entry.displayName() == null || entry.displayName().isBlank() ? entry.name() : entry.displayName();
+            }
+        }
+        return roleName;
     }
 
     private List<com.mcprotector.data.FactionRelation> relationOptions() {
@@ -525,9 +633,34 @@ public class FactionMainScreen extends Screen {
     }
 
     private void sendPermission(boolean grant) {
+        String roleName = currentRoleName();
+        if (roleName.isEmpty()) {
+            return;
+        }
         ClientNetworkSender.sendToServer(
-            FactionActionPacket.setPermission(currentRole().name(), currentPermission().name(), grant)
+            FactionActionPacket.setPermission(roleName, currentPermission().name(), grant)
         );
+    }
+
+    private void sendCreateRole() {
+        String roleName = roleNameField.getValue().trim();
+        if (roleName.isEmpty()) {
+            return;
+        }
+        ClientNetworkSender.sendToServer(FactionActionPacket.createRole(roleName, roleName));
+        roleNameField.setValue("");
+    }
+
+    private void sendDeleteRole() {
+        String roleName = roleNameField.getValue().trim();
+        if (roleName.isEmpty()) {
+            roleName = currentRoleName();
+        }
+        if (roleName.isEmpty()) {
+            return;
+        }
+        ClientNetworkSender.sendToServer(FactionActionPacket.deleteRole(roleName));
+        roleNameField.setValue("");
     }
 
     private void sendRelationPermission(boolean grant) {
@@ -554,7 +687,11 @@ public class FactionMainScreen extends Screen {
         if (name.isEmpty()) {
             return;
         }
-        ClientNetworkSender.sendToServer(FactionActionPacket.setRole(name, currentMemberRole().name()));
+        String roleName = currentMemberRoleName();
+        if (roleName.isEmpty()) {
+            return;
+        }
+        ClientNetworkSender.sendToServer(FactionActionPacket.setRole(name, roleName));
         memberNameField.setValue("");
     }
 
@@ -726,7 +863,8 @@ public class FactionMainScreen extends Screen {
         guiGraphics.drawString(this.font, "Members:", PANEL_PADDING, startY, 0xFFFFFF);
         int y = startY + 12;
         for (var member : members) {
-            guiGraphics.drawString(this.font, member.name() + " - " + member.role(), PANEL_PADDING, y, 0xCCCCCC);
+            String roleLabel = getRoleDisplayName(FactionClientData.getSnapshot(), member.role());
+            guiGraphics.drawString(this.font, member.name() + " - " + roleLabel, PANEL_PADDING, y, 0xCCCCCC);
             y += 10;
         }
     }
@@ -756,17 +894,17 @@ public class FactionMainScreen extends Screen {
 
     private void renderPermissions(GuiGraphics guiGraphics, List<com.mcprotector.network.FactionStatePacket.PermissionEntry> permissions, int startY) {
         guiGraphics.drawString(this.font, "Permissions:", PANEL_PADDING, startY, 0xFFFFFF);
-        String selectedRole = currentRole().name();
+        String selectedRole = currentRoleName();
         com.mcprotector.network.FactionStatePacket.PermissionEntry selected = permissions.stream()
             .filter(entry -> entry.role().equalsIgnoreCase(selectedRole))
             .findFirst()
             .orElse(null);
         int y = startY + 12;
         if (selected == null) {
-            guiGraphics.drawString(this.font, "No permissions found for " + selectedRole + ".", PANEL_PADDING, y, 0x777777);
+            guiGraphics.drawString(this.font, "No permissions found for " + currentRoleDisplay() + ".", PANEL_PADDING, y, 0x777777);
             return;
         }
-        guiGraphics.drawString(this.font, selectedRole + ":", PANEL_PADDING, y, 0xCCCCCC);
+        guiGraphics.drawString(this.font, currentRoleDisplay() + ":", PANEL_PADDING, y, 0xCCCCCC);
         y += 10;
         int lineHeight = 10;
         int availableHeight = Math.max(0, this.height - y - 30);
@@ -783,7 +921,7 @@ public class FactionMainScreen extends Screen {
 
     private List<String> getSelectedPermissions() {
         return FactionClientData.getSnapshot().permissions().stream()
-            .filter(entry -> entry.role().equalsIgnoreCase(currentRole().name()))
+            .filter(entry -> entry.role().equalsIgnoreCase(currentRoleName()))
             .findFirst()
             .map(com.mcprotector.network.FactionStatePacket.PermissionEntry::permissions)
             .orElse(List.of());
@@ -960,7 +1098,11 @@ public class FactionMainScreen extends Screen {
             || (selectedTab == FactionTab.RELATIONS && snapshot.inFaction())
             || (selectedTab == FactionTab.MEMBERS && snapshot.inFaction())
             || (selectedTab == FactionTab.RULES && snapshot.inFaction());
-        return panelTop + (hasControls ? CONTENT_START_OFFSET : CONTROL_TOP_OFFSET);
+        int controlOffset = CONTENT_START_OFFSET;
+        if (selectedTab == FactionTab.PERMISSIONS) {
+            controlOffset += CONTROL_ROW_SPACING;
+        }
+        return panelTop + (hasControls ? controlOffset : CONTROL_TOP_OFFSET);
     }
 
     private int getMapClaimsBottomRow() {

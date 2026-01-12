@@ -69,6 +69,14 @@ public class FactionActionPacket implements CustomPacketPayload {
         return new FactionActionPacket(ActionType.SET_ROLE, targetName, role, "", false);
     }
 
+    public static FactionActionPacket createRole(String roleName, String displayName) {
+        return new FactionActionPacket(ActionType.CREATE_ROLE, displayName, roleName, "", false);
+    }
+
+    public static FactionActionPacket deleteRole(String roleName) {
+        return new FactionActionPacket(ActionType.DELETE_ROLE, "", roleName, "", false);
+    }
+
     public static FactionActionPacket setRelationPermission(String relation, String permission, boolean grant) {
         return new FactionActionPacket(ActionType.SET_RELATION_PERMISSION, "", relation, permission, grant);
     }
@@ -184,10 +192,23 @@ public class FactionActionPacket implements CustomPacketPayload {
                         return;
                     }
                     try {
-                        FactionService.setRole(player.createCommandSourceStack(), target,
-                            com.mcprotector.data.FactionRole.valueOf(packet.role.toUpperCase()));
+                        FactionService.setRole(player.createCommandSourceStack(), target, packet.role);
                     } catch (Exception ex) {
                         player.sendSystemMessage(Component.literal("Failed to set role: " + ex.getMessage()));
+                    }
+                }
+                case CREATE_ROLE -> {
+                    try {
+                        FactionService.createRole(player.createCommandSourceStack(), packet.role, packet.targetName);
+                    } catch (Exception ex) {
+                        player.sendSystemMessage(Component.literal("Failed to create role: " + ex.getMessage()));
+                    }
+                }
+                case DELETE_ROLE -> {
+                    try {
+                        FactionService.deleteRole(player.createCommandSourceStack(), packet.role);
+                    } catch (Exception ex) {
+                        player.sendSystemMessage(Component.literal("Failed to delete role: " + ex.getMessage()));
                     }
                 }
                 case SET_RELATION_PERMISSION -> {
@@ -233,6 +254,8 @@ public class FactionActionPacket implements CustomPacketPayload {
         LEAVE_FACTION,
         KICK_MEMBER,
         SET_ROLE,
+        CREATE_ROLE,
+        DELETE_ROLE,
         SET_RELATION_PERMISSION,
         ADD_RULE,
         REMOVE_RULE
