@@ -119,8 +119,9 @@ public final class FactionMapRenderer {
                                           int scrollOffset,
                                           int height,
                                           int panelPadding,
+                                          int controlsOffset,
                                           Font font) {
-        int startY = region.originY() + (region.cellSize() * (region.radius() * 2 + 1)) + 12;
+        int startY = region.originY() + (region.cellSize() * (region.radius() * 2 + 1)) + 12 + controlsOffset;
         guiGraphics.drawString(font, "Claims:", panelPadding, startY, 0xFFFFFF);
         int y = startY + 12;
         if (claims.isEmpty()) {
