@@ -29,8 +29,10 @@ public final class FactionMapRenderer {
     }
 
     public static int getMapClaimsListStart(MapRegion region) {
-        return region.originY() + (region.cellSize() * (region.radius() * 2 + 1)) + 24;
+        return region.originY() + (region.cellSize() * (region.radius() * 2 + 1)) + 12;
     }
+
+
 
     public static ChunkPos getChunkFromMouse(MapRegion region, double mouseX, double mouseY,
                                              FactionMapClientData.MapSnapshot mapSnapshot) {
@@ -120,7 +122,7 @@ public final class FactionMapRenderer {
                                           int height,
                                           int panelPadding,
                                           Font font) {
-        int startY = region.originY() + (region.cellSize() * (region.radius() * 2 + 1)) + 12;
+        int startY = getMapClaimsListStart(region);
         guiGraphics.drawString(font, "Claims:", panelPadding, startY, 0xFFFFFF);
         int y = startY + 12;
         if (claims.isEmpty()) {
@@ -128,7 +130,7 @@ public final class FactionMapRenderer {
             return 0;
         }
         int lineHeight = 10;
-        int availableHeight = Math.max(0, height - y - 30);
+        int availableHeight = Math.max(0, height - y - 6);
         int visibleLines = Math.max(1, availableHeight / lineHeight);
         int maxOffset = Math.max(0, claims.size() - visibleLines);
         int clampedOffset = Math.min(scrollOffset, maxOffset);
@@ -140,6 +142,7 @@ public final class FactionMapRenderer {
         }
         return clampedOffset;
     }
+
 
     private static int getMapColor(com.mcprotector.network.FactionClaimMapPacket.ClaimEntry entry) {
         if (entry == null) {
