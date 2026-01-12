@@ -63,6 +63,11 @@ public final class FactionMapRenderer {
                 com.mcprotector.network.FactionClaimMapPacket.ClaimEntry entry = mapSnapshot.claims().get(key);
                 int color = getMapColor(entry);
                 guiGraphics.fill(x, y, x + region.cellSize(), y + region.cellSize(), color);
+                int halfCell = Math.max(1, region.cellSize() / 2);
+                guiGraphics.fill(x, y, x + halfCell, y + halfCell, 0x18FFFFFF);
+                guiGraphics.fill(x + halfCell, y + halfCell, x + region.cellSize(), y + region.cellSize(), 0x18000000);
+                int gridColor = shadeColor(color, 0.75f);
+                guiGraphics.renderOutline(x, y, region.cellSize(), region.cellSize(), gridColor);
             }
         }
         int centerX = region.originX() + radius * region.cellSize();
@@ -133,6 +138,17 @@ public final class FactionMapRenderer {
             case "WAR" -> 0xFFEF5350;
             default -> 0xFF8D8D8D;
         };
+    }
+
+    private static int shadeColor(int color, float factor) {
+        int alpha = (color >>> 24) & 0xFF;
+        int red = (color >>> 16) & 0xFF;
+        int green = (color >>> 8) & 0xFF;
+        int blue = color & 0xFF;
+        red = Math.min(255, Math.max(0, Math.round(red * factor)));
+        green = Math.min(255, Math.max(0, Math.round(green * factor)));
+        blue = Math.min(255, Math.max(0, Math.round(blue * factor)));
+        return (alpha << 24) | (red << 16) | (green << 8) | blue;
     }
 
     public record MapRegion(int originX, int originY, int cellSize, int radius) {
