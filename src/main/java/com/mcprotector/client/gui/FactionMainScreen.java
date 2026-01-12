@@ -80,6 +80,8 @@ public class FactionMainScreen extends Screen {
     private int panelTop;
     private int permissionsScrollOffset;
     private int mapClaimsScrollOffset;
+    private int selectedRuleIndex = -1;
+    private int rulesScrollOffset;
     private ClaimType selectedClaimType = ClaimType.FACTION;
     private boolean selectionActive;
     private ChunkPos selectionAnchor;
@@ -149,11 +151,11 @@ public class FactionMainScreen extends Screen {
         ruleField = new EditBox(this.font, PANEL_PADDING, controlRowOne, 200, 18, Component.literal("New rule"));
         ruleField.setMaxLength(120);
         this.addRenderableWidget(ruleField);
-        addRuleButton = this.addRenderableWidget(Button.builder(Component.literal("Add"), button -> sendRuleAction(true))
+        addRuleButton = this.addRenderableWidget(Button.builder(Component.literal("Add"), button -> sendAddRule())
             .bounds(PANEL_PADDING + 210, controlRowOne - 2, 60, 20)
             .build());
-        removeRuleButton = this.addRenderableWidget(Button.builder(Component.literal("Remove"), button -> sendRuleAction(false))
-            .bounds(PANEL_PADDING + 275, controlRowOne - 2, 70, 20)
+        removeRuleButton = this.addRenderableWidget(Button.builder(Component.literal("Remove selected"), button -> sendRemoveSelectedRule())
+            .bounds(PANEL_PADDING, controlRowOne - 2, 130, 20)
             .build());
 
         relationTypeButton = this.addRenderableWidget(Button.builder(Component.literal("Relation: " + currentRelation().name()), button -> {
@@ -289,6 +291,22 @@ public class FactionMainScreen extends Screen {
             }
             return true;
         }
+        if (selectedTab == FactionTab.RULES) {
+            int lineHeight = 10;
+            int listStart = getRulesListStart(getContentStart(FactionClientData.getSnapshot()));
+            int listBottom = getRulesListBottom(selectedRuleIndex >= 0);
+            if (mouseY >= listStart && mouseY <= listBottom) {
+                int availableHeight = Math.max(0, listBottom - listStart);
+                int visibleLines = Math.max(1, availableHeight / lineHeight);
+                int maxOffset = Math.max(0, FactionClientData.getSnapshot().rules().size() - visibleLines);
+                if (scrollY < 0) {
+                    rulesScrollOffset = Math.min(maxOffset, rulesScrollOffset + 1);
+                } else if (scrollY > 0) {
+                    rulesScrollOffset = Math.max(0, rulesScrollOffset - 1);
+                }
+                return true;
+            }
+        }
         if (selectedTab == FactionTab.FACTION_MAP) {
             FactionMapClientData.MapSnapshot mapSnapshot = FactionMapClientData.getSnapshot();
             FactionMapRenderer.MapRegion region = FactionMapRenderer.buildMapRegion(getContentStart(FactionClientData.getSnapshot()), mapSnapshot.radius(),
@@ -312,6 +330,22 @@ public class FactionMainScreen extends Screen {
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        if (selectedTab == FactionTab.RULES && button == 0) {
+            FactionClientData.FactionSnapshot snapshot = FactionClientData.getSnapshot();
+            int listStart = getRulesListStart(getContentStart(snapshot));
+            int listBottom = getRulesListBottom(selectedRuleIndex >= 0);
+            if (mouseY >= listStart && mouseY <= listBottom && mouseX >= PANEL_PADDING && mouseX <= this.width - PANEL_PADDING) {
+                int lineHeight = 10;
+                int availableHeight = Math.max(0, listBottom - listStart);
+                int visibleLines = Math.max(1, availableHeight / lineHeight);
+                int row = (int) ((mouseY - listStart) / lineHeight);
+                int index = rulesScrollOffset + row;
+                if (row >= 0 && row < visibleLines && index < snapshot.rules().size()) {
+                    selectedRuleIndex = index;
+                    return true;
+                }
+            }
+        }
         if (selectedTab == FactionTab.FACTION_MAP && button == 0) {
             FactionMapClientData.MapSnapshot mapSnapshot = FactionMapClientData.getSnapshot();
             FactionMapRenderer.MapRegion region = FactionMapRenderer.buildMapRegion(getContentStart(FactionClientData.getSnapshot()), mapSnapshot.radius(),
@@ -396,6 +430,10 @@ public class FactionMainScreen extends Screen {
             selectionAnchor = null;
             selectedChunks.clear();
         }
+        if (!rules) {
+            selectedRuleIndex = -1;
+            rulesScrollOffset = 0;
+        }
         if (selectedTab == FactionTab.FACTION_MAP) {
             mapClaimsScrollOffset = 0;
             FactionMapClientData.requestUpdate();
@@ -419,7 +457,7 @@ public class FactionMainScreen extends Screen {
         boolean rules = selectedTab == FactionTab.RULES;
         ruleField.setVisible(rules && inFaction);
         addRuleButton.visible = rules && inFaction;
-        removeRuleButton.visible = rules && inFaction;
+        removeRuleButton.visible = rules && inFaction && selectedRuleIndex >= 0;
         boolean relations = selectedTab == FactionTab.RELATIONS;
         relationTypeButton.visible = relations && inFaction;
         relationPermissionButton.visible = relations && inFaction;
@@ -520,17 +558,23 @@ public class FactionMainScreen extends Screen {
         memberNameField.setValue("");
     }
 
-    private void sendRuleAction(boolean add) {
+    private void sendAddRule() {
         String rule = ruleField.getValue().trim();
         if (rule.isEmpty()) {
             return;
         }
-        if (add) {
-            ClientNetworkSender.sendToServer(FactionActionPacket.addRule(rule));
-        } else {
-            ClientNetworkSender.sendToServer(FactionActionPacket.removeRule(rule));
-        }
+        ClientNetworkSender.sendToServer(FactionActionPacket.addRule(rule));
         ruleField.setValue("");
+    }
+
+    private void sendRemoveSelectedRule() {
+        FactionClientData.FactionSnapshot snapshot = FactionClientData.getSnapshot();
+        if (selectedRuleIndex < 0 || selectedRuleIndex >= snapshot.rules().size()) {
+            return;
+        }
+        String rule = snapshot.rules().get(selectedRuleIndex);
+        ClientNetworkSender.sendToServer(FactionActionPacket.removeRule(rule));
+        selectedRuleIndex = -1;
     }
 
     private void leaveFaction() {
@@ -780,16 +824,40 @@ public class FactionMainScreen extends Screen {
 
     private void renderRules(GuiGraphics guiGraphics, List<String> rules, int startY) {
         guiGraphics.drawString(this.font, "Rules:", PANEL_PADDING, startY, 0xFFFFFF);
-        int y = startY + 12;
+        int listStart = getRulesListStart(startY);
         if (rules.isEmpty()) {
-            guiGraphics.drawString(this.font, "No rules set yet.", PANEL_PADDING, y, 0x777777);
+            guiGraphics.drawString(this.font, "No rules set yet.", PANEL_PADDING, listStart, 0x777777);
+            removeRuleButton.visible = false;
             return;
         }
-        int index = 1;
-        for (String rule : rules) {
-            guiGraphics.drawString(this.font, index + ". " + rule, PANEL_PADDING, y, 0xCCCCCC);
-            y += 10;
-            index++;
+        if (selectedRuleIndex >= rules.size()) {
+            selectedRuleIndex = -1;
+        }
+        boolean showRemove = selectedRuleIndex >= 0;
+        int listBottom = getRulesListBottom(showRemove);
+        int lineHeight = 10;
+        int availableHeight = Math.max(0, listBottom - listStart);
+        int visibleLines = Math.max(1, availableHeight / lineHeight);
+        int maxOffset = Math.max(0, rules.size() - visibleLines);
+        rulesScrollOffset = Math.min(rulesScrollOffset, maxOffset);
+        List<String> visibleRules = rules.subList(rulesScrollOffset, Math.min(rules.size(), rulesScrollOffset + visibleLines));
+        int y = listStart;
+        for (int i = 0; i < visibleRules.size(); i++) {
+            int index = rulesScrollOffset + i;
+            String rule = visibleRules.get(i);
+            if (index == selectedRuleIndex) {
+                guiGraphics.fill(PANEL_PADDING - 2, y - 1, this.width - PANEL_PADDING + 2, y + lineHeight - 1, PANEL_HIGHLIGHT);
+            }
+            guiGraphics.drawString(this.font, (index + 1) + ". " + rule, PANEL_PADDING, y, 0xCCCCCC);
+            y += lineHeight;
+        }
+        if (showRemove) {
+            removeRuleButton.setX(PANEL_PADDING);
+            removeRuleButton.setY(listBottom + 6);
+            removeRuleButton.visible = true;
+        } else {
+            removeRuleButton.visible = false;
+            return;
         }
     }
 
@@ -897,6 +965,15 @@ public class FactionMainScreen extends Screen {
 
     private int getMapClaimsBottomRow() {
         return this.height - PANEL_PADDING - 20;
+    }
+
+    private int getRulesListStart(int startY) {
+        return startY + 12;
+    }
+
+    private int getRulesListBottom(boolean showRemove) {
+        int padding = showRemove ? 26 : 6;
+        return this.height - PANEL_PADDING - 20 - padding;
     }
 
     private void updateMapControlLayout() {
