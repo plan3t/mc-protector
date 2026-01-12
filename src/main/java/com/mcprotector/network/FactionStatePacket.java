@@ -12,6 +12,8 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
+import net.neoforged.api.distmarker.Dist;
+import net.neoforged.fml.DistExecutor;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 
 import java.util.ArrayList;
@@ -215,7 +217,8 @@ public class FactionStatePacket implements CustomPacketPayload {
     }
 
     public static void handle(FactionStatePacket packet, IPayloadContext context) {
-        context.enqueueWork(() -> com.mcprotector.client.ClientPacketHandler.handleFactionState(packet));
+        context.enqueueWork(() -> DistExecutor.unsafeRunWhenOn(Dist.CLIENT,
+            () -> () -> com.mcprotector.client.ClientPacketHandler.handleFactionState(packet)));
     }
 
     @Override
