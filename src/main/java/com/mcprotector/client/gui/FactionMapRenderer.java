@@ -32,6 +32,10 @@ public final class FactionMapRenderer {
         return region.originY() + (region.cellSize() * (region.radius() * 2 + 1)) + 12;
     }
 
+    public static int getMapClaimsListStart(MapRegion region, int controlsOffset) {
+        return getMapClaimsListStart(region) + controlsOffset;
+    }
+
 
 
 
@@ -124,7 +128,18 @@ public final class FactionMapRenderer {
                                           int panelPadding,
                                           int controlsOffset,
                                           Font font) {
-        int startY = getMapClaimsListStart(region);
+        return renderMapClaimsList(guiGraphics, claims, region, scrollOffset, height, panelPadding, 0, font);
+    }
+
+    public static int renderMapClaimsList(GuiGraphics guiGraphics,
+                                          List<com.mcprotector.network.FactionStatePacket.ClaimEntry> claims,
+                                          MapRegion region,
+                                          int scrollOffset,
+                                          int height,
+                                          int panelPadding,
+                                          int controlsOffset,
+                                          Font font) {
+        int startY = getMapClaimsListStart(region, controlsOffset);
         guiGraphics.drawString(font, "Claims:", panelPadding, startY, 0xFFFFFF);
         int y = startY + 12;
         if (claims.isEmpty()) {
