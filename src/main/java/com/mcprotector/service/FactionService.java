@@ -298,10 +298,10 @@ public final class FactionService {
             return 0;
         }
         FactionData data = FactionData.get(player.serverLevel());
-        Optional<Faction> faction = data.findFactionByName(factionName.trim());
+        String trimmedName = factionName.trim();
+        Optional<Faction> faction = data.findFactionByName(trimmedName);
         if (faction.isEmpty()) {
-            source.sendFailure(Component.literal("Faction not found."));
-            return 0;
+            faction = Optional.of(data.createSystemFaction(trimmedName));
         }
         int claimed = 0;
         for (ChunkPos chunk : chunks) {
@@ -331,10 +331,10 @@ public final class FactionService {
             return 0;
         }
         FactionData data = FactionData.get(player.serverLevel());
-        Optional<Faction> faction = data.findFactionByName(factionName.trim());
+        String trimmedName = factionName.trim();
+        Optional<Faction> faction = data.findFactionByName(trimmedName);
         if (faction.isEmpty()) {
-            source.sendFailure(Component.literal("Faction not found."));
-            return 0;
+            faction = Optional.of(data.createSystemFaction(trimmedName));
         }
         int claimed = 0;
         int unclaimed = 0;

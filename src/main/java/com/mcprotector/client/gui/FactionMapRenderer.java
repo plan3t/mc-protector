@@ -21,9 +21,9 @@ public final class FactionMapRenderer {
         int mapWidth = cellSize * gridSize;
         int mapHeight = cellSize * gridSize;
         int originX = (width - mapWidth) / 2;
-        int originY = startY + 6;
+        int originY = startY + 2;
         if (originY + mapHeight > height - panelPadding - 30) {
-            originY = Math.max(startY + 16, height - panelPadding - 30 - mapHeight);
+            originY = Math.max(startY + 12, height - panelPadding - 30 - mapHeight);
         }
         return new MapRegion(originX, originY, cellSize, radius);
     }

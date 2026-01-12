@@ -407,6 +407,15 @@ public class FactionData extends SavedData {
         return faction;
     }
 
+    public Faction createSystemFaction(String name) {
+        UUID id = UUID.randomUUID();
+        UUID ownerId = new UUID(0L, 0L);
+        Faction faction = new Faction(id, name, ownerId);
+        factions.put(id, faction);
+        setDirty();
+        return faction;
+    }
+
     public boolean addMember(UUID factionId, UUID playerId, FactionRole role) {
         Faction faction = factions.get(factionId);
         if (faction == null) {
