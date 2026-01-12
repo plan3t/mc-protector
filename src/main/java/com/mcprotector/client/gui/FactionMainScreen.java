@@ -31,7 +31,6 @@ public class FactionMainScreen extends Screen {
     private static final int CONTROL_TOP_OFFSET = 6;
     private static final int CONTROL_ROW_SPACING = 24;
     private static final int CONTENT_START_OFFSET = 54;
-    private static final int MAP_CONTROL_OFFSET = 0;
     private static final int BACKDROP_COLOR = 0x80000000;
     private static final int PANEL_BG = 0xD01B1B1B;
     private static final int PANEL_BORDER = 0xFF3B3B3B;
@@ -661,7 +660,7 @@ public class FactionMainScreen extends Screen {
             FactionMapRenderer.renderMapTooltip(guiGraphics, mapSnapshot, hovered, mouseX, mouseY, this.font);
         }
         mapClaimsScrollOffset = FactionMapRenderer.renderMapClaimsList(guiGraphics, snapshot.claims(), region,
-            mapClaimsScrollOffset, getMapClaimsBottomRow(), PANEL_PADDING, MAP_CONTROL_OFFSET, this.font);
+            mapClaimsScrollOffset, getMapClaimsBottomRow(), PANEL_PADDING, this.font);
         if (!selectedChunks.isEmpty()) {
             guiGraphics.drawString(this.font, "Selected " + selectedChunks.size() + " chunk(s)",
                 PANEL_PADDING, startY + 14, 0xF9A825);
