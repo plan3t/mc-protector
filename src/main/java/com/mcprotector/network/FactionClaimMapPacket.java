@@ -39,6 +39,8 @@ public class FactionClaimMapPacket implements CustomPacketPayload {
         FactionData data = FactionData.get(player.serverLevel());
         ChunkPos center = new ChunkPos(player.blockPosition());
         int radius = Math.max(0, FactionConfig.SERVER.claimMapRadiusChunks.get());
+        int viewDistance = player.getServer().getPlayerList().getViewDistance();
+        radius = Math.max(radius, viewDistance);
         boolean fullSync = FactionConfig.SERVER.claimMapFullSync.get();
         Optional<UUID> playerFactionId = data.getFactionIdByPlayer(player.getUUID());
         List<ClaimEntry> entries = new ArrayList<>();
