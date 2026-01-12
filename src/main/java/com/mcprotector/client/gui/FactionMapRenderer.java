@@ -125,6 +125,7 @@ public final class FactionMapRenderer {
                                           int scrollOffset,
                                           int height,
                                           int panelPadding,
+                                          int controlsOffset,
                                           Font font) {
         int startY = getMapClaimsListStart(region);
         guiGraphics.drawString(font, "Claims:", panelPadding, startY, 0xFFFFFF);
