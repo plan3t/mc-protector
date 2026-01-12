@@ -104,33 +104,29 @@ public final class FactionClaimBorderRenderer {
                                          double x2, double z2, double minY, double maxY, float red, float green,
                                          float blue, float alpha, float u0, float u1, float v0, float v1) {
         int light = LightTexture.FULL_BRIGHT;
-        consumer.vertex(pose.pose(), (float) x1, (float) minY, (float) z1)
-            .color(red, green, blue, alpha)
-            .uv(u0, v1)
-            .overlayCoords(OverlayTexture.NO_OVERLAY)
-            .uv2(light)
-            .normal(pose.normal(), 0.0f, 1.0f, 0.0f)
-            .endVertex();
-        consumer.vertex(pose.pose(), (float) x1, (float) maxY, (float) z1)
-            .color(red, green, blue, alpha)
-            .uv(u0, v0)
-            .overlayCoords(OverlayTexture.NO_OVERLAY)
-            .uv2(light)
-            .normal(pose.normal(), 0.0f, 1.0f, 0.0f)
-            .endVertex();
-        consumer.vertex(pose.pose(), (float) x2, (float) maxY, (float) z2)
-            .color(red, green, blue, alpha)
-            .uv(u1, v0)
-            .overlayCoords(OverlayTexture.NO_OVERLAY)
-            .uv2(light)
-            .normal(pose.normal(), 0.0f, 1.0f, 0.0f)
-            .endVertex();
-        consumer.vertex(pose.pose(), (float) x2, (float) minY, (float) z2)
-            .color(red, green, blue, alpha)
-            .uv(u1, v1)
-            .overlayCoords(OverlayTexture.NO_OVERLAY)
-            .uv2(light)
-            .normal(pose.normal(), 0.0f, 1.0f, 0.0f)
-            .endVertex();
+        consumer.addVertex(pose.pose(), (float) x1, (float) minY, (float) z1)
+            .setColor(red, green, blue, alpha)
+            .setUv(u0, v1)
+            .setOverlay(OverlayTexture.NO_OVERLAY)
+            .setLight(light)
+            .setNormal(pose.normal(), 0.0f, 1.0f, 0.0f);
+        consumer.addVertex(pose.pose(), (float) x1, (float) maxY, (float) z1)
+            .setColor(red, green, blue, alpha)
+            .setUv(u0, v0)
+            .setOverlay(OverlayTexture.NO_OVERLAY)
+            .setLight(light)
+            .setNormal(pose.normal(), 0.0f, 1.0f, 0.0f);
+        consumer.addVertex(pose.pose(), (float) x2, (float) maxY, (float) z2)
+            .setColor(red, green, blue, alpha)
+            .setUv(u1, v0)
+            .setOverlay(OverlayTexture.NO_OVERLAY)
+            .setLight(light)
+            .setNormal(pose.normal(), 0.0f, 1.0f, 0.0f);
+        consumer.addVertex(pose.pose(), (float) x2, (float) minY, (float) z2)
+            .setColor(red, green, blue, alpha)
+            .setUv(u1, v1)
+            .setOverlay(OverlayTexture.NO_OVERLAY)
+            .setLight(light)
+            .setNormal(pose.normal(), 0.0f, 1.0f, 0.0f);
     }
 }
