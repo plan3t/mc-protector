@@ -79,12 +79,23 @@ public class FactionClaimHandler {
         FactionData data = FactionData.get(level);
         BlockPos pos = player.blockPosition();
         Optional<Faction> owner = data.getFactionAt(pos);
+        Optional<UUID> personalOwner = data.getPersonalClaimOwner(pos);
         boolean isSafeZone = data.isSafeZoneClaimed(pos);
-        boolean isPersonal = data.getPersonalClaimOwner(pos).isPresent();
+        boolean isPersonal = personalOwner.isPresent();
         Optional<UUID> ownerId = owner.map(Faction::getId);
+        Optional<UUID> territoryId = personalOwner.or(() -> ownerId);
         Optional<UUID> lastOwner = FactionClaimManager.getLastTerritory(player.getUUID());
-        if (!lastOwner.equals(ownerId)) {
-            if (owner.isEmpty()) {
+        if (!lastOwner.equals(territoryId)) {
+            if (isPersonal) {
+                TextColor mapColor = getMapColor(player, data, personalOwner.orElse(null), false, true);
+                String label = personalOwner.filter(id -> id.equals(player.getUUID()))
+                    .map(id -> "your personal claim")
+                    .orElseGet(() -> resolvePlayerName(level, personalOwner.orElse(null)) + "'s personal claim");
+                player.displayClientMessage(
+                    Component.literal("Entering " + label).withStyle(style -> style.withColor(mapColor)),
+                    true
+                );
+            } else if (owner.isEmpty()) {
                 player.displayClientMessage(Component.literal("Entering wilderness").withStyle(ChatFormatting.GRAY), true);
             } else {
                 TextColor mapColor = getMapColor(player, data, ownerId.orElse(null), isSafeZone, isPersonal);
@@ -94,7 +105,7 @@ public class FactionClaimHandler {
                 );
             }
         }
-        FactionClaimManager.setLastTerritory(player.getUUID(), ownerId);
+        FactionClaimManager.setLastTerritory(player.getUUID(), territoryId);
     }
 
     private TextColor getMapColor(ServerPlayer player, FactionData data, UUID ownerId, boolean safeZone, boolean personal) {
@@ -117,6 +128,21 @@ public class FactionClaimHandler {
             case WAR -> TextColor.fromRgb(0xEF5350);
             default -> TextColor.fromRgb(0x8D8D8D);
         };
+    }
+
+    private String resolvePlayerName(ServerLevel level, UUID playerId) {
+        if (playerId == null) {
+            return "Unknown";
+        }
+        var server = level.getServer();
+        var player = server.getPlayerList().getPlayer(playerId);
+        if (player != null) {
+            return player.getGameProfile().getName();
+        }
+        return server.getProfileCache()
+            .get(playerId)
+            .map(profile -> profile.getName())
+            .orElse(playerId.toString());
     }
 
     private void ensureSettingsLoaded(ServerPlayer player) {

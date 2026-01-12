@@ -1,5 +1,6 @@
 package com.mcprotector.client;
 
+import com.mcprotector.config.FactionConfig;
 import com.mcprotector.network.FactionClaimMapPacket;
 import net.minecraft.client.Minecraft;
 import net.minecraft.world.level.ChunkPos;
@@ -19,7 +20,8 @@ public final class FactionMapClientData {
         for (FactionClaimMapPacket.ClaimEntry entry : packet.claims()) {
             claims.put(new ChunkPos(entry.chunkX(), entry.chunkZ()).toLong(), entry);
         }
-        snapshot = new MapSnapshot(packet.centerChunkX(), packet.centerChunkZ(), packet.radius(), claims);
+        int radius = Math.max(0, FactionConfig.SERVER.claimMapRadiusChunks.get());
+        snapshot = new MapSnapshot(packet.centerChunkX(), packet.centerChunkZ(), radius, claims);
     }
 
     public static MapSnapshot getSnapshot() {
