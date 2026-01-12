@@ -29,7 +29,7 @@ public final class FactionMapRenderer {
     }
 
     public static int getMapClaimsListStart(MapRegion region) {
-        return region.originY() + (region.cellSize() * (region.radius() * 2 + 1)) + 24;
+        return region.originY() + (region.cellSize() * (region.radius() * 2 + 1)) + 12;
     }
 
     public static ChunkPos getChunkFromMouse(MapRegion region, double mouseX, double mouseY,
@@ -128,7 +128,7 @@ public final class FactionMapRenderer {
             return 0;
         }
         int lineHeight = 10;
-        int availableHeight = Math.max(0, height - y - 30);
+        int availableHeight = Math.max(0, height - y - 6);
         int visibleLines = Math.max(1, availableHeight / lineHeight);
         int maxOffset = Math.max(0, claims.size() - visibleLines);
         int clampedOffset = Math.min(scrollOffset, maxOffset);
