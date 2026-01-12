@@ -141,9 +141,9 @@ public class FactionMainScreen extends Screen {
         memberRoleButton = this.addRenderableWidget(Button.builder(Component.literal("Role: " + currentMemberRole().name()), button -> {
             memberRoleIndex = (memberRoleIndex + 1) % FactionRole.values().length;
             updateMemberRoleLabel();
-        }).bounds(PANEL_PADDING + 215, controlRowTwo + 8, 70, 20).build());
+        }).bounds(PANEL_PADDING + 215, controlRowOne + 8, 70, 20).build());
         setRoleButton = this.addRenderableWidget(Button.builder(Component.literal("Set Role"), button -> sendMemberRole())
-            .bounds(PANEL_PADDING + 290, controlRowTwo + 8, 70, 20)
+            .bounds(PANEL_PADDING + 290, controlRowOne + 8, 70, 20)
             .build());
 
         ruleField = new EditBox(this.font, PANEL_PADDING, controlRowOne, 200, 18, Component.literal("New rule"));
