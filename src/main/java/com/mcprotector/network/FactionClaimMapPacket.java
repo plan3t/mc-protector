@@ -112,7 +112,7 @@ public class FactionClaimMapPacket implements CustomPacketPayload {
     }
 
     public static void handle(FactionClaimMapPacket packet, IPayloadContext context) {
-        context.enqueueWork(() -> com.mcprotector.client.ClientPacketHandler.handleClaimMap(packet));
+        context.enqueueWork(() -> ClientPacketDispatcher.handleClaimMap(packet));
     }
 
     @Override

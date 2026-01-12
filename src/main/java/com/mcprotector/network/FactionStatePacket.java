@@ -215,7 +215,7 @@ public class FactionStatePacket implements CustomPacketPayload {
     }
 
     public static void handle(FactionStatePacket packet, IPayloadContext context) {
-        context.enqueueWork(() -> com.mcprotector.client.ClientPacketHandler.handleFactionState(packet));
+        context.enqueueWork(() -> ClientPacketDispatcher.handleFactionState(packet));
     }
 
     @Override
