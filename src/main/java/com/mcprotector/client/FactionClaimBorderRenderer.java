@@ -8,6 +8,8 @@ import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.client.renderer.LightTexture;
+import net.minecraft.client.renderer.texture.TextureAtlas;
+import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.client.Camera;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.phys.Vec3;
@@ -78,8 +80,9 @@ public final class FactionClaimBorderRenderer {
         poseStack.popPose();
     }
 
-    private static void drawLine(VertexConsumer consumer, PoseStack.Pose pose, double x1, double y1, double z1,
-                                 double x2, double y2, double z2, float red, float green, float blue, float alpha) {
+    private static void drawVerticalQuad(VertexConsumer consumer, PoseStack.Pose pose, double x1, double z1,
+                                         double x2, double z2, double minY, double maxY, float red, float green,
+                                         float blue, float alpha, float u0, float u1, float v0, float v1) {
         int light = LightTexture.FULL_BRIGHT;
         consumer.addVertex(pose.pose(), (float) x1, (float) y1, (float) z1)
             .setColor(red, green, blue, alpha)
