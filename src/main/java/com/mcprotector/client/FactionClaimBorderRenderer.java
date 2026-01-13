@@ -7,9 +7,9 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.texture.OverlayTexture;
+import net.minecraft.client.renderer.LightTexture;
 import net.minecraft.client.renderer.texture.TextureAtlas;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
-import net.minecraft.client.renderer.LightTexture;
 import net.minecraft.client.Camera;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.block.Blocks;
@@ -19,8 +19,6 @@ import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
 import java.util.Map;
 
 public final class FactionClaimBorderRenderer {
-    private static final int SAFE_ZONE_COLOR = 0xFFF9A825;
-    private static final int PERSONAL_CLAIM_COLOR = 0xFF9C27B0;
     private static final float BORDER_ALPHA = 0.35f;
     private FactionClaimBorderRenderer() {
     }
@@ -60,7 +58,7 @@ public final class FactionClaimBorderRenderer {
             if (Math.abs(dx) > renderRadius || Math.abs(dz) > renderRadius) {
                 continue;
             }
-            int color = getBorderColor(entry.getValue());
+            int color = entry.getValue().color();
             float red = ((color >> 16) & 0xFF) / 255.0f;
             float green = ((color >> 8) & 0xFF) / 255.0f;
             float blue = (color & 0xFF) / 255.0f;
@@ -81,21 +79,6 @@ public final class FactionClaimBorderRenderer {
         }
         bufferSource.endBatch();
         poseStack.popPose();
-    }
-
-    private static int getBorderColor(FactionClaimMapPacket.ClaimEntry entry) {
-        if (entry.safeZone()) {
-            return SAFE_ZONE_COLOR;
-        }
-        if (entry.personal()) {
-            return PERSONAL_CLAIM_COLOR;
-        }
-        return switch (entry.relation()) {
-            case "OWN" -> 0xFF4CAF50;
-            case "ALLY" -> 0xFF4FC3F7;
-            case "WAR" -> 0xFFEF5350;
-            default -> 0xFF8D8D8D;
-        };
     }
 
     private static void drawVerticalQuad(VertexConsumer consumer, PoseStack.Pose pose, double x1, double z1,
