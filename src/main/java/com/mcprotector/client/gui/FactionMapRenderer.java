@@ -134,6 +134,10 @@ public final class FactionMapRenderer {
         if (entry == null) {
             return 0xFF3A3A3A;
         }
+        int color = entry.color();
+        if (color != 0) {
+            return color;
+        }
         if (entry.safeZone()) {
             return 0xFFF9A825;
         }

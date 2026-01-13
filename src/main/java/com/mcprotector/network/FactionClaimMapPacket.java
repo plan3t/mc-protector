@@ -23,6 +23,8 @@ public class FactionClaimMapPacket implements CustomPacketPayload {
         new CustomPacketPayload.Type<>(ResourceLocation.fromNamespaceAndPath(McProtectorMod.MOD_ID, "faction_claim_map"));
     public static final StreamCodec<RegistryFriendlyByteBuf, FactionClaimMapPacket> STREAM_CODEC =
         StreamCodec.ofMember(FactionClaimMapPacket::write, FactionClaimMapPacket::decode);
+    private static final int SAFE_ZONE_COLOR = 0xFFF9A825;
+    private static final int PERSONAL_CLAIM_COLOR = 0xFF9C27B0;
     private final int centerChunkX;
     private final int centerChunkZ;
     private final int radius;
@@ -55,7 +57,8 @@ public class FactionClaimMapPacket implements CustomPacketPayload {
             String relation = playerFactionId
                 .map(id -> id.equals(entry.getValue()) ? "OWN" : data.getRelation(id, entry.getValue()).name())
                 .orElse(FactionRelation.NEUTRAL.name());
-            entries.add(new ClaimEntry(chunkPos.x, chunkPos.z, factionName, relation, false, false));
+            int color = resolveClaimColor(false, false, relation);
+            entries.add(new ClaimEntry(chunkPos.x, chunkPos.z, factionName, relation, false, false, color));
         }
         for (var entry : data.getSafeZoneClaims().entrySet()) {
             ChunkPos chunkPos = new ChunkPos(entry.getKey());
@@ -68,7 +71,8 @@ public class FactionClaimMapPacket implements CustomPacketPayload {
             String relation = playerFactionId
                 .map(id -> id.equals(entry.getValue()) ? "OWN" : data.getRelation(id, entry.getValue()).name())
                 .orElse(FactionRelation.NEUTRAL.name());
-            entries.add(new ClaimEntry(chunkPos.x, chunkPos.z, factionName, relation, true, false));
+            int color = resolveClaimColor(true, false, relation);
+            entries.add(new ClaimEntry(chunkPos.x, chunkPos.z, factionName, relation, true, false, color));
         }
         var server = player.getServer();
         for (var entry : data.getPersonalClaims().entrySet()) {
@@ -80,7 +84,8 @@ public class FactionClaimMapPacket implements CustomPacketPayload {
             UUID ownerId = entry.getValue();
             String ownerName = resolveName(server, ownerId);
             String relation = ownerId.equals(player.getUUID()) ? "OWN" : "PERSONAL";
-            entries.add(new ClaimEntry(chunkPos.x, chunkPos.z, ownerName, relation, false, true));
+            int color = resolveClaimColor(false, true, relation);
+            entries.add(new ClaimEntry(chunkPos.x, chunkPos.z, ownerName, relation, false, true, color));
         }
         return new FactionClaimMapPacket(center.x, center.z, radius, entries);
     }
@@ -97,6 +102,7 @@ public class FactionClaimMapPacket implements CustomPacketPayload {
             buffer.writeUtf(entry.relation());
             buffer.writeBoolean(entry.safeZone());
             buffer.writeBoolean(entry.personal());
+            buffer.writeInt(entry.color());
         }
     }
 
@@ -108,7 +114,7 @@ public class FactionClaimMapPacket implements CustomPacketPayload {
         List<ClaimEntry> claims = new ArrayList<>();
         for (int i = 0; i < claimCount; i++) {
             claims.add(new ClaimEntry(buffer.readInt(), buffer.readInt(), buffer.readUtf(), buffer.readUtf(),
-                buffer.readBoolean(), buffer.readBoolean()));
+                buffer.readBoolean(), buffer.readBoolean(), buffer.readInt()));
         }
         return new FactionClaimMapPacket(centerChunkX, centerChunkZ, radius, claims);
     }
@@ -152,7 +158,22 @@ public class FactionClaimMapPacket implements CustomPacketPayload {
             .orElse(playerId.toString());
     }
 
+    private static int resolveClaimColor(boolean safeZone, boolean personal, String relation) {
+        if (safeZone) {
+            return SAFE_ZONE_COLOR;
+        }
+        if (personal) {
+            return PERSONAL_CLAIM_COLOR;
+        }
+        return switch (relation) {
+            case "OWN" -> 0xFF4CAF50;
+            case "ALLY" -> 0xFF4FC3F7;
+            case "WAR" -> 0xFFEF5350;
+            default -> 0xFF8D8D8D;
+        };
+    }
+
     public record ClaimEntry(int chunkX, int chunkZ, String factionName, String relation, boolean safeZone,
-                             boolean personal) {
+                             boolean personal, int color) {
     }
 }
