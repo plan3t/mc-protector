@@ -9,6 +9,7 @@ import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.client.renderer.LightTexture;
 import net.minecraft.client.Camera;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
@@ -43,7 +44,15 @@ public final class FactionClaimBorderRenderer {
         poseStack.translate(-cameraPos.x, -cameraPos.y, -cameraPos.z);
         PoseStack.Pose pose = poseStack.last();
         MultiBufferSource.BufferSource bufferSource = client.renderBuffers().bufferSource();
-        VertexConsumer consumer = bufferSource.getBuffer(RenderType.lines());
+        VertexConsumer lineConsumer = bufferSource.getBuffer(RenderType.lines());
+        VertexConsumer quadConsumer = bufferSource.getBuffer(RenderType.translucent());
+        TextureAtlasSprite sprite = client.getModelManager()
+            .getAtlas(TextureAtlas.LOCATION_BLOCKS)
+            .getSprite(ResourceLocation.fromNamespaceAndPath("minecraft", "block/white_wool"));
+        float u0 = sprite.getU0();
+        float u1 = sprite.getU1();
+        float v0 = sprite.getV0();
+        float v1 = sprite.getV1();
         for (Map.Entry<Long, FactionClaimMapPacket.ClaimEntry> entry : snapshot.claims().entrySet()) {
             ChunkPos chunkPos = new ChunkPos(entry.getKey());
             int dx = chunkPos.x - playerChunk.x;
@@ -55,26 +64,36 @@ public final class FactionClaimBorderRenderer {
             float red = ((color >> 16) & 0xFF) / 255.0f;
             float green = ((color >> 8) & 0xFF) / 255.0f;
             float blue = (color & 0xFF) / 255.0f;
+            float alpha = (((color >> 24) & 0xFF) / 255.0f) * BORDER_ALPHA;
             double minX = chunkPos.getMinBlockX();
             double maxX = chunkPos.getMaxBlockX() + 1.0;
             double minZ = chunkPos.getMinBlockZ();
             double maxZ = chunkPos.getMaxBlockZ() + 1.0;
             double minY = client.level.getMinBuildHeight();
             double maxY = client.level.getMaxBuildHeight();
-            drawLine(consumer, pose, minX, minY, minZ, maxX, minY, minZ, red, green, blue, BORDER_ALPHA);
-            drawLine(consumer, pose, maxX, minY, minZ, maxX, minY, maxZ, red, green, blue, BORDER_ALPHA);
-            drawLine(consumer, pose, maxX, minY, maxZ, minX, minY, maxZ, red, green, blue, BORDER_ALPHA);
-            drawLine(consumer, pose, minX, minY, maxZ, minX, minY, minZ, red, green, blue, BORDER_ALPHA);
+            drawLine(lineConsumer, pose, minX, minY, minZ, maxX, minY, minZ, red, green, blue, alpha);
+            drawLine(lineConsumer, pose, maxX, minY, minZ, maxX, minY, maxZ, red, green, blue, alpha);
+            drawLine(lineConsumer, pose, maxX, minY, maxZ, minX, minY, maxZ, red, green, blue, alpha);
+            drawLine(lineConsumer, pose, minX, minY, maxZ, minX, minY, minZ, red, green, blue, alpha);
 
-            drawLine(consumer, pose, minX, maxY, minZ, maxX, maxY, minZ, red, green, blue, BORDER_ALPHA);
-            drawLine(consumer, pose, maxX, maxY, minZ, maxX, maxY, maxZ, red, green, blue, BORDER_ALPHA);
-            drawLine(consumer, pose, maxX, maxY, maxZ, minX, maxY, maxZ, red, green, blue, BORDER_ALPHA);
-            drawLine(consumer, pose, minX, maxY, maxZ, minX, maxY, minZ, red, green, blue, BORDER_ALPHA);
+            drawLine(lineConsumer, pose, minX, maxY, minZ, maxX, maxY, minZ, red, green, blue, alpha);
+            drawLine(lineConsumer, pose, maxX, maxY, minZ, maxX, maxY, maxZ, red, green, blue, alpha);
+            drawLine(lineConsumer, pose, maxX, maxY, maxZ, minX, maxY, maxZ, red, green, blue, alpha);
+            drawLine(lineConsumer, pose, minX, maxY, maxZ, minX, maxY, minZ, red, green, blue, alpha);
 
-            drawLine(consumer, pose, minX, minY, minZ, minX, maxY, minZ, red, green, blue, BORDER_ALPHA);
-            drawLine(consumer, pose, maxX, minY, minZ, maxX, maxY, minZ, red, green, blue, BORDER_ALPHA);
-            drawLine(consumer, pose, maxX, minY, maxZ, maxX, maxY, maxZ, red, green, blue, BORDER_ALPHA);
-            drawLine(consumer, pose, minX, minY, maxZ, minX, maxY, maxZ, red, green, blue, BORDER_ALPHA);
+            drawLine(lineConsumer, pose, minX, minY, minZ, minX, maxY, minZ, red, green, blue, alpha);
+            drawLine(lineConsumer, pose, maxX, minY, minZ, maxX, maxY, minZ, red, green, blue, alpha);
+            drawLine(lineConsumer, pose, maxX, minY, maxZ, maxX, maxY, maxZ, red, green, blue, alpha);
+            drawLine(lineConsumer, pose, minX, minY, maxZ, minX, maxY, maxZ, red, green, blue, alpha);
+
+            drawVerticalQuad(quadConsumer, pose, minX, minZ, maxX, minZ, minY, maxY, red, green, blue, alpha,
+                u0, u1, v0, v1);
+            drawVerticalQuad(quadConsumer, pose, maxX, minZ, maxX, maxZ, minY, maxY, red, green, blue, alpha,
+                u0, u1, v0, v1);
+            drawVerticalQuad(quadConsumer, pose, maxX, maxZ, minX, maxZ, minY, maxY, red, green, blue, alpha,
+                u0, u1, v0, v1);
+            drawVerticalQuad(quadConsumer, pose, minX, maxZ, minX, minZ, minY, maxY, red, green, blue, alpha,
+                u0, u1, v0, v1);
         }
         bufferSource.endBatch();
         poseStack.popPose();
@@ -86,11 +105,25 @@ public final class FactionClaimBorderRenderer {
         int light = LightTexture.FULL_BRIGHT;
         consumer.addVertex(pose.pose(), (float) x1, (float) minY, (float) z1)
             .setColor(red, green, blue, alpha)
+            .setUv(u0, v0)
+            .setOverlay(OverlayTexture.NO_OVERLAY)
+            .setLight(light)
+            .setNormal(0.0f, 1.0f, 0.0f);
+        consumer.addVertex(pose.pose(), (float) x2, (float) minY, (float) z2)
+            .setColor(red, green, blue, alpha)
+            .setUv(u1, v0)
             .setOverlay(OverlayTexture.NO_OVERLAY)
             .setLight(light)
             .setNormal(0.0f, 1.0f, 0.0f);
         consumer.addVertex(pose.pose(), (float) x2, (float) maxY, (float) z2)
             .setColor(red, green, blue, alpha)
+            .setUv(u1, v1)
+            .setOverlay(OverlayTexture.NO_OVERLAY)
+            .setLight(light)
+            .setNormal(0.0f, 1.0f, 0.0f);
+        consumer.addVertex(pose.pose(), (float) x1, (float) maxY, (float) z1)
+            .setColor(red, green, blue, alpha)
+            .setUv(u0, v1)
             .setOverlay(OverlayTexture.NO_OVERLAY)
             .setLight(light)
             .setNormal(0.0f, 1.0f, 0.0f);
