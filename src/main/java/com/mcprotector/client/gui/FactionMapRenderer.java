@@ -134,7 +134,22 @@ public final class FactionMapRenderer {
         if (entry == null) {
             return 0xFF3A3A3A;
         }
-        return entry.color();
+        int color = entry.color();
+        if (color != 0) {
+            return color;
+        }
+        if (entry.safeZone()) {
+            return 0xFFF9A825;
+        }
+        if (entry.personal()) {
+            return 0xFF9C27B0;
+        }
+        return switch (entry.relation()) {
+            case "OWN" -> 0xFF4CAF50;
+            case "ALLY" -> 0xFF4FC3F7;
+            case "WAR" -> 0xFFEF5350;
+            default -> 0xFF8D8D8D;
+        };
     }
 
     private static int shadeColor(int color, float factor) {
