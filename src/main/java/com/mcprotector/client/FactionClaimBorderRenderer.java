@@ -8,8 +8,6 @@ import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.client.renderer.LightTexture;
-import net.minecraft.client.renderer.texture.TextureAtlas;
-import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.client.Camera;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.phys.Vec3;
@@ -18,6 +16,8 @@ import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
 import java.util.Map;
 
 public final class FactionClaimBorderRenderer {
+    private static final int SAFE_ZONE_COLOR = 0xFFF9A825;
+    private static final int PERSONAL_CLAIM_COLOR = 0xFF9C27B0;
     private static final float BORDER_ALPHA = 0.35f;
     private FactionClaimBorderRenderer() {
     }
@@ -83,6 +83,22 @@ public final class FactionClaimBorderRenderer {
     private static void drawVerticalQuad(VertexConsumer consumer, PoseStack.Pose pose, double x1, double z1,
                                          double x2, double z2, double minY, double maxY, float red, float green,
                                          float blue, float alpha, float u0, float u1, float v0, float v1) {
+        int light = LightTexture.FULL_BRIGHT;
+        consumer.addVertex(pose.pose(), (float) x1, (float) minY, (float) z1)
+            .setColor(red, green, blue, alpha)
+            .setOverlay(OverlayTexture.NO_OVERLAY)
+            .setLight(light)
+            .setNormal(0.0f, 1.0f, 0.0f);
+        consumer.addVertex(pose.pose(), (float) x2, (float) maxY, (float) z2)
+            .setColor(red, green, blue, alpha)
+            .setOverlay(OverlayTexture.NO_OVERLAY)
+            .setLight(light)
+            .setNormal(0.0f, 1.0f, 0.0f);
+    }
+
+    private static void drawLine(VertexConsumer consumer, PoseStack.Pose pose,
+                                 double x1, double y1, double z1, double x2, double y2, double z2,
+                                 float red, float green, float blue, float alpha) {
         int light = LightTexture.FULL_BRIGHT;
         consumer.addVertex(pose.pose(), (float) x1, (float) y1, (float) z1)
             .setColor(red, green, blue, alpha)
