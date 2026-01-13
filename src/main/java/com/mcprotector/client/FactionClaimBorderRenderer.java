@@ -12,15 +12,12 @@ import net.minecraft.client.renderer.texture.TextureAtlas;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.client.Camera;
 import net.minecraft.world.level.ChunkPos;
-import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
 
 import java.util.Map;
 
 public final class FactionClaimBorderRenderer {
-    private static final int SAFE_ZONE_COLOR = 0xFFF9A825;
-    private static final int PERSONAL_CLAIM_COLOR = 0xFF9C27B0;
     private static final float BORDER_ALPHA = 0.35f;
     private FactionClaimBorderRenderer() {
     }
@@ -46,13 +43,7 @@ public final class FactionClaimBorderRenderer {
         poseStack.translate(-cameraPos.x, -cameraPos.y, -cameraPos.z);
         PoseStack.Pose pose = poseStack.last();
         MultiBufferSource.BufferSource bufferSource = client.renderBuffers().bufferSource();
-        VertexConsumer consumer = bufferSource.getBuffer(RenderType.entityTranslucent(TextureAtlas.LOCATION_BLOCKS));
-        TextureAtlasSprite sprite = client.getBlockRenderer().getBlockModelShaper()
-            .getParticleIcon(Blocks.WHITE_STAINED_GLASS.defaultBlockState());
-        float u0 = sprite.getU0();
-        float u1 = sprite.getU1();
-        float v0 = sprite.getV0();
-        float v1 = sprite.getV1();
+        VertexConsumer consumer = bufferSource.getBuffer(RenderType.lines());
         for (Map.Entry<Long, FactionClaimMapPacket.ClaimEntry> entry : snapshot.claims().entrySet()) {
             ChunkPos chunkPos = new ChunkPos(entry.getKey());
             int dx = chunkPos.x - playerChunk.x;
@@ -70,14 +61,20 @@ public final class FactionClaimBorderRenderer {
             double maxZ = chunkPos.getMaxBlockZ() + 1.0;
             double minY = client.level.getMinBuildHeight();
             double maxY = client.level.getMaxBuildHeight();
-            drawVerticalQuad(consumer, pose, minX, minZ, minX, maxZ, minY, maxY, red, green, blue, BORDER_ALPHA,
-                u0, u1, v0, v1);
-            drawVerticalQuad(consumer, pose, maxX, minZ, maxX, maxZ, minY, maxY, red, green, blue, BORDER_ALPHA,
-                u0, u1, v0, v1);
-            drawVerticalQuad(consumer, pose, minX, minZ, maxX, minZ, minY, maxY, red, green, blue, BORDER_ALPHA,
-                u0, u1, v0, v1);
-            drawVerticalQuad(consumer, pose, minX, maxZ, maxX, maxZ, minY, maxY, red, green, blue, BORDER_ALPHA,
-                u0, u1, v0, v1);
+            drawLine(consumer, pose, minX, minY, minZ, maxX, minY, minZ, red, green, blue, BORDER_ALPHA);
+            drawLine(consumer, pose, maxX, minY, minZ, maxX, minY, maxZ, red, green, blue, BORDER_ALPHA);
+            drawLine(consumer, pose, maxX, minY, maxZ, minX, minY, maxZ, red, green, blue, BORDER_ALPHA);
+            drawLine(consumer, pose, minX, minY, maxZ, minX, minY, minZ, red, green, blue, BORDER_ALPHA);
+
+            drawLine(consumer, pose, minX, maxY, minZ, maxX, maxY, minZ, red, green, blue, BORDER_ALPHA);
+            drawLine(consumer, pose, maxX, maxY, minZ, maxX, maxY, maxZ, red, green, blue, BORDER_ALPHA);
+            drawLine(consumer, pose, maxX, maxY, maxZ, minX, maxY, maxZ, red, green, blue, BORDER_ALPHA);
+            drawLine(consumer, pose, minX, maxY, maxZ, minX, maxY, minZ, red, green, blue, BORDER_ALPHA);
+
+            drawLine(consumer, pose, minX, minY, minZ, minX, maxY, minZ, red, green, blue, BORDER_ALPHA);
+            drawLine(consumer, pose, maxX, minY, minZ, maxX, maxY, minZ, red, green, blue, BORDER_ALPHA);
+            drawLine(consumer, pose, maxX, minY, maxZ, maxX, maxY, maxZ, red, green, blue, BORDER_ALPHA);
+            drawLine(consumer, pose, minX, minY, maxZ, minX, maxY, maxZ, red, green, blue, BORDER_ALPHA);
         }
         bufferSource.endBatch();
         poseStack.popPose();
@@ -87,27 +84,13 @@ public final class FactionClaimBorderRenderer {
                                          double x2, double z2, double minY, double maxY, float red, float green,
                                          float blue, float alpha, float u0, float u1, float v0, float v1) {
         int light = LightTexture.FULL_BRIGHT;
-        consumer.addVertex(pose.pose(), (float) x1, (float) minY, (float) z1)
+        consumer.addVertex(pose.pose(), (float) x1, (float) y1, (float) z1)
             .setColor(red, green, blue, alpha)
-            .setUv(u0, v1)
             .setOverlay(OverlayTexture.NO_OVERLAY)
             .setLight(light)
             .setNormal(0.0f, 1.0f, 0.0f);
-        consumer.addVertex(pose.pose(), (float) x1, (float) maxY, (float) z1)
+        consumer.addVertex(pose.pose(), (float) x2, (float) y2, (float) z2)
             .setColor(red, green, blue, alpha)
-            .setUv(u0, v0)
-            .setOverlay(OverlayTexture.NO_OVERLAY)
-            .setLight(light)
-            .setNormal(0.0f, 1.0f, 0.0f);
-        consumer.addVertex(pose.pose(), (float) x2, (float) maxY, (float) z2)
-            .setColor(red, green, blue, alpha)
-            .setUv(u1, v0)
-            .setOverlay(OverlayTexture.NO_OVERLAY)
-            .setLight(light)
-            .setNormal(0.0f, 1.0f, 0.0f);
-        consumer.addVertex(pose.pose(), (float) x2, (float) minY, (float) z2)
-            .setColor(red, green, blue, alpha)
-            .setUv(u1, v1)
             .setOverlay(OverlayTexture.NO_OVERLAY)
             .setLight(light)
             .setNormal(0.0f, 1.0f, 0.0f);
