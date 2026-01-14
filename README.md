@@ -1,14 +1,14 @@
 # MC Protector
 
-A NeoForge mod scaffold for faction creation, chunk claiming, and claim protection with optional Dynmap integration.
+MC Protector is a **NeoForge mod scaffold** (Minecraft 1.21.1) with project metadata, Gradle setup, and the default NeoForge resource files in place. It also documents the intended gameplay scope (factions, claims, and protection) so you can keep the product vision alongside the codebase.
 
-## Features
+## Features (planned)
 - Basic faction creation and management commands.
 - Chunk claiming with protection against block breaking, placement, redstone use, container access, and entity interaction.
 - Optional Dynmap marker updates for claimed chunks (requires Dynmap).
 - Role-based permissions for faction members.
 
-## Commands
+## Commands (planned)
 - `/faction create <name>`
 - `/faction disband`
 - `/faction claim`
@@ -20,7 +20,7 @@ A NeoForge mod scaffold for faction creation, chunk claiming, and claim protecti
 - `/faction war declare <faction>`
 - `/faction war end <faction>`
 
-## Faction UI
+## Functions / UI (planned)
 The mod includes a client-side faction UI with tabs for members, invites, permissions, relations, and claims.
 
 ### Open the UI
@@ -36,65 +36,60 @@ The mod includes a client-side faction UI with tabs for members, invites, permis
 
 The UI requests fresh data from the server when it opens and can be refreshed with the **Refresh** button.
 
-## Dynmap Integration
+## Dynmap integration (planned)
 Dynmap markers are enabled automatically when the Dynmap API is available. Claims are mapped to area markers in the `Faction Claims` marker set.
 
-## Development
-This project uses the ForgeGradle plugin. Update the Forge and Minecraft versions in `build.gradle` to match your target.
+## What’s in this repo
 
-## Singleplayer Testing (Minecraft 1.20.1)
-The development environment targets Minecraft 1.20.1 and requires Java 17. See the steps below to install Java 17 and run the mod in a singleplayer test world.
+- **Gradle build setup** using `net.neoforged.gradle.userdev`.
+- **Mod metadata** in `gradle.properties` (mod id, name, version, authors, description).
+- **Base resources** (`META-INF/neoforge.mods.toml`, `pack.mcmeta`) that are populated from the Gradle properties.
 
-### 1) Install Java 17
-You can install Java 17 (Temurin/OpenJDK) alongside newer Java versions. Make sure you know the install path.
+## Project metadata
 
-Example default Windows install path:
-```
-C:\Program Files\Eclipse Adoptium\jdk-17.x.x
-```
+Update `gradle.properties` to change the mod id, name, version, authors, and description. These values are expanded into `META-INF/neoforge.mods.toml` during the build.
 
-### 2) Open a terminal
-Use a system terminal to run the commands below (not the Minecraft chat):
-- **Windows:** PowerShell or Command Prompt
-- **macOS/Linux:** Terminal
+## Requirements
 
-### 3) Point the terminal to Java 17 (Windows)
-If your system default is a newer Java version, set Java 17 for the current terminal session.
+- **Java 21** (NeoForge for Minecraft 1.21.1 targets Java 21).
+- **Gradle** (or use the included Gradle wrapper scripts).
 
-Command Prompt:
-```
-set JAVA_HOME=C:\Program Files\Eclipse Adoptium\jdk-17.x.x
-set PATH=%JAVA_HOME%\bin;%PATH%
+## Common tasks
+
+> Run all commands from the repository root (the folder containing `build.gradle`).
+
+### Run the development client
+
+```bash
+gradlew runClient
 ```
 
-PowerShell:
-```
-$env:JAVA_HOME = "C:\Program Files\Eclipse Adoptium\jdk-17.x.x"
-$env:PATH = "$env:JAVA_HOME\\bin;$env:PATH"
+### Run the development server
+
+```bash
+gradlew runServer
 ```
 
-### 4) Verify the Java version
-```
-java -version
-```
-Confirm the output shows Java 17.
+### Run data generation
 
-### 5) Run the development client
-From the repository root (the folder containing `build.gradle`), use Gradle 8.6 (newer 8.x releases can fail with a `versionParser` error when applying ForgeGradle):
+```bash
+gradlew runData
 ```
-gradle runClient
+
+### Build the mod JAR
+
+```bash
+gradlew build
 ```
-This starts the Forge development client with the mod loaded.
 
-### 6) Create a singleplayer world and test
-In Minecraft:
-1. Choose **Singleplayer**
-2. Create or open a world
-3. Test commands:
-   - `/faction create <name>`
-   - `/faction claim`
-   - `/faction info`
-   - `/faction ally add <faction>`
-   - `/faction war declare <faction>`
+## Next steps
 
-If you see protection behavior working as expected, the mod is running correctly.
+This project does not yet include a main mod class or any gameplay features. To begin development:
+
+1. Create your main mod class in `src/main/java` annotated with `@Mod` and using the same `mod_id` as in `gradle.properties`.
+2. Add any registry setup, event handlers, and content in your preferred package structure.
+3. Extend resources under `src/main/resources` as needed (assets, data, configs, etc.).
+
+## License
+
+The project currently uses the license specified in `gradle.properties` (`mod_license`). Update it if you intend to distribute the mod under a different license.
