@@ -114,7 +114,7 @@ public class FactionMainScreen extends Screen {
         inviteNameField.setMaxLength(32);
         this.addRenderableWidget(inviteNameField);
         inviteButton = this.addRenderableWidget(Button.builder(Component.literal("Send Invite"), button -> sendInvite())
-            .bounds(PANEL_PADDING + 150, controlRowOne - 2, 100, 20)
+            .bounds(PANEL_PADDING + 150, controlRowOne, 100, 20)
             .build());
         joinInviteButton = this.addRenderableWidget(Button.builder(Component.literal("Join Faction"), button -> acceptInvite())
             .bounds(PANEL_PADDING, controlRowTwo, 110, 20)
@@ -144,17 +144,17 @@ public class FactionMainScreen extends Screen {
         roleNameField.setMaxLength(32);
         this.addRenderableWidget(roleNameField);
         createRoleButton = this.addRenderableWidget(Button.builder(Component.literal("Create Role"), button -> sendCreateRole())
-            .bounds(PANEL_PADDING + 150, controlRowThree - 2, 100, 20)
+            .bounds(PANEL_PADDING + 150, controlRowThree, 100, 20)
             .build());
         deleteRoleButton = this.addRenderableWidget(Button.builder(Component.literal("Delete Role"), button -> sendDeleteRole())
-            .bounds(PANEL_PADDING + 260, controlRowThree - 2, 100, 20)
+            .bounds(PANEL_PADDING + 260, controlRowThree, 100, 20)
             .build());
 
-        memberNameField = new EditBox(this.font, PANEL_PADDING, controlRowOne + 10, 140, 18, Component.literal("Member name"));
+        memberNameField = new EditBox(this.font, PANEL_PADDING, controlRowOne, 140, 18, Component.literal("Member name"));
         memberNameField.setMaxLength(32);
         this.addRenderableWidget(memberNameField);
         kickMemberButton = this.addRenderableWidget(Button.builder(Component.literal("Kick"), button -> sendMemberAction())
-            .bounds(PANEL_PADDING + 150, controlRowOne + 8, 60, 20)
+            .bounds(PANEL_PADDING + 150, controlRowOne, 60, 20)
             .build());
         memberRoleButton = this.addRenderableWidget(Button.builder(Component.literal("Role: " + currentMemberRoleDisplay()), button -> {
             int roleCount = getRoleOptions().size();
@@ -162,19 +162,19 @@ public class FactionMainScreen extends Screen {
                 memberRoleIndex = (memberRoleIndex + 1) % roleCount;
                 updateMemberRoleLabel();
             }
-        }).bounds(PANEL_PADDING + 215, controlRowOne + 8, 90, 20).build());
+        }).bounds(PANEL_PADDING + 215, controlRowOne, 90, 20).build());
         setRoleButton = this.addRenderableWidget(Button.builder(Component.literal("Set Role"), button -> sendMemberRole())
-            .bounds(PANEL_PADDING + 310, controlRowOne + 8, 70, 20)
+            .bounds(PANEL_PADDING + 310, controlRowOne, 70, 20)
             .build());
 
         ruleField = new EditBox(this.font, PANEL_PADDING, controlRowOne, 200, 18, Component.literal("New rule"));
         ruleField.setMaxLength(120);
         this.addRenderableWidget(ruleField);
         addRuleButton = this.addRenderableWidget(Button.builder(Component.literal("Add"), button -> sendAddRule())
-            .bounds(PANEL_PADDING + 210, controlRowOne - 2, 60, 20)
+            .bounds(PANEL_PADDING + 210, controlRowOne, 60, 20)
             .build());
         removeRuleButton = this.addRenderableWidget(Button.builder(Component.literal("Remove selected"), button -> sendRemoveSelectedRule())
-            .bounds(PANEL_PADDING, controlRowOne - 2, 130, 20)
+            .bounds(PANEL_PADDING, controlRowOne, 130, 20)
             .build());
 
         relationTypeButton = this.addRenderableWidget(Button.builder(Component.literal("Relation: " + currentRelation().name()), button -> {
