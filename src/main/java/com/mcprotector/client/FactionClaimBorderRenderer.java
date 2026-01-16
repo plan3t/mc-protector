@@ -1,7 +1,6 @@
 package com.mcprotector.client;
 
 import com.mcprotector.network.FactionClaimMapPacket;
-import com.mojang.blaze3d.vertex.ByteBufferBuilder;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import net.minecraft.client.Minecraft;
@@ -46,8 +45,7 @@ public final class FactionClaimBorderRenderer {
         poseStack.pushPose();
         poseStack.translate(-cameraPos.x, -cameraPos.y, -cameraPos.z);
         PoseStack.Pose pose = poseStack.last();
-        ByteBufferBuilder bufferBuilder = new ByteBufferBuilder(256);
-        MultiBufferSource.BufferSource bufferSource = MultiBufferSource.immediate(bufferBuilder);
+        MultiBufferSource.BufferSource bufferSource = client.renderBuffers().bufferSource();
         VertexConsumer lineConsumer = bufferSource.getBuffer(RenderType.lines());
         VertexConsumer quadConsumer = bufferSource.getBuffer(RenderType.translucent());
         TextureAtlasSprite sprite = client.getModelManager()
@@ -100,6 +98,8 @@ public final class FactionClaimBorderRenderer {
                 u0, u1, v0, v1);
         }
         poseStack.popPose();
+        bufferSource.endBatch(RenderType.lines());
+        bufferSource.endBatch(RenderType.translucent());
     }
 
     private static void drawVerticalQuad(VertexConsumer consumer, PoseStack.Pose pose, double x1, double z1,
