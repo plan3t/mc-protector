@@ -45,7 +45,7 @@ public final class FactionClaimBorderRenderer {
         poseStack.pushPose();
         poseStack.translate(-cameraPos.x, -cameraPos.y, -cameraPos.z);
         PoseStack.Pose pose = poseStack.last();
-        MultiBufferSource.BufferSource bufferSource = client.renderBuffers().bufferSource();
+        MultiBufferSource.BufferSource bufferSource = event.getMultiBufferSource();
         VertexConsumer lineConsumer = bufferSource.getBuffer(RenderType.lines());
         VertexConsumer quadConsumer = bufferSource.getBuffer(RenderType.translucent());
         TextureAtlasSprite sprite = client.getModelManager()
