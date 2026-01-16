@@ -82,6 +82,20 @@ gradlew runData
 gradlew build
 ```
 
+## Troubleshooting
+
+### Gradle cannot delete `build/classes` on Windows
+
+If Gradle fails with an error like `Unable to delete directory ... build\\classes\\java\\main`, another process is holding a lock on compiled classes. Common causes are a still-running dev client, the Gradle daemon, IDE indexers, or antivirus scanners. Try the following in order:
+
+1. Close any running Minecraft dev client or server started from this project.
+2. Stop Gradle daemons: `gradlew --stop`.
+3. Delete the `build/` folder manually (or run `gradlew clean`).
+4. Restart your IDE if it is watching the build output.
+5. Exclude the project folder from antivirus real-time scanning.
+
+After the lock is released, re-run `gradlew runClient`.
+
 ## Next steps
 
 This project does not yet include a main mod class or any gameplay features. To begin development:
