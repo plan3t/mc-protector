@@ -49,7 +49,7 @@ public final class FactionClaimBorderRenderer {
         ByteBufferBuilder bufferBuilder = new ByteBufferBuilder(256);
         MultiBufferSource.BufferSource bufferSource = MultiBufferSource.immediate(bufferBuilder);
         VertexConsumer lineConsumer = bufferSource.getBuffer(RenderType.lines());
-        VertexConsumer quadConsumer = bufferSource.getBuffer(RenderType.entityTranslucent(TextureAtlas.LOCATION_BLOCKS));
+        VertexConsumer quadConsumer = bufferSource.getBuffer(RenderType.translucent());
         TextureAtlasSprite sprite = client.getModelManager()
             .getAtlas(TextureAtlas.LOCATION_BLOCKS)
             .getSprite(ResourceLocation.fromNamespaceAndPath("minecraft", "block/white_wool"));
@@ -99,7 +99,6 @@ public final class FactionClaimBorderRenderer {
             drawVerticalQuad(quadConsumer, pose, minX, maxZ, minX, minZ, minY, maxY, red, green, blue, alpha,
                 u0, u1, v0, v1);
         }
-        bufferSource.endBatch();
         poseStack.popPose();
     }
 
