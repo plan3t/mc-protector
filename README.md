@@ -54,6 +54,19 @@ Update `gradle.properties` to change the mod id, name, version, authors, and des
 - **Java 21** (NeoForge for Minecraft 1.21.1 targets Java 21).
 - **Gradle** (or use the included Gradle wrapper scripts).
 
+## Troubleshooting
+
+### `EXCEPTION_ACCESS_VIOLATION` in `nvoglv64.dll` during `runClient`
+
+If the client crashes during startup with a report pointing at `nvoglv64.dll`, the JVM is typically failing inside the NVIDIA OpenGL driver, not in mod code. Common fixes:
+
+1. **Update or clean-reinstall your NVIDIA driver** (use the latest Game Ready/Studio driver).
+2. **Disable overlays and GPU hooks** (GeForce Experience overlay, Discord overlay, Steam overlay, MSI Afterburner/RivaTuner, etc.).
+3. **Reset any GPU overclocks** back to stock settings.
+4. **Try a different JDK 21 build** (e.g., Temurin vs. Microsoft OpenJDK) if the crash persists.
+
+If the crash persists after the above, please attach the `hs_err_pid*.log` from `runs/client/` when reporting the issue.
+
 ## Common tasks
 
 > Run all commands from the repository root (the folder containing `build.gradle`).
