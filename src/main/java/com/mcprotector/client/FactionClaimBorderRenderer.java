@@ -1,9 +1,8 @@
 package com.mcprotector.client;
 
 import com.mcprotector.network.FactionClaimMapPacket;
-import com.mojang.blaze3d.vertex.BufferBuilder;
+import com.mojang.blaze3d.vertex.ByteBufferBuilder;
 import com.mojang.blaze3d.vertex.PoseStack;
-import com.mojang.blaze3d.vertex.Tesselator;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.MultiBufferSource;
@@ -47,7 +46,7 @@ public final class FactionClaimBorderRenderer {
         poseStack.pushPose();
         poseStack.translate(-cameraPos.x, -cameraPos.y, -cameraPos.z);
         PoseStack.Pose pose = poseStack.last();
-        BufferBuilder bufferBuilder = new BufferBuilder(256);
+        ByteBufferBuilder bufferBuilder = new ByteBufferBuilder(256);
         MultiBufferSource.BufferSource bufferSource = MultiBufferSource.immediate(bufferBuilder);
         VertexConsumer lineConsumer = bufferSource.getBuffer(RenderType.lines());
         VertexConsumer quadConsumer = bufferSource.getBuffer(RenderType.entityTranslucent(TextureAtlas.LOCATION_BLOCKS));
