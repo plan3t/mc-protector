@@ -45,7 +45,7 @@ public final class FactionClaimBorderRenderer {
         poseStack.pushPose();
         poseStack.translate(-cameraPos.x, -cameraPos.y, -cameraPos.z);
         PoseStack.Pose pose = poseStack.last();
-        MultiBufferSource.BufferSource bufferSource = client.renderBuffers().bufferSource();
+        MultiBufferSource bufferSource = event.getMultiBufferSource();
         VertexConsumer lineConsumer = bufferSource.getBuffer(RenderType.lines());
         VertexConsumer quadConsumer = bufferSource.getBuffer(RenderType.translucent());
         TextureAtlasSprite sprite = client.getModelManager()
@@ -97,7 +97,6 @@ public final class FactionClaimBorderRenderer {
             drawVerticalQuad(quadConsumer, pose, minX, maxZ, minX, minZ, minY, maxY, red, green, blue, alpha,
                 u0, u1, v0, v1);
         }
-        bufferSource.endBatch();
         poseStack.popPose();
     }
 
