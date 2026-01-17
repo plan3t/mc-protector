@@ -178,6 +178,9 @@ public final class FactionClaimBorderRenderer {
     }
 
     private static int resolveClaimColor(FactionClaimMapPacket.ClaimEntry entry) {
+        if (entry.color() != 0) {
+            return entry.color();
+        }
         if (entry.safeZone()) {
             return SAFE_ZONE_COLOR;
         }
