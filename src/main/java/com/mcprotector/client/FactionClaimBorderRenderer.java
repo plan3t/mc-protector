@@ -2,7 +2,7 @@ package com.mcprotector.client;
 
 import com.mcprotector.network.FactionClaimMapPacket;
 import com.mojang.blaze3d.vertex.PoseStack;
-import com.mojang.blaze3d.vertex.BufferBuilder;
+import com.mojang.blaze3d.vertex.ByteBufferBuilder;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.MultiBufferSource;
@@ -46,9 +46,8 @@ public final class FactionClaimBorderRenderer {
         poseStack.pushPose();
         poseStack.translate(-cameraPos.x, -cameraPos.y, -cameraPos.z);
         PoseStack.Pose pose = poseStack.last();
-        MultiBufferSource.BufferSource bufferSource = MultiBufferSource.immediate(new BufferBuilder(256));
+        MultiBufferSource.BufferSource bufferSource = MultiBufferSource.immediate(new ByteBufferBuilder(256));
         VertexConsumer lineConsumer = bufferSource.getBuffer(RenderType.lines());
-        VertexConsumer quadConsumer = bufferSource.getBuffer(RenderType.translucent());
         TextureAtlasSprite sprite = client.getModelManager()
             .getAtlas(TextureAtlas.LOCATION_BLOCKS)
             .getSprite(ResourceLocation.fromNamespaceAndPath("minecraft", "block/white_wool"));
@@ -89,6 +88,28 @@ public final class FactionClaimBorderRenderer {
             drawLine(lineConsumer, pose, maxX, minY, maxZ, maxX, maxY, maxZ, red, green, blue, alpha);
             drawLine(lineConsumer, pose, minX, minY, maxZ, minX, maxY, maxZ, red, green, blue, alpha);
 
+        }
+        bufferSource.endBatch(RenderType.lines());
+
+        VertexConsumer quadConsumer = bufferSource.getBuffer(RenderType.translucent());
+        for (Map.Entry<Long, FactionClaimMapPacket.ClaimEntry> entry : snapshot.claims().entrySet()) {
+            ChunkPos chunkPos = new ChunkPos(entry.getKey());
+            int dx = chunkPos.x - playerChunk.x;
+            int dz = chunkPos.z - playerChunk.z;
+            if (Math.abs(dx) > renderRadius || Math.abs(dz) > renderRadius) {
+                continue;
+            }
+            int color = resolveFallbackColor(entry.getValue());
+            float red = ((color >> 16) & 0xFF) / 255.0f;
+            float green = ((color >> 8) & 0xFF) / 255.0f;
+            float blue = (color & 0xFF) / 255.0f;
+            float alpha = (((color >> 24) & 0xFF) / 255.0f) * BORDER_ALPHA;
+            double minX = chunkPos.getMinBlockX();
+            double maxX = chunkPos.getMaxBlockX() + 1.0;
+            double minZ = chunkPos.getMinBlockZ();
+            double maxZ = chunkPos.getMaxBlockZ() + 1.0;
+            double minY = client.level.getMinBuildHeight();
+            double maxY = client.level.getMaxBuildHeight();
             drawVerticalQuad(quadConsumer, pose, minX, minZ, maxX, minZ, minY, maxY, red, green, blue, alpha,
                 u0, u1, v0, v1);
             drawVerticalQuad(quadConsumer, pose, maxX, minZ, maxX, maxZ, minY, maxY, red, green, blue, alpha,
@@ -98,9 +119,8 @@ public final class FactionClaimBorderRenderer {
             drawVerticalQuad(quadConsumer, pose, minX, maxZ, minX, minZ, minY, maxY, red, green, blue, alpha,
                 u0, u1, v0, v1);
         }
-        poseStack.popPose();
-        bufferSource.endBatch(RenderType.lines());
         bufferSource.endBatch(RenderType.translucent());
+        poseStack.popPose();
     }
 
     private static void drawVerticalQuad(VertexConsumer consumer, PoseStack.Pose pose, double x1, double z1,
