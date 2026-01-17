@@ -19,6 +19,7 @@ import net.neoforged.fml.config.ModConfig;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
+import net.neoforged.neoforge.event.level.ChunkWatchEvent;
 import net.neoforged.neoforge.event.server.ServerStartedEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
 import net.minecraft.server.level.ServerPlayer;
@@ -41,6 +42,7 @@ public class McProtectorMod {
         NeoForge.EVENT_BUS.addListener(this::onPlayerLoggedIn);
         NeoForge.EVENT_BUS.addListener(this::onPlayerChangedDimension);
         NeoForge.EVENT_BUS.addListener(this::onServerTick);
+        NeoForge.EVENT_BUS.addListener(this::onChunkSent);
         NeoForge.EVENT_BUS.register(new ClaimProtectionHandler());
         NeoForge.EVENT_BUS.register(new FactionChatHandler());
         NeoForge.EVENT_BUS.register(new FactionClaimHandler());
@@ -85,6 +87,11 @@ public class McProtectorMod {
         for (ServerPlayer player : event.getServer().getPlayerList().getPlayers()) {
             NetworkHandler.sendToPlayer(player, FactionClaimMapPacket.fromPlayer(player));
         }
+    }
+
+    private void onChunkSent(ChunkWatchEvent.Sent event) {
+        ServerPlayer player = event.getPlayer();
+        NetworkHandler.sendToPlayer(player, FactionClaimMapPacket.fromPlayer(player));
     }
 
     private void syncPlayerClaimState(ServerPlayer player) {

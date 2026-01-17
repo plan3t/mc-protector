@@ -6,9 +6,12 @@ import com.mcprotector.data.FactionData;
 import com.mcprotector.data.FactionPermission;
 import com.mcprotector.data.FactionRelation;
 import com.mcprotector.dynmap.DynmapBridge;
+import com.mcprotector.network.FactionClaimMapPacket;
+import com.mcprotector.network.NetworkHandler;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.ChunkPos;
 
@@ -72,6 +75,7 @@ public final class FactionService {
         DynmapBridge.updateClaim(chunk, faction, player.level().dimension().location().toString());
         LAST_CLAIM.put(player.getUUID(), now);
         source.sendSuccess(() -> Component.literal("Chunk claimed for " + faction.get().getName()), false);
+        syncClaimMap(player.serverLevel());
         return 1;
     }
 
@@ -115,6 +119,7 @@ public final class FactionService {
         DynmapBridge.updateClaim(chunk, Optional.empty(), player.level().dimension().location().toString());
         LAST_UNCLAIM.put(player.getUUID(), now);
         source.sendSuccess(() -> Component.literal("Chunk unclaimed."), false);
+        syncClaimMap(player.serverLevel());
         return 1;
     }
 
@@ -212,6 +217,7 @@ public final class FactionService {
         }
         DynmapBridge.updateClaim(chunk, faction, player.level().dimension().location().toString());
         source.sendSuccess(() -> Component.literal("Chunk overtaken for " + faction.get().getName()), false);
+        syncClaimMap(player.serverLevel());
         return 1;
     }
 
@@ -256,6 +262,7 @@ public final class FactionService {
         }
         String message = "Claimed " + claimed + " chunk(s), unclaimed " + unclaimed + " chunk(s).";
         source.sendSuccess(() -> Component.literal(message), false);
+        syncClaimMap(player.serverLevel());
         return 1;
     }
 
@@ -282,6 +289,7 @@ public final class FactionService {
         }
         String message = "Claimed " + claimed + " personal chunk(s), unclaimed " + unclaimed + " personal chunk(s).";
         source.sendSuccess(() -> Component.literal(message), false);
+        syncClaimMap(player.serverLevel());
         return 1;
     }
 
@@ -315,6 +323,7 @@ public final class FactionService {
         }
         String message = "Claimed " + claimed + " safe zone chunk(s) for " + faction.get().getName();
         source.sendSuccess(() -> Component.literal(message), false);
+        syncClaimMap(player.serverLevel());
         return 1;
     }
 
@@ -355,6 +364,7 @@ public final class FactionService {
         String message = "Claimed " + claimed + " safe zone chunk(s), unclaimed " + unclaimed + " safe zone chunk(s) for "
             + faction.get().getName();
         source.sendSuccess(() -> Component.literal(message), false);
+        syncClaimMap(player.serverLevel());
         return 1;
     }
 
@@ -378,11 +388,18 @@ public final class FactionService {
         }
         String message = "Removed " + removed + " safe zone chunk(s).";
         source.sendSuccess(() -> Component.literal(message), false);
+        syncClaimMap(player.serverLevel());
         return 1;
     }
 
     private static boolean hasAdminPermission(CommandSourceStack source) {
         return source.hasPermission(FactionConfig.SERVER.adminBypassPermissionLevel.get());
+    }
+
+    private static void syncClaimMap(ServerLevel level) {
+        for (ServerPlayer player : level.players()) {
+            NetworkHandler.sendToPlayer(player, FactionClaimMapPacket.fromPlayer(player));
+        }
     }
 
     public static int joinFaction(CommandSourceStack source, String name) throws CommandSyntaxException {
