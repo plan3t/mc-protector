@@ -22,6 +22,7 @@ import java.util.Map;
 public final class FactionClaimBorderRenderer {
     private static final int SAFE_ZONE_COLOR = 0xFFF9A825;
     private static final int PERSONAL_CLAIM_COLOR = 0xFF9C27B0;
+    private static final int FACTION_CLAIM_COLOR = 0xFF4CAF50;
     private static final float BORDER_ALPHA = 0.35f;
     private FactionClaimBorderRenderer() {
     }
@@ -186,11 +187,6 @@ public final class FactionClaimBorderRenderer {
         if (entry.personal()) {
             return PERSONAL_CLAIM_COLOR;
         }
-        return switch (entry.relation()) {
-            case "OWN" -> 0xFF4CAF50;
-            case "ALLY" -> 0xFF4FC3F7;
-            case "WAR" -> 0xFFEF5350;
-            default -> 0xFF8D8D8D;
-        };
+        return FACTION_CLAIM_COLOR;
     }
 }
