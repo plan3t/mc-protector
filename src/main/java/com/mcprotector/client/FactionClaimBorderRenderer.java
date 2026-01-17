@@ -127,6 +127,13 @@ public final class FactionClaimBorderRenderer {
                                          double x2, double z2, double minY, double maxY, float red, float green,
                                          float blue, float alpha, float u0, float u1, float v0, float v1) {
         int light = LightTexture.FULL_BRIGHT;
+        addQuadVertices(consumer, pose, x1, z1, x2, z2, minY, maxY, red, green, blue, alpha, u0, u1, v0, v1, light);
+        addQuadVertices(consumer, pose, x2, z2, x1, z1, minY, maxY, red, green, blue, alpha, u0, u1, v0, v1, light);
+    }
+
+    private static void addQuadVertices(VertexConsumer consumer, PoseStack.Pose pose, double x1, double z1,
+                                        double x2, double z2, double minY, double maxY, float red, float green,
+                                        float blue, float alpha, float u0, float u1, float v0, float v1, int light) {
         consumer.addVertex(pose.pose(), (float) x1, (float) minY, (float) z1)
             .setColor(red, green, blue, alpha)
             .setUv(u0, v0)
