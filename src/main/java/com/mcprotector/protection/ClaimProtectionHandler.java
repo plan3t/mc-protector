@@ -22,11 +22,13 @@ import net.minecraft.world.level.block.TrapDoorBlock;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
+import net.neoforged.neoforge.event.level.BlockDropsEvent;
 import net.neoforged.neoforge.event.level.BlockEvent;
 import net.neoforged.neoforge.event.level.ExplosionEvent;
 import net.neoforged.neoforge.event.entity.living.FinalizeSpawnEvent;
 import net.neoforged.neoforge.event.entity.living.LivingIncomingDamageEvent;
 import net.neoforged.neoforge.common.util.FakePlayer;
+import net.neoforged.bus.api.EventPriority;
 import net.neoforged.bus.api.SubscribeEvent;
 
 import java.util.Optional;
@@ -34,7 +36,7 @@ import java.util.UUID;
 
 public class ClaimProtectionHandler {
 
-    @SubscribeEvent
+    @SubscribeEvent(priority = EventPriority.HIGHEST)
     public void onBlockBreak(BlockEvent.BreakEvent event) {
         Player player = event.getPlayer();
         BlockPos pos = event.getPos();
@@ -43,7 +45,21 @@ public class ClaimProtectionHandler {
         }
     }
 
-    @SubscribeEvent
+    @SubscribeEvent(priority = EventPriority.HIGHEST)
+    public void onBlockDrops(BlockDropsEvent event) {
+        Entity breaker = event.getBreaker();
+        if (breaker instanceof Player player) {
+            if (isAllowed(player, event.getPos(), FactionPermission.BLOCK_BREAK)) {
+                return;
+            }
+        } else if (!isClaimed(event.getLevel(), event.getPos())) {
+            return;
+        }
+        event.setCanceled(true);
+        restoreBlock(event.getLevel(), event.getPos(), event.getState(), event.getBlockEntity());
+    }
+
+    @SubscribeEvent(priority = EventPriority.HIGHEST)
     public void onBlockPlace(BlockEvent.EntityPlaceEvent event) {
         Entity entity = event.getEntity();
         BlockPos pos = event.getPos();
@@ -193,6 +209,17 @@ public class ClaimProtectionHandler {
             return false;
         }
         return FactionData.get(serverLevel).isClaimed(pos);
+    }
+
+    private void restoreBlock(ServerLevel level, BlockPos pos, BlockState state, BlockEntity blockEntity) {
+        level.setBlock(pos, state, Block.UPDATE_ALL);
+        if (blockEntity == null) {
+            return;
+        }
+        blockEntity.clearRemoved();
+        blockEntity.setLevel(level);
+        level.setBlockEntity(blockEntity);
+        blockEntity.setChanged();
     }
 
     private FactionPermission permissionForBlockUse(BlockState state, net.minecraft.world.level.Level level, BlockPos pos) {
