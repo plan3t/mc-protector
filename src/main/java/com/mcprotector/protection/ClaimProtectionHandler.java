@@ -26,6 +26,7 @@ import net.neoforged.neoforge.event.level.BlockEvent;
 import net.neoforged.neoforge.event.level.ExplosionEvent;
 import net.neoforged.neoforge.event.entity.living.FinalizeSpawnEvent;
 import net.neoforged.neoforge.event.entity.living.LivingIncomingDamageEvent;
+import net.neoforged.neoforge.common.util.FakePlayer;
 import net.neoforged.bus.api.SubscribeEvent;
 
 import java.util.Optional;
@@ -173,13 +174,14 @@ public class ClaimProtectionHandler {
         if (!(player instanceof ServerPlayer serverPlayer)) {
             return !isClaimed(player.level(), pos);
         }
+        boolean isFakePlayer = serverPlayer instanceof FakePlayer;
         if (isWarZone(serverPlayer.serverLevel())) {
             return true;
         }
         if (isSafeZone(serverPlayer.serverLevel())) {
-            return serverPlayer.hasPermissions(FactionConfig.SERVER.adminBypassPermissionLevel.get());
+            return !isFakePlayer && serverPlayer.hasPermissions(FactionConfig.SERVER.adminBypassPermissionLevel.get());
         }
-        if (serverPlayer.hasPermissions(FactionConfig.SERVER.adminBypassPermissionLevel.get())) {
+        if (!isFakePlayer && serverPlayer.hasPermissions(FactionConfig.SERVER.adminBypassPermissionLevel.get())) {
             logAccess(serverPlayer, pos, permission, true, "ADMIN_BYPASS");
             return true;
         }
