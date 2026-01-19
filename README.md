@@ -1,49 +1,51 @@
 # MC Protector
 
-MC Protector is a **NeoForge mod scaffold** (Minecraft 1.21.1) with project metadata, Gradle setup, and the default NeoForge resource files in place. It also documents the intended gameplay scope (factions, claims, and protection) so you can keep the product vision alongside the codebase.
+MC Protector is a **NeoForge mod for Minecraft 1.21.1** that adds a full factions and land protection system. The current build is **alpha**, so expect ongoing balancing and feature polish.
 
-## Features (planned)
-- Basic faction creation and management commands.
-- Chunk claiming with protection against block breaking, placement, redstone use, container access, and entity interaction.
-- Optional Dynmap marker updates for claimed chunks (requires Dynmap).
-- Role-based permissions for faction members.
+## Alpha status
+- **Versioning:** prerelease tags (for example, `0.1.0-alpha.1`) indicate that features may change before a stable release.
+- **Feedback:** please report issues or balance feedback as you play so we can iterate quickly.
 
-## Commands (planned)
-- `/faction create <name>`
-- `/faction disband`
-- `/faction claim`
-- `/faction unclaim`
-- `/faction overtake`
-- `/faction info`
-- `/faction ally add <faction>`
-- `/faction ally remove <faction>`
-- `/faction war declare <faction>`
-- `/faction war end <faction>`
+## Features (current alpha)
+- **Faction lifecycle:** create, disband (with confirmation), join/leave, invite, kick, promote/demote, and custom roles.
+- **Permissions & ranks:** role-based permission grants, rank display name presets, MOTD/description settings, and configurable banner/color styling.
+- **Claims & protection:** claim/unclaim chunks, auto-claim, overtake mechanics, protection tiers, trusted players, claim access logs, and borders.
+- **Homes & maps:** faction home set/teleport, in-game map summaries, and a client-side faction map UI.
+- **Relations:** ally/war relations plus **vassal contracts** with offers, acceptance, releases, and breakaway wars.
+- **Chat:** faction chat toggle and explicit chat mode switching.
+- **Administration:** safezone claims (admin-only) and data backup/restore commands.
+- **Dynmap:** optional claim marker sync when Dynmap is present.
 
-## Functions / UI (planned)
-The mod includes a client-side faction UI with tabs for members, invites, permissions, relations, and claims.
+## Faction UI
+The mod includes a client-side faction screen with tabs for members, invites, permissions, relations, rules, and a live claim map.
 
 ### Open the UI
 1. Join a world with the mod loaded.
 2. Press the **G** key (default keybind: `Faction UI`) to open the screen.
 
 ### UI actions
-- **Members:** view member list and roles.
-- **Invites:** send faction invites by player name and view outgoing invites.
+- **Members:** view member list and roles, and leave the faction.
+- **Invites:** send invites and accept pending invites.
 - **Permissions:** cycle roles/permissions and grant or revoke permissions.
-- **Relations:** view active ally/war relations.
-- **Claims:** view claimed chunks and claim/unclaim the current chunk.
+- **Relations:** view ally/war relations and configure relation permissions.
+- **Rules:** add/remove faction rules.
+- **Faction Map:** view claims, claim/unclaim selections, and sync with Dynmap.
 
-The UI requests fresh data from the server when it opens and can be refreshed with the **Refresh** button.
+## Commands (high level)
+Use `/faction` followed by the subcommands below (some require specific permissions or operator/admin status):
 
-## Dynmap integration (planned)
-Dynmap markers are enabled automatically when the Dynmap API is available. Claims are mapped to area markers in the `Faction Claims` marker set.
+- **Core:** `create`, `disband`, `join`, `leave`, `info`.
+- **Membership:** `invite`, `kick`, `promote`, `demote`, `role list/add/remove`.
+- **Permissions:** `perms list/add/remove`, `rank list/set/preset/presets`.
+- **Settings:** `motd set/clear`, `description set/clear`, `color`, `banner set/clear`, `protection set`.
+- **Claims:** `claim`, `claim auto`, `unclaim`, `overtake`, `claiminfo`, `logs`, `border`, `safezone claim/unclaim` (admin).
+- **Homes:** `home`, `sethome`.
+- **Relations:** `ally add/remove`, `war declare/end`, `vassal offer/accept/decline/release/break`.
+- **Chat & map:** `chat`, `chat toggle`, `map`, `map sync`.
+- **Data:** `data backup`, `data restore`.
 
-## What’s in this repo
-
-- **Gradle build setup** using `net.neoforged.gradle.userdev`.
-- **Mod metadata** in `gradle.properties` (mod id, name, version, authors, description).
-- **Base resources** (`META-INF/neoforge.mods.toml`, `pack.mcmeta`) that are populated from the Gradle properties.
+## Dynmap integration
+Dynmap markers are enabled automatically when the Dynmap API is available. Claims are mapped to area markers in the `Faction Claims` marker set, and `/faction map sync` can force a resync.
 
 ## Project metadata
 
@@ -94,14 +96,6 @@ gradlew runData
 ```bash
 gradlew build
 ```
-
-## Next steps
-
-This project does not yet include a main mod class or any gameplay features. To begin development:
-
-1. Create your main mod class in `src/main/java` annotated with `@Mod` and using the same `mod_id` as in `gradle.properties`.
-2. Add any registry setup, event handlers, and content in your preferred package structure.
-3. Extend resources under `src/main/resources` as needed (assets, data, configs, etc.).
 
 ## License
 
