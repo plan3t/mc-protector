@@ -19,6 +19,7 @@ import java.util.EnumSet;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 public final class FactionService {
@@ -205,6 +206,12 @@ public final class FactionService {
         if (!isClaimingAllowed(source)) {
             return 0;
         }
+        Optional<UUID> ownerId = data.getClaimOwner(chunk);
+        if (ownerId.isPresent() && FactionConfig.SERVER.protectOfflineFactions.get()
+            && !data.isFactionOnline(player.serverLevel(), ownerId.get())) {
+            source.sendFailure(Component.literal("You cannot overtake claims from an offline faction."));
+            return 0;
+        }
         if (!data.overtakeChunk(chunk, faction.get().getId())) {
             if (data.isSafeZoneClaimed(chunk)) {
                 source.sendFailure(Component.literal("Safe zone claims cannot be overtaken."));
@@ -217,6 +224,16 @@ public final class FactionService {
         }
         DynmapBridge.updateClaim(chunk, faction, player.level().dimension().location().toString());
         source.sendSuccess(() -> Component.literal("Chunk overtaken for " + faction.get().getName()), false);
+        if (ownerId.isPresent()) {
+            boolean breakawayComplete = data.recordVassalBreakawayCapture(faction.get().getId(), ownerId.get());
+            if (breakawayComplete) {
+                data.clearRelation(faction.get().getId(), ownerId.get());
+                notifyFactionMembers(player, data, faction.get().getId(),
+                    "Your faction has won its breakaway war and is now independent.");
+                notifyFactionMembers(player, data, ownerId.get(),
+                    "Your vassal has won their breakaway war and is now independent.");
+            }
+        }
         syncClaimMap(player.serverLevel());
         return 1;
     }
@@ -402,6 +419,15 @@ public final class FactionService {
         }
     }
 
+    private static void notifyFactionMembers(ServerPlayer sender, FactionData data, UUID factionId, String message) {
+        for (ServerPlayer recipient : sender.server.getPlayerList().getPlayers()) {
+            Optional<UUID> recipientFactionId = data.getFactionIdByPlayer(recipient.getUUID());
+            if (recipientFactionId.isPresent() && recipientFactionId.get().equals(factionId)) {
+                recipient.sendSystemMessage(Component.literal(message));
+            }
+        }
+    }
+
     public static int joinFaction(CommandSourceStack source, String name) throws CommandSyntaxException {
         ServerPlayer player = source.getPlayerOrException();
         FactionData data = FactionData.get(player.serverLevel());
@@ -409,7 +435,12 @@ public final class FactionService {
             source.sendFailure(Component.literal("You already belong to a faction."));
             return 0;
         }
-        Optional<Faction> faction = data.findFactionByName(name);
+        String trimmed = name == null ? "" : name.trim();
+        if (trimmed.isEmpty()) {
+            source.sendFailure(Component.literal("Faction name cannot be blank."));
+            return 0;
+        }
+        Optional<Faction> faction = data.findFactionByName(trimmed);
         if (faction.isEmpty()) {
             source.sendFailure(Component.literal("Faction not found."));
             return 0;

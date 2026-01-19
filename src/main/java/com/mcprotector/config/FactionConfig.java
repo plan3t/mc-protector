@@ -116,6 +116,9 @@ public final class FactionConfig {
         public final ModConfigSpec.ConfigValue<String> defaultMotd;
         public final ModConfigSpec.ConfigValue<String> defaultDescription;
         public final ModConfigSpec.ConfigValue<String> defaultBannerColor;
+        public final ModConfigSpec.ConfigValue<Integer> maxFactionNameLength;
+        public final ModConfigSpec.ConfigValue<Boolean> protectOfflineFactions;
+        public final ModConfigSpec.ConfigValue<Double> vassalBreakawayClaimPercent;
         public final ModConfigSpec.ConfigValue<String> defaultRankPreset;
         public final ModConfigSpec.ConfigValue<List<? extends String>> rankPresets;
         public final ModConfigSpec.ConfigValue<String> defaultProtectionTier;
@@ -166,6 +169,15 @@ public final class FactionConfig {
             defaultBannerColor = builder
                 .comment("Default banner color name for new factions.")
                 .define("defaultBannerColor", "white");
+            maxFactionNameLength = builder
+                .comment("Maximum length for faction names.")
+                .defineInRange("maxFactionNameLength", 30, 3, 100);
+            protectOfflineFactions = builder
+                .comment("Prevent war actions against factions with no online members.")
+                .define("protectOfflineFactions", true);
+            vassalBreakawayClaimPercent = builder
+                .comment("Percent of overlord claims a vassal must capture to break free.")
+                .defineInRange("vassalBreakawayClaimPercent", 0.5, 0.1, 1.0);
             defaultRankPreset = builder
                 .comment("Preset name to apply for new factions.")
                 .define("defaultRankPreset", "default");
@@ -274,7 +286,7 @@ public final class FactionConfig {
                 .define("allyChatFormat", "{faction_color}[Ally:{faction}]{reset} {player}: {message}");
             publicChatFormat = builder
                 .comment("Format for public chat messages.")
-                .define("publicChatFormat", "{player}: {message}");
+                .define("publicChatFormat", "{faction_color}[{faction}]{reset} {role} {player}: {message}");
             builder.pop();
 
             builder.push("tab_list");

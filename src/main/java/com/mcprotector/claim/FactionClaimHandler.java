@@ -92,7 +92,7 @@ public class FactionClaimHandler {
                     .map(id -> "your personal claim")
                     .orElseGet(() -> resolvePlayerName(level, personalOwner.orElse(null)) + "'s personal claim");
                 player.displayClientMessage(
-                    Component.literal("Entering " + label).withStyle(style -> style.withColor(mapColor)),
+                    Component.literal("Entered territory of " + label).withStyle(style -> style.withColor(mapColor)),
                     true
                 );
             } else if (owner.isEmpty()) {
@@ -100,7 +100,7 @@ public class FactionClaimHandler {
             } else {
                 TextColor mapColor = getMapColor(player, data, ownerId.orElse(null), isSafeZone, isPersonal);
                 player.displayClientMessage(
-                    Component.literal("Entering " + owner.get().getName() + " territory").withStyle(style -> style.withColor(mapColor)),
+                    Component.literal("Entered territory of " + owner.get().getName()).withStyle(style -> style.withColor(mapColor)),
                     true
                 );
             }

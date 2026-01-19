@@ -47,7 +47,7 @@ public final class FactionCommands {
         dispatcher.register(
             Commands.literal("faction")
                 .then(Commands.literal("create")
-                    .then(Commands.argument("name", StringArgumentType.string())
+                    .then(Commands.argument("name", StringArgumentType.greedyString())
                         .executes(context -> createFaction(context.getSource(), StringArgumentType.getString(context, "name")))))
                 .then(Commands.literal("disband")
                     .executes(context -> disbandFaction(context.getSource()))
@@ -77,7 +77,7 @@ public final class FactionCommands {
                     .then(Commands.argument("player", EntityArgument.player())
                         .executes(context -> invitePlayer(context.getSource(), EntityArgument.getPlayer(context, "player")))))
                 .then(Commands.literal("join")
-                    .then(Commands.argument("faction", StringArgumentType.string())
+                    .then(Commands.argument("faction", StringArgumentType.greedyString())
                         .executes(context -> joinFaction(context.getSource(), StringArgumentType.getString(context, "faction")))))
                 .then(Commands.literal("leave")
                     .executes(context -> leaveFaction(context.getSource())))
@@ -185,7 +185,7 @@ public final class FactionCommands {
                 .then(Commands.literal("safezone")
                     .requires(source -> source.hasPermission(FactionConfig.SERVER.adminBypassPermissionLevel.get()))
                     .then(Commands.literal("claim")
-                        .then(Commands.argument("faction", StringArgumentType.string())
+                        .then(Commands.argument("faction", StringArgumentType.greedyString())
                             .executes(context -> claimSafeZone(context.getSource(), StringArgumentType.getString(context, "faction")))))
                     .then(Commands.literal("unclaim")
                         .executes(context -> unclaimSafeZone(context.getSource()))))
@@ -205,7 +205,17 @@ public final class FactionCommands {
             source.sendFailure(Component.literal("You already belong to a faction."));
             return 0;
         }
-        Faction faction = data.createFaction(name, player);
+        String trimmed = name == null ? "" : name.trim();
+        if (trimmed.isEmpty()) {
+            source.sendFailure(Component.literal("Faction name cannot be blank."));
+            return 0;
+        }
+        int maxLength = FactionConfig.SERVER.maxFactionNameLength.get();
+        if (trimmed.length() > maxLength) {
+            source.sendFailure(Component.literal("Faction name cannot exceed " + maxLength + " characters."));
+            return 0;
+        }
+        Faction faction = data.createFaction(trimmed, player);
         source.sendSuccess(() -> Component.literal("Created faction " + faction.getName()), false);
         return 1;
     }
@@ -348,7 +358,12 @@ public final class FactionCommands {
             source.sendFailure(Component.literal("You already belong to a faction."));
             return 0;
         }
-        Optional<Faction> faction = data.findFactionByName(name);
+        String trimmed = name == null ? "" : name.trim();
+        if (trimmed.isEmpty()) {
+            source.sendFailure(Component.literal("Faction name cannot be blank."));
+            return 0;
+        }
+        Optional<Faction> faction = data.findFactionByName(trimmed);
         if (faction.isEmpty()) {
             source.sendFailure(Component.literal("Faction not found."));
             return 0;
