@@ -147,6 +147,7 @@ public final class FactionConfig {
         public final ModConfigSpec.ConfigValue<Boolean> allowRedstoneInClaims;
         public final ModConfigSpec.ConfigValue<Boolean> allowDoorUseInClaims;
         public final ModConfigSpec.ConfigValue<Boolean> trustedAllowBuild;
+        public final ModConfigSpec.ConfigValue<Boolean> allowFakePlayerActionsInClaims;
         public final ModConfigSpec.ConfigValue<Integer> adminBypassPermissionLevel;
         public final ModConfigSpec.ConfigValue<Integer> accessLogSize;
         public final ModConfigSpec.ConfigValue<Boolean> dynmapFullSyncOnStart;
@@ -245,6 +246,9 @@ public final class FactionConfig {
             trustedAllowBuild = builder
                 .comment("Allow trusted outsiders to place and break blocks.")
                 .define("trustedAllowBuild", false);
+            allowFakePlayerActionsInClaims = builder
+                .comment("Allow fake players (automation) to interact inside claimed chunks.")
+                .define("allowFakePlayerActionsInClaims", false);
             adminBypassPermissionLevel = builder
                 .comment("Permission level required to bypass claim protections (default 2).")
                 .define("adminBypassPermissionLevel", 2);

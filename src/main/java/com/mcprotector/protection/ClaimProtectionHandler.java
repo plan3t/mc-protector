@@ -5,6 +5,7 @@ import com.mcprotector.data.Faction;
 import com.mcprotector.data.FactionData;
 import com.mcprotector.data.FactionPermission;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.tags.BlockTags;
@@ -35,6 +36,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 public class ClaimProtectionHandler {
+    private static final String CREATE_MOD_ID = "create";
 
     @SubscribeEvent(priority = EventPriority.HIGHEST)
     public void onBlockBreak(BlockEvent.BreakEvent event) {
@@ -61,6 +63,21 @@ public class ClaimProtectionHandler {
 
     @SubscribeEvent(priority = EventPriority.HIGHEST)
     public void onBlockPlace(BlockEvent.EntityPlaceEvent event) {
+        Entity entity = event.getEntity();
+        BlockPos pos = event.getPos();
+        if (!(entity instanceof Player player)) {
+            if (isClaimed(event.getLevel(), pos)) {
+                event.setCanceled(true);
+            }
+            return;
+        }
+        if (!isAllowed(player, pos, FactionPermission.BLOCK_PLACE)) {
+            event.setCanceled(true);
+        }
+    }
+
+    @SubscribeEvent(priority = EventPriority.HIGHEST)
+    public void onBlockMultiPlace(BlockEvent.EntityMultiPlaceEvent event) {
         Entity entity = event.getEntity();
         BlockPos pos = event.getPos();
         if (!(entity instanceof Player player)) {
@@ -194,6 +211,10 @@ public class ClaimProtectionHandler {
         if (isWarZone(serverPlayer.serverLevel())) {
             return true;
         }
+        if (isFakePlayer && isClaimed(serverPlayer.serverLevel(), pos)
+            && !FactionConfig.SERVER.allowFakePlayerActionsInClaims.get()) {
+            return false;
+        }
         if (isSafeZone(serverPlayer.serverLevel())) {
             return !isFakePlayer && serverPlayer.hasPermissions(FactionConfig.SERVER.adminBypassPermissionLevel.get());
         }
@@ -231,6 +252,9 @@ public class ClaimProtectionHandler {
             return FactionPermission.REDSTONE_TOGGLE;
         }
         BlockEntity blockEntity = state.hasBlockEntity() ? level.getBlockEntity(pos) : null;
+        if (isCreateMachine(block, blockEntity)) {
+            return FactionPermission.CREATE_MACHINE_INTERACT;
+        }
         if (blockEntity instanceof MenuProvider || block instanceof MenuProvider) {
             return FactionPermission.CONTAINER_OPEN;
         }
@@ -287,5 +311,20 @@ public class ClaimProtectionHandler {
     private boolean isWarZone(ServerLevel level) {
         String dimension = level.dimension().location().toString();
         return FactionConfig.SERVER.warZoneDimensions.get().contains(dimension);
+    }
+
+    private boolean isCreateMachine(Block block, BlockEntity blockEntity) {
+        return isCreateBlock(block) || isCreateBlockEntity(blockEntity);
+    }
+
+    private boolean isCreateBlock(Block block) {
+        return CREATE_MOD_ID.equals(BuiltInRegistries.BLOCK.getKey(block).getNamespace());
+    }
+
+    private boolean isCreateBlockEntity(BlockEntity blockEntity) {
+        if (blockEntity == null) {
+            return false;
+        }
+        return CREATE_MOD_ID.equals(BuiltInRegistries.BLOCK_ENTITY_TYPE.getKey(blockEntity.getType()).getNamespace());
     }
 }
