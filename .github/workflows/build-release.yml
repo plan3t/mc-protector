@@ -70,6 +70,14 @@ jobs:
           name: mod-jar
           path: dist
 
+      - name: Rename jar to match release tag
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name || inputs.release_tag || github.ref_name }}
+        run: |
+          MOD_ID=$(grep '^mod_id=' gradle.properties | cut -d= -f2)
+          JAR_PATH=$(ls dist/*.jar | head -n 1)
+          mv "$JAR_PATH" "dist/${MOD_ID}-${RELEASE_TAG}.jar"
+
       - name: Publish GitHub release assets
         uses: softprops/action-gh-release@v2
         with:
