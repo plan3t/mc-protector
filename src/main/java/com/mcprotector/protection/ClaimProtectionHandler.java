@@ -28,6 +28,7 @@ import net.neoforged.neoforge.event.level.BlockEvent;
 import net.neoforged.neoforge.event.level.ExplosionEvent;
 import net.neoforged.neoforge.event.entity.living.FinalizeSpawnEvent;
 import net.neoforged.neoforge.event.entity.living.LivingIncomingDamageEvent;
+import net.neoforged.neoforge.event.entity.player.AttackEntityEvent;
 import net.neoforged.neoforge.common.util.FakePlayer;
 import net.neoforged.bus.api.EventPriority;
 import net.neoforged.bus.api.SubscribeEvent;
@@ -73,6 +74,11 @@ public class ClaimProtectionHandler {
         }
         if (!isAllowed(player, pos, FactionPermission.BLOCK_PLACE)) {
             event.setCanceled(true);
+            return;
+        }
+        if (isCreateBlock(event.getPlacedBlock().getBlock())
+            && !isAllowed(player, pos, FactionPermission.CREATE_MACHINE_INTERACT)) {
+            event.setCanceled(true);
         }
     }
 
@@ -87,6 +93,11 @@ public class ClaimProtectionHandler {
             return;
         }
         if (!isAllowed(player, pos, FactionPermission.BLOCK_PLACE)) {
+            event.setCanceled(true);
+            return;
+        }
+        if (isCreateBlock(event.getPlacedBlock().getBlock())
+            && !isAllowed(player, pos, FactionPermission.CREATE_MACHINE_INTERACT)) {
             event.setCanceled(true);
         }
     }
@@ -150,6 +161,18 @@ public class ClaimProtectionHandler {
         BlockPos pos = event.getPos();
         boolean allowed = isAllowed(player, pos, FactionPermission.ENTITY_INTERACT);
         logAccess(player, pos, FactionPermission.ENTITY_INTERACT, allowed, event.getTarget().getType().toString());
+        if (!allowed) {
+            event.setCanceled(true);
+        }
+    }
+
+    @SubscribeEvent(priority = EventPriority.HIGHEST)
+    public void onEntityAttack(AttackEntityEvent event) {
+        Player player = event.getEntity();
+        Entity target = event.getTarget();
+        BlockPos pos = target.blockPosition();
+        boolean allowed = isAllowed(player, pos, FactionPermission.ENTITY_INTERACT);
+        logAccess(player, pos, FactionPermission.ENTITY_INTERACT, allowed, target.getType().toString());
         if (!allowed) {
             event.setCanceled(true);
         }
