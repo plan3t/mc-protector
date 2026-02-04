@@ -281,7 +281,7 @@ public final class FactionConfig {
                 .define("enableAllyChat", true);
             usePublicChatFormat = builder
                 .comment("Apply the public chat format to normal chat.")
-                .define("usePublicChatFormat", false);
+                .define("usePublicChatFormat", true);
             factionChatFormat = builder
                 .comment("Format for faction chat messages.")
                 .define("factionChatFormat", "{faction_color}[{faction}]{reset} {role} {player}: {message}");
@@ -290,7 +290,7 @@ public final class FactionConfig {
                 .define("allyChatFormat", "{faction_color}[Ally:{faction}]{reset} {player}: {message}");
             publicChatFormat = builder
                 .comment("Format for public chat messages.")
-                .define("publicChatFormat", "{faction_color}[{faction}]{reset} {role} {player}: {message}");
+                .define("publicChatFormat", "{faction_color}[{faction}]{reset} {role} {player}: {faction_color}{message}{reset}");
             builder.pop();
 
             builder.push("tab_list");
