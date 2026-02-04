@@ -6,6 +6,7 @@ public enum FactionTab {
     PERMISSIONS("Permissions"),
     RULES("Rules"),
     RELATIONS("Relations"),
+    FACTION_LIST("Factions"),
     FACTION_MAP("Faction Map");
 
     private final String label;

@@ -24,6 +24,7 @@ public final class FactionClientData {
             packet.permissions(),
             packet.relationPermissions(),
             packet.relations(),
+            packet.factionList(),
             packet.rules(),
             packet.claims(),
             packet.pendingInviteFaction(),
@@ -52,6 +53,7 @@ public final class FactionClientData {
                                  List<FactionStatePacket.PermissionEntry> permissions,
                                  List<FactionStatePacket.RelationPermissionEntry> relationPermissions,
                                  List<FactionStatePacket.RelationEntry> relations,
+                                 List<FactionStatePacket.FactionListEntry> factionList,
                                  List<String> rules,
                                  List<FactionStatePacket.ClaimEntry> claims,
                                  String pendingInviteFaction,
@@ -61,7 +63,8 @@ public final class FactionClientData {
                                  int factionLevel) {
         public static FactionSnapshot empty() {
             return new FactionSnapshot(false, "", "", new ArrayList<>(), new ArrayList<>(), new ArrayList<>(),
-                new ArrayList<>(), new ArrayList<>(), new ArrayList<>(), new ArrayList<>(), new ArrayList<>(), "", 0, 0, "", 0);
+                new ArrayList<>(), new ArrayList<>(), new ArrayList<>(), new ArrayList<>(), new ArrayList<>(),
+                new ArrayList<>(), "", 0, 0, "", 0);
         }
     }
 }

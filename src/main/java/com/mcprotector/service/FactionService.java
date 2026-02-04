@@ -5,7 +5,7 @@ import com.mcprotector.data.Faction;
 import com.mcprotector.data.FactionData;
 import com.mcprotector.data.FactionPermission;
 import com.mcprotector.data.FactionRelation;
-import com.mcprotector.dynmap.DynmapBridge;
+import com.mcprotector.webmap.WebmapBridge;
 import com.mcprotector.network.FactionClaimMapPacket;
 import com.mcprotector.network.NetworkHandler;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
@@ -73,7 +73,7 @@ public final class FactionService {
             }
             return 0;
         }
-        DynmapBridge.updateClaim(chunk, faction, player.level().dimension().location().toString());
+        WebmapBridge.updateClaim(chunk, faction, player.level().dimension().location().toString());
         LAST_CLAIM.put(player.getUUID(), now);
         source.sendSuccess(() -> Component.literal("Chunk claimed for " + faction.get().getName()), false);
         syncClaimMap(player.serverLevel());
@@ -117,7 +117,7 @@ public final class FactionService {
             }
             return 0;
         }
-        DynmapBridge.updateClaim(chunk, Optional.empty(), player.level().dimension().location().toString());
+        WebmapBridge.updateClaim(chunk, Optional.empty(), player.level().dimension().location().toString());
         LAST_UNCLAIM.put(player.getUUID(), now);
         source.sendSuccess(() -> Component.literal("Chunk unclaimed."), false);
         syncClaimMap(player.serverLevel());
@@ -222,7 +222,7 @@ public final class FactionService {
             }
             return 0;
         }
-        DynmapBridge.updateClaim(chunk, faction, player.level().dimension().location().toString());
+        WebmapBridge.updateClaim(chunk, faction, player.level().dimension().location().toString());
         source.sendSuccess(() -> Component.literal("Chunk overtaken for " + faction.get().getName()), false);
         if (ownerId.isPresent()) {
             boolean breakawayComplete = data.recordVassalBreakawayCapture(faction.get().getId(), ownerId.get());
@@ -240,8 +240,8 @@ public final class FactionService {
 
     public static int syncDynmap(CommandSourceStack source) throws CommandSyntaxException {
         ServerPlayer player = source.getPlayerOrException();
-        DynmapBridge.syncClaims(player.serverLevel(), FactionData.get(player.serverLevel()));
-        source.sendSuccess(() -> Component.literal("Synced faction claims to Dynmap."), false);
+        WebmapBridge.syncClaims(player.serverLevel(), FactionData.get(player.serverLevel()));
+        source.sendSuccess(() -> Component.literal("Synced faction claims to web maps."), false);
         return 1;
     }
 
@@ -264,12 +264,12 @@ public final class FactionService {
         int unclaimed = 0;
         for (ChunkPos chunk : chunks) {
             if (data.unclaimChunk(chunk, faction.get().getId())) {
-                DynmapBridge.updateClaim(chunk, Optional.empty(), player.level().dimension().location().toString());
+                WebmapBridge.updateClaim(chunk, Optional.empty(), player.level().dimension().location().toString());
                 unclaimed++;
                 continue;
             }
             if (data.claimChunk(chunk, faction.get().getId())) {
-                DynmapBridge.updateClaim(chunk, faction, player.level().dimension().location().toString());
+                WebmapBridge.updateClaim(chunk, faction, player.level().dimension().location().toString());
                 claimed++;
             }
         }
@@ -330,7 +330,7 @@ public final class FactionService {
         int claimed = 0;
         for (ChunkPos chunk : chunks) {
             if (data.claimSafeZoneChunk(chunk, faction.get().getId())) {
-                DynmapBridge.updateClaim(chunk, faction, player.level().dimension().location().toString());
+                WebmapBridge.updateClaim(chunk, faction, player.level().dimension().location().toString());
                 claimed++;
             }
         }
@@ -365,12 +365,12 @@ public final class FactionService {
         int unclaimed = 0;
         for (ChunkPos chunk : chunks) {
             if (data.unclaimSafeZoneChunk(chunk)) {
-                DynmapBridge.updateClaim(chunk, Optional.empty(), player.level().dimension().location().toString());
+                WebmapBridge.updateClaim(chunk, Optional.empty(), player.level().dimension().location().toString());
                 unclaimed++;
                 continue;
             }
             if (data.claimSafeZoneChunk(chunk, faction.get().getId())) {
-                DynmapBridge.updateClaim(chunk, faction, player.level().dimension().location().toString());
+                WebmapBridge.updateClaim(chunk, faction, player.level().dimension().location().toString());
                 claimed++;
             }
         }
@@ -395,7 +395,7 @@ public final class FactionService {
         int removed = 0;
         for (ChunkPos chunk : chunks) {
             if (data.unclaimSafeZoneChunk(chunk)) {
-                DynmapBridge.updateClaim(chunk, Optional.empty(), player.level().dimension().location().toString());
+                WebmapBridge.updateClaim(chunk, Optional.empty(), player.level().dimension().location().toString());
                 removed++;
             }
         }

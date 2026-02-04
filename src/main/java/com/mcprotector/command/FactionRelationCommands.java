@@ -130,6 +130,11 @@ public final class FactionRelationCommands {
             source.sendFailure(Component.literal("Faction not found."));
             return 0;
         }
+        Optional<UUID> overlord = data.getOverlord(faction.get().getId());
+        if (overlord.isPresent() && overlord.get().equals(target.get().getId())) {
+            source.sendFailure(Component.literal("Vassals cannot end relations with their overlord."));
+            return 0;
+        }
         data.clearRelation(faction.get().getId(), target.get().getId());
         data.cancelVassalBreakaway(faction.get().getId(), target.get().getId());
         source.sendSuccess(() -> Component.literal("Relation cleared with " + target.get().getName()), true);

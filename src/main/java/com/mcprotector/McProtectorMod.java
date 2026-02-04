@@ -6,7 +6,7 @@ import com.mcprotector.command.FactionCommands;
 import com.mcprotector.command.FactionRelationCommands;
 import com.mcprotector.config.FactionConfig;
 import com.mcprotector.data.FactionData;
-import com.mcprotector.dynmap.DynmapBridge;
+import com.mcprotector.webmap.WebmapBridge;
 import com.mcprotector.network.FactionClaimMapPacket;
 import com.mcprotector.network.FactionStatePacket;
 import com.mcprotector.network.NetworkHandler;
@@ -50,7 +50,7 @@ public class McProtectorMod {
 
     private void onCommonSetup(FMLCommonSetupEvent event) {
         event.enqueueWork(() -> {
-            DynmapBridge.init();
+            WebmapBridge.init();
         });
     }
 
@@ -62,7 +62,7 @@ public class McProtectorMod {
     private void onServerStarted(ServerStartedEvent event) {
         for (var level : event.getServer().getAllLevels()) {
             if (FactionConfig.SERVER.dynmapFullSyncOnStart.get()) {
-                DynmapBridge.syncClaims(level, FactionData.get(level));
+                WebmapBridge.syncClaims(level, FactionData.get(level));
             }
         }
     }

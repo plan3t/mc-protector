@@ -5,7 +5,7 @@ import com.mcprotector.data.Faction;
 import com.mcprotector.data.FactionData;
 import com.mcprotector.data.FactionPermission;
 import com.mcprotector.data.FactionRelation;
-import com.mcprotector.dynmap.DynmapBridge;
+import com.mcprotector.webmap.WebmapBridge;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
@@ -69,7 +69,7 @@ public class FactionClaimHandler {
         }
         if (data.claimChunk(chunkPos, faction.get().getId())) {
             FactionClaimManager.setLastAutoClaim(player.getUUID(), now);
-            DynmapBridge.updateClaim(chunkPos, faction, player.level().dimension().location().toString());
+            WebmapBridge.updateClaim(chunkPos, faction, player.level().dimension().location().toString());
             player.sendSystemMessage(Component.literal("Auto-claimed chunk for " + faction.get().getName()));
         }
     }
