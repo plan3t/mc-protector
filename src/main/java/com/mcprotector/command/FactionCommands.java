@@ -640,7 +640,7 @@ public final class FactionCommands {
                 line = line.append(Component.literal(", " + relationLabel));
             }
             line = line.append(Component.literal(")"));
-            message = message.append(line);
+            message.append(line);
         }
         source.sendSuccess(() -> message, false);
         return 1;
