@@ -11,12 +11,15 @@ import com.mcprotector.data.FactionData;
 import com.mcprotector.data.FactionPermission;
 import com.mcprotector.data.FactionProtectionTier;
 import com.mcprotector.data.FactionRelation;
-import com.mcprotector.dynmap.DynmapBridge;
+import com.mcprotector.protection.FactionBypassManager;
+import com.mcprotector.webmap.WebmapBridge;
 import com.mcprotector.service.FactionService;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
+import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
+import com.mojang.brigadier.tree.CommandNode;
 import net.minecraft.ChatFormatting;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
@@ -32,6 +35,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Deque;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -44,8 +48,7 @@ public final class FactionCommands {
     }
 
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
-        dispatcher.register(
-            Commands.literal("faction")
+        LiteralArgumentBuilder<CommandSourceStack> root = Commands.literal("faction")
                 .then(Commands.literal("create")
                     .then(Commands.argument("name", StringArgumentType.greedyString())
                         .executes(context -> createFaction(context.getSource(), StringArgumentType.getString(context, "name")))))
@@ -67,6 +70,8 @@ public final class FactionCommands {
                         .executes(context -> confirmOvertake(context.getSource()))))
                 .then(Commands.literal("info")
                     .executes(context -> factionInfo(context.getSource())))
+                .then(Commands.literal("list")
+                    .executes(context -> listFactions(context.getSource())))
                 .then(Commands.literal("chat")
                     .executes(context -> showChatMode(context.getSource()))
                     .then(Commands.literal("toggle")
@@ -178,6 +183,11 @@ public final class FactionCommands {
                         .executes(context -> factionMap(context.getSource(), IntegerArgumentType.getInteger(context, "radius"))))
                     .then(Commands.literal("sync")
                         .executes(context -> syncDynmap(context.getSource()))))
+                .then(Commands.literal("bypass")
+                    .requires(source -> source.hasPermission(FactionConfig.SERVER.adminBypassPermissionLevel.get()))
+                    .executes(context -> toggleBypass(context.getSource(), null))
+                    .then(Commands.argument("state", StringArgumentType.word())
+                        .executes(context -> toggleBypass(context.getSource(), StringArgumentType.getString(context, "state")))))
                 .then(Commands.literal("border")
                     .executes(context -> toggleBorder(context.getSource(), null))
                     .then(Commands.argument("state", StringArgumentType.word())
@@ -194,8 +204,9 @@ public final class FactionCommands {
                         .executes(context -> backupData(context.getSource())))
                     .then(Commands.literal("restore")
                         .then(Commands.argument("file", StringArgumentType.string())
-                            .executes(context -> restoreData(context.getSource(), StringArgumentType.getString(context, "file"))))))
-        );
+                            .executes(context -> restoreData(context.getSource(), StringArgumentType.getString(context, "file"))))));
+        CommandNode<CommandSourceStack> factionNode = dispatcher.register(root);
+        dispatcher.register(Commands.literal("f").redirect(factionNode));
     }
 
     private static int createFaction(CommandSourceStack source, String name) throws CommandSyntaxException {
@@ -258,7 +269,7 @@ public final class FactionCommands {
         for (var entry : data.getClaims().entrySet()) {
             if (factionId.equals(entry.getValue())) {
                 ChunkPos chunkPos = new ChunkPos(entry.getKey());
-                DynmapBridge.updateClaim(chunkPos, Optional.empty(), player.level().dimension().location().toString());
+                WebmapBridge.updateClaim(chunkPos, Optional.empty(), player.level().dimension().location().toString());
             }
         }
         data.disbandFaction(factionId);
@@ -589,6 +600,70 @@ public final class FactionCommands {
         }
         FactionChatManager.setMode(player.getUUID(), mode);
         source.sendSuccess(() -> Component.literal("Chat mode set to " + mode.name()), false);
+        return 1;
+    }
+
+    private static int listFactions(CommandSourceStack source) {
+        FactionData data = FactionData.get(source.getLevel());
+        List<Faction> factions = data.getFactions().values().stream()
+            .sorted((first, second) -> String.CASE_INSENSITIVE_ORDER.compare(first.getName(), second.getName()))
+            .toList();
+        if (factions.isEmpty()) {
+            source.sendSuccess(() -> Component.literal("No factions found."), false);
+            return 1;
+        }
+        Optional<UUID> playerFactionId = Optional.empty();
+        try {
+            ServerPlayer player = source.getPlayerOrException();
+            playerFactionId = data.getFactionByPlayer(player.getUUID()).map(Faction::getId);
+        } catch (CommandSyntaxException ignored) {
+            // Non-player sources just list the factions without relations.
+        }
+        Component message = Component.literal("Factions (" + factions.size() + "):").withStyle(ChatFormatting.GOLD);
+        for (Faction faction : factions) {
+            String relationLabel = "";
+            if (playerFactionId.isPresent()) {
+                if (faction.getId().equals(playerFactionId.get())) {
+                    relationLabel = "Your faction";
+                } else {
+                    FactionRelation relation = data.getRelation(playerFactionId.get(), faction.getId());
+                    if (relation != FactionRelation.NEUTRAL) {
+                        relationLabel = relation.name();
+                    }
+                }
+            }
+            Component line = Component.literal("\n- ")
+                .append(Component.literal(faction.getName()).withStyle(faction.getColor()))
+                .append(Component.literal(" (" + faction.getMemberCount() + " members"));
+            if (!relationLabel.isEmpty()) {
+                line = line.append(Component.literal(", " + relationLabel));
+            }
+            line = line.append(Component.literal(")"));
+            message = message.append(line);
+        }
+        source.sendSuccess(() -> message, false);
+        return 1;
+    }
+
+    private static int toggleBypass(CommandSourceStack source, String state) throws CommandSyntaxException {
+        ServerPlayer player = source.getPlayerOrException();
+        boolean enabled;
+        if (state == null) {
+            enabled = FactionBypassManager.toggle(player);
+        } else {
+            String trimmed = state.trim().toLowerCase(Locale.ROOT);
+            switch (trimmed) {
+                case "on", "true", "enable", "enabled" -> FactionBypassManager.setEnabled(player, true);
+                case "off", "false", "disable", "disabled" -> FactionBypassManager.setEnabled(player, false);
+                default -> {
+                    source.sendFailure(Component.literal("Unknown bypass state. Use on/off."));
+                    return 0;
+                }
+            }
+            enabled = FactionBypassManager.isBypassEnabled(player);
+        }
+        String message = enabled ? "Claim bypass enabled." : "Claim bypass disabled.";
+        source.sendSuccess(() -> Component.literal(message), true);
         return 1;
     }
 
@@ -944,11 +1019,11 @@ public final class FactionCommands {
 
     private static int syncDynmap(CommandSourceStack source) {
         if (!source.hasPermission(2)) {
-            source.sendFailure(Component.literal("You lack permission to sync Dynmap."));
+            source.sendFailure(Component.literal("You lack permission to sync web maps."));
             return 0;
         }
-        DynmapBridge.syncClaims(source.getLevel(), FactionData.get(source.getLevel()));
-        source.sendSuccess(() -> Component.literal("Dynmap claims synced."), true);
+        WebmapBridge.syncClaims(source.getLevel(), FactionData.get(source.getLevel()));
+        source.sendSuccess(() -> Component.literal("Web map claims synced."), true);
         return 1;
     }
 
