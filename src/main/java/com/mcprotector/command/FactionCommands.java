@@ -25,6 +25,7 @@ import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.arguments.EntityArgument;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.level.ServerLevel;
@@ -619,7 +620,7 @@ public final class FactionCommands {
         } catch (CommandSyntaxException ignored) {
             // Non-player sources just list the factions without relations.
         }
-        Component message = Component.literal("Factions (" + factions.size() + "):").withStyle(ChatFormatting.GOLD);
+        MutableComponent message = Component.literal("Factions (" + factions.size() + "):").withStyle(ChatFormatting.GOLD);
         for (Faction faction : factions) {
             String relationLabel = "";
             if (playerFactionId.isPresent()) {
@@ -632,7 +633,7 @@ public final class FactionCommands {
                     }
                 }
             }
-            Component line = Component.literal("\n- ")
+            MutableComponent line = Component.literal("\n- ")
                 .append(Component.literal(faction.getName()).withStyle(faction.getColor()))
                 .append(Component.literal(" (" + faction.getMemberCount() + " members"));
             if (!relationLabel.isEmpty()) {
