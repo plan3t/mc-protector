@@ -83,6 +83,7 @@ public class FactionMainScreen extends Screen {
     private int panelTop;
     private int permissionsScrollOffset;
     private int mapClaimsScrollOffset;
+    private int factionListScrollOffset;
     private int selectedRuleIndex = -1;
     private int rulesScrollOffset;
     private ClaimType selectedClaimType = ClaimType.FACTION;
@@ -291,6 +292,7 @@ public class FactionMainScreen extends Screen {
             case PERMISSIONS -> renderPermissions(guiGraphics, snapshot.permissions(), contentStart);
             case RULES -> renderRules(guiGraphics, snapshot.rules(), contentStart);
             case RELATIONS -> renderRelations(guiGraphics, snapshot.relations(), snapshot.relationPermissions(), contentStart);
+            case FACTION_LIST -> renderFactionList(guiGraphics, snapshot.factionList(), contentStart);
             case FACTION_MAP -> renderFactionMap(guiGraphics, snapshot, contentStart, mouseX, mouseY);
         }
     }
@@ -328,6 +330,22 @@ public class FactionMainScreen extends Screen {
                     rulesScrollOffset = Math.min(maxOffset, rulesScrollOffset + 1);
                 } else if (scrollY > 0) {
                     rulesScrollOffset = Math.max(0, rulesScrollOffset - 1);
+                }
+                return true;
+            }
+        }
+        if (selectedTab == FactionTab.FACTION_LIST) {
+            int lineHeight = 10;
+            int listStart = getFactionListStart(getContentStart(FactionClientData.getSnapshot()));
+            int listBottom = getFactionListBottom();
+            if (mouseY >= listStart && mouseY <= listBottom) {
+                int availableHeight = Math.max(0, listBottom - listStart);
+                int visibleLines = Math.max(1, availableHeight / lineHeight);
+                int maxOffset = Math.max(0, FactionClientData.getSnapshot().factionList().size() - visibleLines);
+                if (scrollY < 0) {
+                    factionListScrollOffset = Math.min(maxOffset, factionListScrollOffset + 1);
+                } else if (scrollY > 0) {
+                    factionListScrollOffset = Math.max(0, factionListScrollOffset - 1);
                 }
                 return true;
             }
@@ -461,6 +479,9 @@ public class FactionMainScreen extends Screen {
         if (!rules) {
             selectedRuleIndex = -1;
             rulesScrollOffset = 0;
+        }
+        if (selectedTab == FactionTab.FACTION_LIST) {
+            factionListScrollOffset = 0;
         }
         if (selectedTab == FactionTab.FACTION_MAP) {
             mapClaimsScrollOffset = 0;
@@ -960,6 +981,37 @@ public class FactionMainScreen extends Screen {
         }
     }
 
+    private void renderFactionList(GuiGraphics guiGraphics,
+                                   List<com.mcprotector.network.FactionStatePacket.FactionListEntry> factions,
+                                   int startY) {
+        guiGraphics.drawString(this.font, "Factions:", PANEL_PADDING, startY, 0xFFFFFF);
+        int listStart = getFactionListStart(startY);
+        if (factions.isEmpty()) {
+            guiGraphics.drawString(this.font, "No factions found.", PANEL_PADDING, listStart, 0x777777);
+            return;
+        }
+        int listBottom = getFactionListBottom();
+        int lineHeight = 10;
+        int availableHeight = Math.max(0, listBottom - listStart);
+        int visibleLines = Math.max(1, availableHeight / lineHeight);
+        int maxOffset = Math.max(0, factions.size() - visibleLines);
+        factionListScrollOffset = Math.min(factionListScrollOffset, maxOffset);
+        List<com.mcprotector.network.FactionStatePacket.FactionListEntry> visible = factions.subList(
+            factionListScrollOffset, Math.min(factions.size(), factionListScrollOffset + visibleLines));
+        int y = listStart;
+        for (var faction : visible) {
+            String label = faction.factionName() + " (" + faction.memberCount() + " members)";
+            if ("OWN".equalsIgnoreCase(faction.relation())) {
+                label += " - Your faction";
+            } else if (!"NEUTRAL".equalsIgnoreCase(faction.relation())) {
+                label += " - " + faction.relation();
+            }
+            int color = 0xFF000000 | faction.color();
+            guiGraphics.drawString(this.font, label, PANEL_PADDING, y, color);
+            y += lineHeight;
+        }
+    }
+
     private void renderRules(GuiGraphics guiGraphics, List<String> rules, int startY) {
         guiGraphics.drawString(this.font, "Rules:", PANEL_PADDING, startY, 0xFFFFFF);
         int listStart = getRulesListStart(startY);
@@ -1113,9 +1165,17 @@ public class FactionMainScreen extends Screen {
         return startY + 12;
     }
 
+    private int getFactionListStart(int startY) {
+        return startY + 12;
+    }
+
     private int getRulesListBottom(boolean showRemove) {
         int padding = showRemove ? 26 : 6;
         return this.height - PANEL_PADDING - 20 - padding;
+    }
+
+    private int getFactionListBottom() {
+        return this.height - PANEL_PADDING - 20;
     }
 
     private void updateMapControlLayout() {

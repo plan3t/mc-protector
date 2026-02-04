@@ -238,10 +238,11 @@ public class ClaimProtectionHandler {
             && !FactionConfig.SERVER.allowFakePlayerActionsInClaims.get()) {
             return false;
         }
+        boolean hasBypassPermission = !isFakePlayer && serverPlayer.hasPermissions(FactionConfig.SERVER.adminBypassPermissionLevel.get());
         if (isSafeZone(serverPlayer.serverLevel())) {
-            return !isFakePlayer && serverPlayer.hasPermissions(FactionConfig.SERVER.adminBypassPermissionLevel.get());
+            return hasBypassPermission && FactionBypassManager.isBypassEnabled(serverPlayer);
         }
-        if (!isFakePlayer && serverPlayer.hasPermissions(FactionConfig.SERVER.adminBypassPermissionLevel.get())) {
+        if (hasBypassPermission && FactionBypassManager.isBypassEnabled(serverPlayer)) {
             logAccess(serverPlayer, pos, permission, true, "ADMIN_BYPASS");
             return true;
         }
