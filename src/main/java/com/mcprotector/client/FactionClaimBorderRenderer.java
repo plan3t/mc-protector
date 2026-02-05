@@ -35,6 +35,9 @@ public final class FactionClaimBorderRenderer {
         if (client.level == null || client.player == null) {
             return;
         }
+        if (!FactionClientData.getSnapshot().borderEnabled()) {
+            return;
+        }
         FactionMapClientData.MapSnapshot snapshot = FactionMapClientData.getSnapshot();
         if (snapshot.claims().isEmpty()) {
             return;
