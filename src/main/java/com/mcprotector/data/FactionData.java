@@ -938,7 +938,9 @@ public class FactionData extends SavedData {
             return true;
         }
         if (ownerFaction.get().isTrusted(player.getUUID())) {
-            if (permission == FactionPermission.BLOCK_BREAK || permission == FactionPermission.BLOCK_PLACE) {
+            if (permission == FactionPermission.BLOCK_BREAK
+                || permission == FactionPermission.BLOCK_PLACE
+                || permission == FactionPermission.FLUID_PLACE) {
                 return FactionConfig.SERVER.trustedAllowBuild.get();
             }
             return true;

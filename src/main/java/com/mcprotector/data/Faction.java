@@ -46,6 +46,7 @@ public class Faction {
         permissions.put(ROLE_MEMBER, EnumSet.of(
             FactionPermission.BLOCK_BREAK,
             FactionPermission.BLOCK_PLACE,
+            FactionPermission.FLUID_PLACE,
             FactionPermission.BLOCK_USE,
             FactionPermission.CONTAINER_OPEN,
             FactionPermission.REDSTONE_TOGGLE,

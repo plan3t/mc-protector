@@ -3,6 +3,7 @@ package com.mcprotector.data;
 public enum FactionPermission {
     BLOCK_BREAK,
     BLOCK_PLACE,
+    FLUID_PLACE,
     BLOCK_USE,
     CONTAINER_OPEN,
     REDSTONE_TOGGLE,

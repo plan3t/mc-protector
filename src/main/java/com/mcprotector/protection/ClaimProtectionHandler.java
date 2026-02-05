@@ -131,8 +131,8 @@ public class ClaimProtectionHandler {
         BlockState state = event.getLevel().getBlockState(pos);
         if (event.getItemStack().getItem() instanceof net.minecraft.world.item.BucketItem bucketItem
             && bucketItem != net.minecraft.world.item.Items.BUCKET) {
-            boolean allowedBucket = isAllowed(player, pos, FactionPermission.BLOCK_PLACE);
-            logAccess(player, pos, FactionPermission.BLOCK_PLACE, allowedBucket, event.getItemStack().getItem().toString());
+            boolean allowedBucket = isAllowed(player, pos, FactionPermission.FLUID_PLACE);
+            logAccess(player, pos, FactionPermission.FLUID_PLACE, allowedBucket, event.getItemStack().getItem().toString());
             if (!allowedBucket) {
                 event.setCanceled(true);
                 event.setCancellationResult(net.minecraft.world.InteractionResult.FAIL);
