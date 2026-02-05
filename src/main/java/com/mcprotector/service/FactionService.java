@@ -19,7 +19,6 @@ import java.util.EnumSet;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 public final class FactionService {
@@ -48,6 +47,11 @@ public final class FactionService {
             return 0;
         }
         if (!isClaimingAllowed(source)) {
+            return 0;
+        }
+        if (!data.isClaimed(chunk) && data.getClaimCount(faction.get().getId()) > 0
+            && !data.isAdjacentToFactionClaim(chunk, faction.get().getId())) {
+            source.sendFailure(Component.literal("Claims must border your existing faction territory."));
             return 0;
         }
         long now = System.currentTimeMillis();
@@ -206,35 +210,40 @@ public final class FactionService {
         if (!isClaimingAllowed(source)) {
             return 0;
         }
+        if (data.isSafeZoneClaimed(chunk)) {
+            source.sendFailure(Component.literal("Safe zone claims cannot be overtaken."));
+            return 0;
+        }
         Optional<UUID> ownerId = data.getClaimOwner(chunk);
+        if (ownerId.isEmpty() || ownerId.get().equals(faction.get().getId())) {
+            source.sendFailure(Component.literal("This chunk cannot be overtaken."));
+            return 0;
+        }
+        if (!data.isAtWar(faction.get().getId(), ownerId.get())) {
+            source.sendFailure(Component.literal("You cannot overtake this chunk unless you are at war with the owner."));
+            return 0;
+        }
         if (ownerId.isPresent() && FactionConfig.SERVER.protectOfflineFactions.get()
             && !data.isFactionOnline(player.serverLevel(), ownerId.get())) {
             source.sendFailure(Component.literal("You cannot overtake claims from an offline faction."));
             return 0;
         }
-        if (!data.overtakeChunk(chunk, faction.get().getId())) {
-            if (data.isSafeZoneClaimed(chunk)) {
-                source.sendFailure(Component.literal("Safe zone claims cannot be overtaken."));
-            } else if (data.isClaimed(chunk) && data.getClaimOwner(chunk).isPresent()) {
-                source.sendFailure(Component.literal("You cannot overtake this chunk unless you are at war with the owner and have claim capacity."));
-            } else {
-                source.sendFailure(Component.literal("This chunk cannot be overtaken."));
-            }
+        if (data.getClaimCount(faction.get().getId()) >= data.getMaxClaims(faction.get().getId())) {
+            source.sendFailure(Component.literal("Your faction has reached its claim limit."));
             return 0;
         }
-        WebmapBridge.updateClaim(chunk, faction, player.level().dimension().location().toString());
-        source.sendSuccess(() -> Component.literal("Chunk overtaken for " + faction.get().getName()), false);
-        if (ownerId.isPresent()) {
-            boolean breakawayComplete = data.recordVassalBreakawayCapture(faction.get().getId(), ownerId.get());
-            if (breakawayComplete) {
-                data.clearRelation(faction.get().getId(), ownerId.get());
-                notifyFactionMembers(player, data, faction.get().getId(),
-                    "Your faction has won its breakaway war and is now independent.");
-                notifyFactionMembers(player, data, ownerId.get(),
-                    "Your vassal has won their breakaway war and is now independent.");
-            }
+        ChunkPos playerChunk = new ChunkPos(player.blockPosition());
+        if (!playerChunk.equals(chunk)) {
+            source.sendFailure(Component.literal("You must be in the target chunk to start a siege."));
+            return 0;
         }
-        syncClaimMap(player.serverLevel());
+        if (!SiegeManager.startSiege(player, faction.get().getId(), ownerId.get(), chunk)) {
+            source.sendFailure(Component.literal("Your faction is already sieging a claim."));
+            return 0;
+        }
+        source.sendSuccess(() -> Component.literal("Siege started. Hold this claim for 10 minutes to overtake it."), false);
+        notifyFactionMembers(player, data, ownerId.get(),
+            "Your faction is under siege by " + faction.get().getName() + "!");
         return 1;
     }
 

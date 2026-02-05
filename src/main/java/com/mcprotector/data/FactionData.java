@@ -27,13 +27,14 @@ import java.util.UUID;
 
 public class FactionData extends SavedData {
     private static final String DATA_NAME = "mcprotector_factions";
-    private static final int DATA_VERSION = 8;
+    private static final int DATA_VERSION = 9;
 
     private final Map<UUID, Faction> factions = new HashMap<>();
     private final Map<UUID, UUID> playerFaction = new HashMap<>();
     private final Map<Long, UUID> claims = new HashMap<>();
     private final Map<Long, UUID> safeZoneClaims = new HashMap<>();
     private final Map<Long, UUID> personalClaims = new HashMap<>();
+    private final Map<UUID, Integer> claimBoosts = new HashMap<>();
     private final Map<UUID, Map<UUID, FactionRelation>> relations = new HashMap<>();
     private final Map<UUID, FactionInvite> pendingInvites = new HashMap<>();
     private final Map<UUID, VassalInvite> pendingVassalInvites = new HashMap<>();
@@ -273,6 +274,17 @@ public class FactionData extends SavedData {
                 data.factionHomes.put(factionId, new FactionHome(dimension, pos));
             }
         }
+        if (dataVersion >= 9 && tag.contains("ClaimBoosts")) {
+            ListTag boostsTag = tag.getList("ClaimBoosts", Tag.TAG_COMPOUND);
+            for (Tag entry : boostsTag) {
+                CompoundTag boostTag = (CompoundTag) entry;
+                UUID factionId = boostTag.getUUID("Faction");
+                int boost = boostTag.getInt("Boost");
+                if (boost > 0) {
+                    data.claimBoosts.put(factionId, boost);
+                }
+            }
+        }
         return data;
     }
 
@@ -283,6 +295,7 @@ public class FactionData extends SavedData {
         claims.clear();
         safeZoneClaims.clear();
         personalClaims.clear();
+        claimBoosts.clear();
         relations.clear();
         pendingInvites.clear();
         pendingVassalInvites.clear();
@@ -297,6 +310,7 @@ public class FactionData extends SavedData {
         claims.putAll(loaded.claims);
         safeZoneClaims.putAll(loaded.safeZoneClaims);
         personalClaims.putAll(loaded.personalClaims);
+        claimBoosts.putAll(loaded.claimBoosts);
         relations.putAll(loaded.relations);
         pendingInvites.putAll(loaded.pendingInvites);
         pendingVassalInvites.putAll(loaded.pendingVassalInvites);
@@ -394,6 +408,17 @@ public class FactionData extends SavedData {
             personalTag.add(claim);
         }
         tag.put("PersonalClaims", personalTag);
+        ListTag boostsTag = new ListTag();
+        for (Map.Entry<UUID, Integer> entry : claimBoosts.entrySet()) {
+            if (entry.getValue() == null || entry.getValue() <= 0) {
+                continue;
+            }
+            CompoundTag boostTag = new CompoundTag();
+            boostTag.putUUID("Faction", entry.getKey());
+            boostTag.putInt("Boost", entry.getValue());
+            boostsTag.add(boostTag);
+        }
+        tag.put("ClaimBoosts", boostsTag);
         ListTag relationsTag = new ListTag();
         for (Map.Entry<UUID, Map<UUID, FactionRelation>> entry : relations.entrySet()) {
             for (Map.Entry<UUID, FactionRelation> relationEntry : entry.getValue().entrySet()) {
@@ -469,7 +494,7 @@ public class FactionData extends SavedData {
             CompoundTag setting = new CompoundTag();
             setting.putUUID("Player", playerId);
             setting.putBoolean("AutoClaim", autoClaimSettings.getOrDefault(playerId, false));
-            setting.putBoolean("BorderEnabled", borderSettings.getOrDefault(playerId, true));
+            setting.putBoolean("BorderEnabled", borderSettings.getOrDefault(playerId, false));
             settingsTag.add(setting);
         }
         for (UUID playerId : borderSettings.keySet()) {
@@ -479,7 +504,7 @@ public class FactionData extends SavedData {
             CompoundTag setting = new CompoundTag();
             setting.putUUID("Player", playerId);
             setting.putBoolean("AutoClaim", autoClaimSettings.getOrDefault(playerId, false));
-            setting.putBoolean("BorderEnabled", borderSettings.getOrDefault(playerId, true));
+            setting.putBoolean("BorderEnabled", borderSettings.getOrDefault(playerId, false));
             settingsTag.add(setting);
         }
         tag.put("PlayerSettings", settingsTag);
@@ -737,6 +762,7 @@ public class FactionData extends SavedData {
         pendingVassalInvites.remove(factionId);
         claims.values().removeIf(id -> id.equals(factionId));
         safeZoneClaims.values().removeIf(id -> id.equals(factionId));
+        claimBoosts.remove(factionId);
         relations.remove(factionId);
         for (Map<UUID, FactionRelation> entry : relations.values()) {
             entry.remove(factionId);
@@ -755,6 +781,9 @@ public class FactionData extends SavedData {
             return false;
         }
         if (getClaimCount(factionId) >= getMaxClaims(factionId)) {
+            return false;
+        }
+        if (!isAdjacentToFactionClaim(chunk, factionId)) {
             return false;
         }
         claims.put(key, factionId);
@@ -957,7 +986,8 @@ public class FactionData extends SavedData {
         int base = FactionConfig.SERVER.baseClaims.get();
         int perMember = FactionConfig.SERVER.claimsPerMember.get();
         int levelBonus = (getFactionLevel(factionId) - 1) * FactionConfig.SERVER.bonusClaimsPerLevel.get();
-        return Math.max(base, base + (faction.getMemberCount() * perMember) + levelBonus);
+        int boost = claimBoosts.getOrDefault(factionId, 0);
+        return Math.max(base, base + (faction.getMemberCount() * perMember) + levelBonus + Math.max(0, boost));
     }
 
     public Map<Long, UUID> getClaims() {
@@ -1079,12 +1109,39 @@ public class FactionData extends SavedData {
     }
 
     public boolean isBorderEnabled(UUID playerId) {
-        return borderSettings.getOrDefault(playerId, true);
+        return borderSettings.getOrDefault(playerId, false);
     }
 
     public void setBorderEnabled(UUID playerId, boolean enabled) {
         borderSettings.put(playerId, enabled);
         setDirty();
+    }
+
+    public int getClaimBoost(UUID factionId) {
+        return claimBoosts.getOrDefault(factionId, 0);
+    }
+
+    public void setClaimBoost(UUID factionId, int boost) {
+        if (boost <= 0) {
+            if (claimBoosts.remove(factionId) != null) {
+                setDirty();
+            }
+            return;
+        }
+        claimBoosts.put(factionId, boost);
+        setDirty();
+    }
+
+    public boolean isAdjacentToFactionClaim(ChunkPos chunk, UUID factionId) {
+        if (getClaimCount(factionId) == 0) {
+            return true;
+        }
+        int x = chunk.x;
+        int z = chunk.z;
+        return factionId.equals(claims.get(ChunkPos.asLong(x + 1, z)))
+            || factionId.equals(claims.get(ChunkPos.asLong(x - 1, z)))
+            || factionId.equals(claims.get(ChunkPos.asLong(x, z + 1)))
+            || factionId.equals(claims.get(ChunkPos.asLong(x, z - 1)));
     }
 
     public Optional<FactionHome> getFactionHome(UUID factionId) {

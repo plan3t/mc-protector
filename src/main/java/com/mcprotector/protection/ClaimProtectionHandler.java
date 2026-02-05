@@ -4,6 +4,8 @@ import com.mcprotector.config.FactionConfig;
 import com.mcprotector.data.Faction;
 import com.mcprotector.data.FactionData;
 import com.mcprotector.data.FactionPermission;
+import com.mcprotector.data.FactionRelation;
+import com.mcprotector.service.SiegeManager;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.server.level.ServerLevel;
@@ -27,6 +29,7 @@ import net.neoforged.neoforge.event.level.BlockDropsEvent;
 import net.neoforged.neoforge.event.level.BlockEvent;
 import net.neoforged.neoforge.event.level.ExplosionEvent;
 import net.neoforged.neoforge.event.entity.living.FinalizeSpawnEvent;
+import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
 import net.neoforged.neoforge.event.entity.living.LivingIncomingDamageEvent;
 import net.neoforged.neoforge.event.entity.player.AttackEntityEvent;
 import net.neoforged.neoforge.common.util.FakePlayer;
@@ -126,6 +129,16 @@ public class ClaimProtectionHandler {
         Player player = event.getEntity();
         BlockPos pos = event.getPos();
         BlockState state = event.getLevel().getBlockState(pos);
+        if (event.getItemStack().getItem() instanceof net.minecraft.world.item.BucketItem bucketItem
+            && bucketItem != net.minecraft.world.item.Items.BUCKET) {
+            boolean allowedBucket = isAllowed(player, pos, FactionPermission.BLOCK_PLACE);
+            logAccess(player, pos, FactionPermission.BLOCK_PLACE, allowedBucket, event.getItemStack().getItem().toString());
+            if (!allowedBucket) {
+                event.setCanceled(true);
+                event.setCancellationResult(net.minecraft.world.InteractionResult.FAIL);
+            }
+            return;
+        }
         if (isDoorLike(state) && !FactionConfig.SERVER.allowDoorUseInClaims.get()) {
             boolean allowedDoor = isMemberOrTrusted(player, pos) || isAllowed(player, pos, FactionPermission.BLOCK_USE);
             logAccess(player, pos, FactionPermission.BLOCK_USE, allowedDoor, state.getBlock().getDescriptionId());
@@ -207,10 +220,33 @@ public class ClaimProtectionHandler {
         if (FactionConfig.SERVER.allowPvpInClaims.get()) {
             return;
         }
-        if (!FactionData.get(serverLevel).isClaimed(victim.blockPosition())) {
+        FactionData data = FactionData.get(serverLevel);
+        if (!data.isClaimed(victim.blockPosition())) {
             return;
         }
-        event.setCanceled(true);
+        Optional<UUID> victimFactionId = data.getFactionIdByPlayer(victim.getUUID());
+        Optional<UUID> attackerFactionId = data.getFactionIdByPlayer(attacker.getUUID());
+        if (victimFactionId.isPresent() && attackerFactionId.isPresent()) {
+            if (victimFactionId.get().equals(attackerFactionId.get())) {
+                event.setCanceled(true);
+                return;
+            }
+            if (data.getRelation(attackerFactionId.get(), victimFactionId.get()) == FactionRelation.ALLY) {
+                event.setCanceled(true);
+                return;
+            }
+        }
+    }
+
+    @SubscribeEvent
+    public void onPlayerDeath(LivingDeathEvent event) {
+        if (!(event.getEntity() instanceof ServerPlayer victim)) {
+            return;
+        }
+        if (!(event.getSource().getEntity() instanceof ServerPlayer killer)) {
+            return;
+        }
+        SiegeManager.handleAttackerKilled(victim, killer);
     }
 
     @SubscribeEvent

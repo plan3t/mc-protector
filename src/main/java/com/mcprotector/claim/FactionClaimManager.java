@@ -31,7 +31,7 @@ public final class FactionClaimManager {
     }
 
     public static boolean isBorderEnabled(UUID playerId) {
-        return BORDER_ENABLED.getOrDefault(playerId, true);
+        return BORDER_ENABLED.getOrDefault(playerId, false);
     }
 
     public static boolean hasBorderSetting(UUID playerId) {

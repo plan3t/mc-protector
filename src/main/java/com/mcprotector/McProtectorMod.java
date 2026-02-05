@@ -11,6 +11,7 @@ import com.mcprotector.network.FactionClaimMapPacket;
 import com.mcprotector.network.FactionStatePacket;
 import com.mcprotector.network.NetworkHandler;
 import com.mcprotector.protection.ClaimProtectionHandler;
+import com.mcprotector.service.SiegeManager;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.fml.ModContainer;
@@ -80,6 +81,7 @@ public class McProtectorMod {
     }
 
     private void onServerTick(ServerTickEvent.Post event) {
+        SiegeManager.tick(event.getServer());
         if (++claimMapSyncTicks < CLAIM_MAP_SYNC_INTERVAL_TICKS) {
             return;
         }
