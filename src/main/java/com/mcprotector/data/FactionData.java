@@ -27,7 +27,7 @@ import java.util.UUID;
 
 public class FactionData extends SavedData {
     private static final String DATA_NAME = "mcprotector_factions";
-    private static final int DATA_VERSION = 9;
+    private static final int DATA_VERSION = 10;
 
     private final Map<UUID, Faction> factions = new HashMap<>();
     private final Map<UUID, UUID> playerFaction = new HashMap<>();
@@ -38,6 +38,7 @@ public class FactionData extends SavedData {
     private final Map<UUID, Map<UUID, FactionRelation>> relations = new HashMap<>();
     private final Map<UUID, FactionInvite> pendingInvites = new HashMap<>();
     private final Map<UUID, VassalInvite> pendingVassalInvites = new HashMap<>();
+    private final Map<UUID, AllyInvite> pendingAllyInvites = new HashMap<>();
     private final Map<UUID, VassalContract> vassalContracts = new HashMap<>();
     private final Map<UUID, VassalBreakaway> vassalBreakaways = new HashMap<>();
     private final Map<Long, Deque<FactionAccessLog>> accessLogs = new HashMap<>();
@@ -207,6 +208,16 @@ public class FactionData extends SavedData {
                 data.pendingVassalInvites.put(vassalId, new VassalInvite(overlordId, expiresAt));
             }
         }
+        if (dataVersion >= 10 && tag.contains("AllyInvites")) {
+            ListTag invitesTag = tag.getList("AllyInvites", Tag.TAG_COMPOUND);
+            for (Tag inviteEntry : invitesTag) {
+                CompoundTag invite = (CompoundTag) inviteEntry;
+                UUID targetId = invite.getUUID("Target");
+                UUID proposerId = invite.getUUID("Proposer");
+                long expiresAt = invite.getLong("ExpiresAt");
+                data.pendingAllyInvites.put(targetId, new AllyInvite(proposerId, expiresAt));
+            }
+        }
         if (dataVersion >= 8 && tag.contains("VassalContracts")) {
             ListTag contractsTag = tag.getList("VassalContracts", Tag.TAG_COMPOUND);
             for (Tag contractEntry : contractsTag) {
@@ -299,6 +310,7 @@ public class FactionData extends SavedData {
         relations.clear();
         pendingInvites.clear();
         pendingVassalInvites.clear();
+        pendingAllyInvites.clear();
         vassalContracts.clear();
         vassalBreakaways.clear();
         accessLogs.clear();
@@ -314,6 +326,7 @@ public class FactionData extends SavedData {
         relations.putAll(loaded.relations);
         pendingInvites.putAll(loaded.pendingInvites);
         pendingVassalInvites.putAll(loaded.pendingVassalInvites);
+        pendingAllyInvites.putAll(loaded.pendingAllyInvites);
         vassalContracts.putAll(loaded.vassalContracts);
         vassalBreakaways.putAll(loaded.vassalBreakaways);
         accessLogs.putAll(loaded.accessLogs);
@@ -448,6 +461,15 @@ public class FactionData extends SavedData {
             vassalInvitesTag.add(invite);
         }
         tag.put("VassalInvites", vassalInvitesTag);
+        ListTag allyInvitesTag = new ListTag();
+        for (Map.Entry<UUID, AllyInvite> entry : pendingAllyInvites.entrySet()) {
+            CompoundTag invite = new CompoundTag();
+            invite.putUUID("Target", entry.getKey());
+            invite.putUUID("Proposer", entry.getValue().proposerId());
+            invite.putLong("ExpiresAt", entry.getValue().expiresAt());
+            allyInvitesTag.add(invite);
+        }
+        tag.put("AllyInvites", allyInvitesTag);
         ListTag vassalContractsTag = new ListTag();
         for (Map.Entry<UUID, VassalContract> entry : vassalContracts.entrySet()) {
             CompoundTag contract = new CompoundTag();
@@ -637,6 +659,12 @@ public class FactionData extends SavedData {
         setDirty();
     }
 
+    public void inviteAlly(UUID proposerId, UUID targetId) {
+        long expiresAt = Instant.now().plus(Duration.ofMinutes(FactionConfig.SERVER.inviteExpirationMinutes.get())).toEpochMilli();
+        pendingAllyInvites.put(targetId, new AllyInvite(proposerId, expiresAt));
+        setDirty();
+    }
+
     public Optional<VassalInvite> getVassalInvite(UUID vassalId) {
         VassalInvite invite = pendingVassalInvites.get(vassalId);
         if (invite == null) {
@@ -652,6 +680,25 @@ public class FactionData extends SavedData {
 
     public void clearVassalInvite(UUID vassalId) {
         if (pendingVassalInvites.remove(vassalId) != null) {
+            setDirty();
+        }
+    }
+
+    public Optional<AllyInvite> getAllyInvite(UUID targetId) {
+        AllyInvite invite = pendingAllyInvites.get(targetId);
+        if (invite == null) {
+            return Optional.empty();
+        }
+        if (invite.expiresAt() < System.currentTimeMillis()) {
+            pendingAllyInvites.remove(targetId);
+            setDirty();
+            return Optional.empty();
+        }
+        return Optional.of(invite);
+    }
+
+    public void clearAllyInvite(UUID targetId) {
+        if (pendingAllyInvites.remove(targetId) != null) {
             setDirty();
         }
     }
@@ -760,6 +807,7 @@ public class FactionData extends SavedData {
             pendingInvites.remove(member);
         }
         pendingVassalInvites.remove(factionId);
+        pendingAllyInvites.remove(factionId);
         claims.values().removeIf(id -> id.equals(factionId));
         safeZoneClaims.values().removeIf(id -> id.equals(factionId));
         claimBoosts.remove(factionId);
@@ -770,6 +818,7 @@ public class FactionData extends SavedData {
         vassalContracts.remove(factionId);
         vassalBreakaways.remove(factionId);
         pendingVassalInvites.entrySet().removeIf(entry -> entry.getValue().overlordId().equals(factionId));
+        pendingAllyInvites.entrySet().removeIf(entry -> entry.getValue().proposerId().equals(factionId));
         vassalContracts.entrySet().removeIf(entry -> entry.getValue().overlordId().equals(factionId));
         vassalBreakaways.entrySet().removeIf(entry -> entry.getValue().overlordId().equals(factionId));
         setDirty();
@@ -1163,6 +1212,9 @@ public class FactionData extends SavedData {
     }
 
     public record FactionInvite(UUID factionId, long expiresAt) {
+    }
+
+    public record AllyInvite(UUID proposerId, long expiresAt) {
     }
 
     public record VassalInvite(UUID overlordId, long expiresAt) {

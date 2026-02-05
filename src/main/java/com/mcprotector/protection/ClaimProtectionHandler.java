@@ -131,8 +131,9 @@ public class ClaimProtectionHandler {
         BlockState state = event.getLevel().getBlockState(pos);
         if (event.getItemStack().getItem() instanceof net.minecraft.world.item.BucketItem bucketItem
             && bucketItem != net.minecraft.world.item.Items.BUCKET) {
-            boolean allowedBucket = isAllowed(player, pos, FactionPermission.FLUID_PLACE);
-            logAccess(player, pos, FactionPermission.FLUID_PLACE, allowedBucket, event.getItemStack().getItem().toString());
+            BlockPos targetPos = pos.relative(event.getFace());
+            boolean allowedBucket = isAllowed(player, targetPos, FactionPermission.FLUID_PLACE);
+            logAccess(player, targetPos, FactionPermission.FLUID_PLACE, allowedBucket, event.getItemStack().getItem().toString());
             if (!allowedBucket) {
                 event.setCanceled(true);
                 event.setCancellationResult(net.minecraft.world.InteractionResult.FAIL);
@@ -183,6 +184,12 @@ public class ClaimProtectionHandler {
     public void onEntityAttack(AttackEntityEvent event) {
         Player player = event.getEntity();
         Entity target = event.getTarget();
+        if (target instanceof Player) {
+            return;
+        }
+        if (target instanceof net.minecraft.world.entity.monster.Monster) {
+            return;
+        }
         BlockPos pos = target.blockPosition();
         boolean allowed = isAllowed(player, pos, FactionPermission.ENTITY_INTERACT);
         logAccess(player, pos, FactionPermission.ENTITY_INTERACT, allowed, target.getType().toString());
