@@ -174,7 +174,8 @@ public final class SquaremapBridge {
         markerOptionsBuilderClass.getMethod("strokeWeight", int.class).invoke(builder, 1);
         markerOptionsBuilderClass.getMethod("hoverTooltip", String.class).invoke(builder, "Faction: " + faction.getName());
         markerOptionsBuilderClass.getMethod("clickTooltip", String.class).invoke(builder, "Faction: " + faction.getName());
-        markerClass.getMethod("markerOptions", markerOptionsBuilderClass).invoke(marker, builder);
+        Object options = markerOptionsBuilderClass.getMethod("build").invoke(builder);
+        markerClass.getMethod("markerOptions", markerOptionsClass).invoke(marker, options);
         return marker;
     }
 

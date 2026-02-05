@@ -97,8 +97,22 @@ public final class FactionRelationCommands {
             source.sendFailure(Component.literal("You cannot declare war on an offline faction."));
             return 0;
         }
+        FactionRelation previous = data.getRelation(faction.get().getId(), target.get().getId());
         data.setRelation(faction.get().getId(), target.get().getId(), relation);
         source.sendSuccess(() -> Component.literal("Relation set to " + relation.name() + " with " + target.get().getName()), true);
+        if (relation != previous) {
+            if (relation == FactionRelation.WAR) {
+                notifyFactionMembers(player, data, faction.get().getId(),
+                    "Your faction has declared war on " + target.get().getName() + ".");
+                notifyFactionMembers(player, data, target.get().getId(),
+                    "Your faction has been declared war on by " + faction.get().getName() + ".");
+            } else if (relation == FactionRelation.ALLY) {
+                notifyFactionMembers(player, data, faction.get().getId(),
+                    "Your faction is now allied with " + target.get().getName() + ".");
+                notifyFactionMembers(player, data, target.get().getId(),
+                    "Your faction is now allied with " + faction.get().getName() + ".");
+            }
+        }
         return 1;
     }
 
@@ -135,9 +149,17 @@ public final class FactionRelationCommands {
             source.sendFailure(Component.literal("Vassals cannot end relations with their overlord."));
             return 0;
         }
+        FactionRelation previous = data.getRelation(faction.get().getId(), target.get().getId());
         data.clearRelation(faction.get().getId(), target.get().getId());
         data.cancelVassalBreakaway(faction.get().getId(), target.get().getId());
+        data.cancelVassalBreakaway(target.get().getId(), faction.get().getId());
         source.sendSuccess(() -> Component.literal("Relation cleared with " + target.get().getName()), true);
+        if (previous == FactionRelation.WAR) {
+            notifyFactionMembers(player, data, faction.get().getId(),
+                "Your faction is no longer at war with " + target.get().getName() + ".");
+            notifyFactionMembers(player, data, target.get().getId(),
+                "Your faction is no longer at war with " + faction.get().getName() + ".");
+        }
         return 1;
     }
 

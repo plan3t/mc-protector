@@ -46,6 +46,7 @@ public class Faction {
         permissions.put(ROLE_MEMBER, EnumSet.of(
             FactionPermission.BLOCK_BREAK,
             FactionPermission.BLOCK_PLACE,
+            FactionPermission.FLUID_PLACE,
             FactionPermission.BLOCK_USE,
             FactionPermission.CONTAINER_OPEN,
             FactionPermission.REDSTONE_TOGGLE,
@@ -291,15 +292,7 @@ public class Faction {
     }
 
     private EnumSet<FactionPermission> defaultWarPermissions() {
-        return EnumSet.of(
-            FactionPermission.BLOCK_BREAK,
-            FactionPermission.BLOCK_PLACE,
-            FactionPermission.BLOCK_USE,
-            FactionPermission.CONTAINER_OPEN,
-            FactionPermission.REDSTONE_TOGGLE,
-            FactionPermission.ENTITY_INTERACT,
-            FactionPermission.CREATE_MACHINE_INTERACT
-        );
+        return EnumSet.noneOf(FactionPermission.class);
     }
 
     public static String normalizeRoleName(String roleName) {

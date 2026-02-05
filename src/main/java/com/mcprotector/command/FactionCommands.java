@@ -200,6 +200,14 @@ public final class FactionCommands {
                             .executes(context -> claimSafeZone(context.getSource(), StringArgumentType.getString(context, "faction")))))
                     .then(Commands.literal("unclaim")
                         .executes(context -> unclaimSafeZone(context.getSource()))))
+                .then(Commands.literal("boost")
+                    .requires(source -> source.hasPermission(FactionConfig.SERVER.adminBypassPermissionLevel.get()))
+                    .then(Commands.argument("faction", StringArgumentType.greedyString())
+                        .then(Commands.argument("amount", IntegerArgumentType.integer(0))
+                            .executes(context -> setClaimBoost(
+                                context.getSource(),
+                                StringArgumentType.getString(context, "faction"),
+                                IntegerArgumentType.getInteger(context, "amount"))))))
                 .then(Commands.literal("data")
                     .then(Commands.literal("backup")
                         .executes(context -> backupData(context.getSource())))
@@ -949,6 +957,26 @@ public final class FactionCommands {
         FactionData.get(player.serverLevel()).setBorderEnabled(player.getUUID(), enabled);
         String message = "Claim borders " + (enabled ? "enabled" : "disabled") + ".";
         source.sendSuccess(() -> Component.literal(message), false);
+        return 1;
+    }
+
+    private static int setClaimBoost(CommandSourceStack source, String factionName, int amount) {
+        String trimmed = factionName == null ? "" : factionName.trim();
+        if (trimmed.isEmpty()) {
+            source.sendFailure(Component.literal("Faction name cannot be blank."));
+            return 0;
+        }
+        FactionData data = FactionData.get(source.getLevel());
+        Optional<Faction> faction = data.findFactionByName(trimmed);
+        if (faction.isEmpty()) {
+            source.sendFailure(Component.literal("Faction not found."));
+            return 0;
+        }
+        data.setClaimBoost(faction.get().getId(), amount);
+        String message = amount > 0
+            ? "Claim boost set to +" + amount + " for " + faction.get().getName() + "."
+            : "Claim boost cleared for " + faction.get().getName() + ".";
+        source.sendSuccess(() -> Component.literal(message), true);
         return 1;
     }
 
