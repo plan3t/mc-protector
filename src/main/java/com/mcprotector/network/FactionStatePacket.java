@@ -43,12 +43,14 @@ public class FactionStatePacket implements CustomPacketPayload {
     private final int maxClaims;
     private final String protectionTier;
     private final int factionLevel;
+    private final boolean borderEnabled;
 
     public FactionStatePacket(boolean inFaction, String factionName, String roleName, List<RoleEntry> roles,
                               List<MemberEntry> members, List<InviteEntry> invites, List<PermissionEntry> permissions,
                               List<RelationPermissionEntry> relationPermissions, List<RelationEntry> relations,
                               List<FactionListEntry> factionList, List<String> rules, List<ClaimEntry> claims,
-                              String pendingInviteFaction, int claimCount, int maxClaims, String protectionTier, int factionLevel) {
+                              String pendingInviteFaction, int claimCount, int maxClaims, String protectionTier,
+                              int factionLevel, boolean borderEnabled) {
         this.inFaction = inFaction;
         this.factionName = factionName;
         this.roleName = roleName;
@@ -66,6 +68,7 @@ public class FactionStatePacket implements CustomPacketPayload {
         this.maxClaims = maxClaims;
         this.protectionTier = protectionTier;
         this.factionLevel = factionLevel;
+        this.borderEnabled = borderEnabled;
     }
 
     public static FactionStatePacket fromPlayer(ServerPlayer player) {
@@ -77,8 +80,9 @@ public class FactionStatePacket implements CustomPacketPayload {
                 .flatMap(invite -> data.getFaction(invite.factionId()))
                 .map(Faction::getName)
                 .orElse("");
+            boolean borderEnabled = data.isBorderEnabled(player.getUUID());
             return new FactionStatePacket(false, "", "", List.of(), List.of(), List.of(), List.of(), List.of(), List.of(),
-                factionList, List.of(), List.of(), inviteFactionName, 0, 0, "", 0);
+                factionList, List.of(), List.of(), inviteFactionName, 0, 0, "", 0, borderEnabled);
         }
         Faction factionData = faction.get();
         MinecraftServer server = player.getServer();
@@ -132,8 +136,10 @@ public class FactionStatePacket implements CustomPacketPayload {
         int maxClaims = data.getMaxClaims(factionData.getId());
         int factionLevel = data.getFactionLevel(factionData.getId());
         String protectionTier = factionData.getProtectionTier().name();
+        boolean borderEnabled = data.isBorderEnabled(player.getUUID());
         return new FactionStatePacket(true, factionData.getName(), roleName, roles, members, invites, permissions, relationPermissions,
-            relations, factionList, factionData.getRules(), claims, "", claimCount, maxClaims, protectionTier, factionLevel);
+            relations, factionList, factionData.getRules(), claims, "", claimCount, maxClaims, protectionTier,
+            factionLevel, borderEnabled);
     }
 
     private static String resolveName(MinecraftServer server, UUID playerId) {
@@ -232,6 +238,7 @@ public class FactionStatePacket implements CustomPacketPayload {
         buffer.writeVarInt(maxClaims);
         buffer.writeUtf(protectionTier);
         buffer.writeVarInt(factionLevel);
+        buffer.writeBoolean(borderEnabled);
     }
 
     public static FactionStatePacket decode(RegistryFriendlyByteBuf buffer) {
@@ -300,8 +307,10 @@ public class FactionStatePacket implements CustomPacketPayload {
         int maxClaims = buffer.readVarInt();
         String protectionTier = buffer.readUtf();
         int factionLevel = buffer.readVarInt();
+        boolean borderEnabled = buffer.readBoolean();
         return new FactionStatePacket(inFaction, factionName, roleName, roles, members, invites, permissions, relationPermissions,
-            relations, factionList, rules, claims, pendingInviteFaction, factionClaimCount, maxClaims, protectionTier, factionLevel);
+            relations, factionList, rules, claims, pendingInviteFaction, factionClaimCount, maxClaims, protectionTier,
+            factionLevel, borderEnabled);
     }
 
     public static void handle(FactionStatePacket packet, IPayloadContext context) {
@@ -379,6 +388,10 @@ public class FactionStatePacket implements CustomPacketPayload {
 
     public int factionLevel() {
         return factionLevel;
+    }
+
+    public boolean borderEnabled() {
+        return borderEnabled;
     }
 
     public record RoleEntry(String name, String displayName) {

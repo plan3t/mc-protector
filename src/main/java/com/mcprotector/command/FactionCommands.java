@@ -202,7 +202,7 @@ public final class FactionCommands {
                         .executes(context -> unclaimSafeZone(context.getSource()))))
                 .then(Commands.literal("boost")
                     .requires(source -> source.hasPermission(FactionConfig.SERVER.adminBypassPermissionLevel.get()))
-                    .then(Commands.argument("faction", StringArgumentType.greedyString())
+                    .then(Commands.argument("faction", StringArgumentType.string())
                         .then(Commands.argument("amount", IntegerArgumentType.integer(0))
                             .executes(context -> setClaimBoost(
                                 context.getSource(),
@@ -955,6 +955,10 @@ public final class FactionCommands {
         }
         FactionClaimManager.setBorderEnabled(player.getUUID(), enabled);
         FactionData.get(player.serverLevel()).setBorderEnabled(player.getUUID(), enabled);
+        com.mcprotector.network.NetworkHandler.sendToPlayer(
+            player,
+            com.mcprotector.network.FactionStatePacket.fromPlayer(player)
+        );
         String message = "Claim borders " + (enabled ? "enabled" : "disabled") + ".";
         source.sendSuccess(() -> Component.literal(message), false);
         return 1;
