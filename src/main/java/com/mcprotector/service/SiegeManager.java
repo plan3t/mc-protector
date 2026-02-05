@@ -10,6 +10,8 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.level.ServerBossEvent;
+import net.minecraft.world.BossEvent;
 import net.minecraft.world.level.ChunkPos;
 
 import java.time.Duration;
@@ -47,6 +49,7 @@ public final class SiegeManager {
             SiegeState state = iterator.next();
             ResourceLocation dimensionId = ResourceLocation.tryParse(state.dimension());
             if (dimensionId == null) {
+                clearBossBars(state);
                 iterator.remove();
                 continue;
             }
@@ -57,10 +60,12 @@ public final class SiegeManager {
             FactionData data = FactionData.get(level);
             Optional<UUID> ownerId = data.getClaimOwner(state.chunk());
             if (ownerId.isEmpty() || !ownerId.get().equals(state.defenderFactionId())) {
+                clearBossBars(state);
                 iterator.remove();
                 continue;
             }
             if (!data.isAtWar(state.attackerFactionId(), state.defenderFactionId())) {
+                clearBossBars(state);
                 iterator.remove();
                 continue;
             }
@@ -78,6 +83,9 @@ public final class SiegeManager {
                 && state.leaderKilledAtMillis() <= 0L) {
                 state.addElapsed(elapsed);
             }
+            if (attackerInChunk) {
+                state.updateLastAttackerPresence(now);
+            }
             state.updateLastTick(now);
             if (breakawayDefense) {
                 if (!attackerInChunk) {
@@ -87,23 +95,22 @@ public final class SiegeManager {
                 }
                 if (state.defenseElapsedMillis() >= BREAKAWAY_DEFENSE_MILLIS) {
                     handleBreakawayDefenseSuccess(server, data, state);
+                    clearBossBars(state);
                     iterator.remove();
                     continue;
                 }
             }
-            if (state.leaderKilledAtMillis() > 0L) {
-                if (attackerInChunk) {
-                    state.updateLastAttackerPresence(now);
-                } else if (now - state.lastAttackerPresenceMillis() >= DEFENSE_BREAK_MILLIS) {
-                    notifyFactionMembers(server, data, state.attackerFactionId(),
-                        "Siege failed. The defenders pushed all attackers out for 2 minutes.");
-                    notifyFactionMembers(server, data, state.defenderFactionId(),
-                        "Siege broken. Your faction held the claim.");
-                    iterator.remove();
-                    continue;
-                }
+            if (!attackerInChunk && now - state.lastAttackerPresenceMillis() >= DEFENSE_BREAK_MILLIS) {
+                notifyFactionMembers(server, data, state.attackerFactionId(),
+                    "Siege failed. The defenders held the claim for 2 minutes with no attackers present.");
+                notifyFactionMembers(server, data, state.defenderFactionId(),
+                    "Siege broken. Your faction held the claim for 2 minutes.");
+                clearBossBars(state);
+                iterator.remove();
+                continue;
             }
             long requiredMillis = breakawayDefense ? BREAKAWAY_DEFENSE_MILLIS : REQUIRED_MILLIS;
+            updateBossBars(server, data, state, now, attackerInChunk, breakawayDefense, requiredMillis);
             maybeSendStatus(server, data, state, now, attackerInChunk, breakawayDefense, requiredMillis);
             if (state.elapsedMillis() < requiredMillis) {
                 continue;
@@ -111,10 +118,12 @@ public final class SiegeManager {
             Optional<Faction> attackerFaction = data.getFaction(state.attackerFactionId());
             Optional<Faction> defenderFaction = data.getFaction(state.defenderFactionId());
             if (attackerFaction.isEmpty()) {
+                clearBossBars(state);
                 iterator.remove();
                 continue;
             }
             if (!data.overtakeChunk(state.chunk(), state.attackerFactionId())) {
+                clearBossBars(state);
                 iterator.remove();
                 continue;
             }
@@ -133,6 +142,7 @@ public final class SiegeManager {
                     "Your vassal has won their breakaway war and is now independent.");
             }
             syncClaimMap(level);
+            clearBossBars(state);
             iterator.remove();
         }
     }
@@ -181,6 +191,70 @@ public final class SiegeManager {
         }
     }
 
+    private static void updateBossBars(MinecraftServer server, FactionData data, SiegeState state, long now,
+                                       boolean attackerInChunk, boolean breakawayDefense, long requiredMillis) {
+        float siegeProgress = progressFor(requiredMillis - state.elapsedMillis(), requiredMillis);
+        ServerBossEvent siegeBar = state.ensureSiegeBossBar();
+        siegeBar.setName(Component.literal("Siege Timer: " + formatDuration(Math.max(0L, requiredMillis - state.elapsedMillis()))));
+        siegeBar.setProgress(siegeProgress);
+        siegeBar.setVisible(true);
+        syncBossBarPlayers(server, data, state, siegeBar);
+
+        ServerBossEvent defenseBar = state.ensureDefenseBossBar();
+        if (attackerInChunk) {
+            defenseBar.setVisible(false);
+        } else {
+            long remainingDefense = Math.max(0L, DEFENSE_BREAK_MILLIS - (now - state.lastAttackerPresenceMillis()));
+            defenseBar.setName(Component.literal("Defense Timer: " + formatDuration(remainingDefense)));
+            defenseBar.setProgress(progressFor(remainingDefense, DEFENSE_BREAK_MILLIS));
+            defenseBar.setVisible(true);
+            syncBossBarPlayers(server, data, state, defenseBar);
+        }
+
+        ServerBossEvent breakawayBar = state.ensureBreakawayBossBar();
+        if (breakawayDefense) {
+            long remainingBreakaway = Math.max(0L, BREAKAWAY_DEFENSE_MILLIS - state.defenseElapsedMillis());
+            breakawayBar.setName(Component.literal("Breakaway Defense: " + formatDuration(remainingBreakaway)));
+            breakawayBar.setProgress(progressFor(remainingBreakaway, BREAKAWAY_DEFENSE_MILLIS));
+            breakawayBar.setVisible(true);
+            syncBossBarPlayers(server, data, state, breakawayBar);
+        } else {
+            breakawayBar.setVisible(false);
+        }
+    }
+
+    private static void syncBossBarPlayers(MinecraftServer server, FactionData data, SiegeState state, ServerBossEvent bar) {
+        for (ServerPlayer player : server.getPlayerList().getPlayers()) {
+            Optional<UUID> factionId = data.getFactionIdByPlayer(player.getUUID());
+            if (factionId.isPresent()
+                && (factionId.get().equals(state.attackerFactionId()) || factionId.get().equals(state.defenderFactionId()))) {
+                if (!bar.getPlayers().contains(player)) {
+                    bar.addPlayer(player);
+                }
+            } else if (bar.getPlayers().contains(player)) {
+                bar.removePlayer(player);
+            }
+        }
+    }
+
+    private static void clearBossBars(SiegeState state) {
+        state.clearBossBars();
+    }
+
+    private static float progressFor(long remaining, long total) {
+        if (total <= 0L) {
+            return 0.0f;
+        }
+        float value = (float) remaining / (float) total;
+        if (value < 0.0f) {
+            return 0.0f;
+        }
+        if (value > 1.0f) {
+            return 1.0f;
+        }
+        return value;
+    }
+
     private static void maybeSendStatus(MinecraftServer server, FactionData data, SiegeState state, long now,
                                         boolean attackerInChunk, boolean breakawayDefense, long requiredMillis) {
         if (now - state.lastStatusBroadcastMillis() < STATUS_BROADCAST_INTERVAL_MILLIS) {
@@ -195,11 +269,11 @@ public final class SiegeManager {
             message = "Breakaway defense: " + defenseTimer
                 + (attackerInChunk ? " (attackers in claim)" : " (defenders holding)");
         }
-        if (state.leaderKilledAtMillis() > 0L) {
+        if (!attackerInChunk) {
             long remainingDefense = Math.max(0L, DEFENSE_BREAK_MILLIS - (now - state.lastAttackerPresenceMillis()));
             String defenseTimer = formatDuration(remainingDefense);
             message = "Siege timer: " + siegeTimer + " | Defense timer: " + defenseTimer
-                + (attackerInChunk ? " (attackers in claim)" : " (no attackers)");
+                + " (no attackers)";
         }
         sendFactionActionBar(server, data, state.attackerFactionId(), message);
         sendFactionActionBar(server, data, state.defenderFactionId(), message);
@@ -262,6 +336,9 @@ public final class SiegeManager {
         private long lastAttackerPresenceMillis;
         private long lastStatusBroadcastMillis;
         private long defenseElapsedMillis;
+        private ServerBossEvent siegeBossBar;
+        private ServerBossEvent defenseBossBar;
+        private ServerBossEvent breakawayBossBar;
 
         private SiegeState(UUID attackerFactionId, UUID defenderFactionId, UUID attackerPlayerId, ChunkPos chunk,
                            String dimension, long startedAtMillis, long lastTickMillis, long elapsedMillis,
@@ -351,6 +428,42 @@ public final class SiegeManager {
 
         public void setLastStatusBroadcastMillis(long now) {
             lastStatusBroadcastMillis = now;
+        }
+
+        public ServerBossEvent ensureSiegeBossBar() {
+            if (siegeBossBar == null) {
+                siegeBossBar = new ServerBossEvent(Component.literal("Siege Timer"),
+                    BossEvent.BossBarColor.RED, BossEvent.BossBarOverlay.PROGRESS);
+            }
+            return siegeBossBar;
+        }
+
+        public ServerBossEvent ensureDefenseBossBar() {
+            if (defenseBossBar == null) {
+                defenseBossBar = new ServerBossEvent(Component.literal("Defense Timer"),
+                    BossEvent.BossBarColor.BLUE, BossEvent.BossBarOverlay.PROGRESS);
+            }
+            return defenseBossBar;
+        }
+
+        public ServerBossEvent ensureBreakawayBossBar() {
+            if (breakawayBossBar == null) {
+                breakawayBossBar = new ServerBossEvent(Component.literal("Breakaway Defense"),
+                    BossEvent.BossBarColor.GREEN, BossEvent.BossBarOverlay.PROGRESS);
+            }
+            return breakawayBossBar;
+        }
+
+        public void clearBossBars() {
+            if (siegeBossBar != null) {
+                siegeBossBar.removeAllPlayers();
+            }
+            if (defenseBossBar != null) {
+                defenseBossBar.removeAllPlayers();
+            }
+            if (breakawayBossBar != null) {
+                breakawayBossBar.removeAllPlayers();
+            }
         }
     }
 }

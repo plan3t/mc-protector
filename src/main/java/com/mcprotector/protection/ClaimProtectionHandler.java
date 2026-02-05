@@ -108,9 +108,18 @@ public class ClaimProtectionHandler {
     @SubscribeEvent
     public void onFluidPlace(BlockEvent.FluidPlaceBlockEvent event) {
         BlockPos pos = event.getPos();
-        if (isClaimed(event.getLevel(), pos)) {
-            event.setCanceled(true);
+        if (!isClaimed(event.getLevel(), pos)) {
+            return;
         }
+        if (event.getEntity() instanceof Player player) {
+            boolean allowed = isAllowed(player, pos, FactionPermission.FLUID_PLACE);
+            logAccess(player, pos, FactionPermission.FLUID_PLACE, allowed, "fluid_place");
+            if (!allowed) {
+                event.setCanceled(true);
+            }
+            return;
+        }
+        event.setCanceled(true);
     }
 
     @SubscribeEvent
@@ -131,8 +140,9 @@ public class ClaimProtectionHandler {
         BlockState state = event.getLevel().getBlockState(pos);
         if (event.getItemStack().getItem() instanceof net.minecraft.world.item.BucketItem bucketItem
             && bucketItem != net.minecraft.world.item.Items.BUCKET) {
-            boolean allowedBucket = isAllowed(player, pos, FactionPermission.FLUID_PLACE);
-            logAccess(player, pos, FactionPermission.FLUID_PLACE, allowedBucket, event.getItemStack().getItem().toString());
+            BlockPos targetPos = pos.relative(event.getFace());
+            boolean allowedBucket = isAllowed(player, targetPos, FactionPermission.FLUID_PLACE);
+            logAccess(player, targetPos, FactionPermission.FLUID_PLACE, allowedBucket, event.getItemStack().getItem().toString());
             if (!allowedBucket) {
                 event.setCanceled(true);
                 event.setCancellationResult(net.minecraft.world.InteractionResult.FAIL);
@@ -184,6 +194,9 @@ public class ClaimProtectionHandler {
         Player player = event.getEntity();
         Entity target = event.getTarget();
         if (target instanceof Player) {
+            return;
+        }
+        if (target instanceof net.minecraft.world.entity.monster.Monster) {
             return;
         }
         BlockPos pos = target.blockPosition();

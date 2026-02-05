@@ -30,9 +30,10 @@ public final class FactionTextFormatter {
     private static String applyFormat(String format, ServerPlayer sender, Faction faction, String message) {
         Map<String, String> replacements = new HashMap<>();
         ChatFormatting color = faction != null ? faction.getColor() : ChatFormatting.WHITE;
-        replacements.put("{faction}", faction != null ? faction.getName() : "NoFaction");
+        String factionName = faction != null ? faction.getName() : "NoFaction";
+        replacements.put("{faction}", color + factionName + ChatFormatting.RESET);
         replacements.put("{player}", sender.getName().getString());
-        replacements.put("{message}", message);
+        replacements.put("{message}", ChatFormatting.RESET + message);
         replacements.put("{faction_color}", color.toString());
         replacements.put("{reset}", ChatFormatting.RESET.toString());
         String role = faction != null ? faction.getRole(sender.getUUID()) : null;
