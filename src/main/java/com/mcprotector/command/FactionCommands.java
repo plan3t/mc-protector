@@ -202,7 +202,7 @@ public final class FactionCommands {
                         .executes(context -> unclaimSafeZone(context.getSource()))))
                 .then(Commands.literal("boost")
                     .requires(source -> source.hasPermission(FactionConfig.SERVER.adminBypassPermissionLevel.get()))
-                    .then(Commands.argument("faction", StringArgumentType.greedyString())
+                    .then(Commands.argument("faction", StringArgumentType.string())
                         .then(Commands.argument("amount", IntegerArgumentType.integer(0))
                             .executes(context -> setClaimBoost(
                                 context.getSource(),
@@ -955,6 +955,10 @@ public final class FactionCommands {
         }
         FactionClaimManager.setBorderEnabled(player.getUUID(), enabled);
         FactionData.get(player.serverLevel()).setBorderEnabled(player.getUUID(), enabled);
+        com.mcprotector.network.NetworkHandler.sendToPlayer(
+            player,
+            com.mcprotector.network.FactionStatePacket.fromPlayer(player)
+        );
         String message = "Claim borders " + (enabled ? "enabled" : "disabled") + ".";
         source.sendSuccess(() -> Component.literal(message), false);
         return 1;
@@ -1004,6 +1008,11 @@ public final class FactionCommands {
             source.sendFailure(Component.literal("You lack permission to set the faction home."));
             return 0;
         }
+        Optional<UUID> ownerId = data.getClaimOwner(player.blockPosition());
+        if (ownerId.isEmpty() || !ownerId.get().equals(faction.get().getId())) {
+            source.sendFailure(Component.literal("Faction home must be set inside your claimed chunks."));
+            return 0;
+        }
         String dimension = player.level().dimension().location().toString();
         data.setFactionHome(faction.get().getId(), dimension, player.blockPosition());
         source.sendSuccess(() -> Component.literal("Faction home set."), true);
@@ -1041,6 +1050,11 @@ public final class FactionCommands {
             return 0;
         }
         BlockPos pos = home.get().pos();
+        Optional<UUID> ownerId = FactionData.get(level).getClaimOwner(pos);
+        if (ownerId.isEmpty() || !ownerId.get().equals(faction.get().getId())) {
+            source.sendFailure(Component.literal("Faction home is no longer inside your claimed chunks."));
+            return 0;
+        }
         player.teleportTo(level, pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5, player.getYRot(), player.getXRot());
         source.sendSuccess(() -> Component.literal("Teleported to faction home."), true);
         return 1;
