@@ -237,14 +237,38 @@ public final class FactionService {
             source.sendFailure(Component.literal("You must be in the target chunk to start a siege."));
             return 0;
         }
+        if (!isSiegeTargetBordered(data, chunk, ownerId.get())) {
+            source.sendFailure(Component.literal("Sieges can only target claims bordering wilderness or another faction."));
+            return 0;
+        }
         if (!SiegeManager.startSiege(player, faction.get().getId(), ownerId.get(), chunk)) {
             source.sendFailure(Component.literal("Your faction is already sieging a claim."));
             return 0;
         }
         source.sendSuccess(() -> Component.literal("Siege started. Hold this claim for 5 minutes to overtake it."), false);
         notifyFactionMembers(player, data, ownerId.get(),
-            "Your faction is under siege by " + faction.get().getName() + "!");
+            "Your faction is under siege by " + faction.get().getName()
+                + " at chunk " + chunk.x + ", " + chunk.z + "!");
         return 1;
+    }
+
+    private static boolean isSiegeTargetBordered(FactionData data, ChunkPos target, UUID defenderFactionId) {
+        ChunkPos[] neighbors = new ChunkPos[] {
+            new ChunkPos(target.x + 1, target.z),
+            new ChunkPos(target.x - 1, target.z),
+            new ChunkPos(target.x, target.z + 1),
+            new ChunkPos(target.x, target.z - 1)
+        };
+        for (ChunkPos neighbor : neighbors) {
+            if (!data.isClaimed(neighbor)) {
+                return true;
+            }
+            Optional<UUID> ownerId = data.getClaimOwner(neighbor);
+            if (ownerId.isPresent() && !ownerId.get().equals(defenderFactionId)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public static int syncDynmap(CommandSourceStack source) throws CommandSyntaxException {

@@ -21,6 +21,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public final class SiegeManager {
     private static final long REQUIRED_MILLIS = Duration.ofMinutes(5).toMillis();
+    private static final long BREAKAWAY_DEFENSE_MILLIS = Duration.ofMinutes(10).toMillis();
     private static final long DEFENSE_BREAK_MILLIS = Duration.ofMinutes(2).toMillis();
     private static final long STATUS_BROADCAST_INTERVAL_MILLIS = 1000L;
     private static final Map<UUID, SiegeState> ACTIVE_SIEGES = new ConcurrentHashMap<>();
@@ -34,7 +35,7 @@ public final class SiegeManager {
         }
         long now = System.currentTimeMillis();
         SiegeState state = new SiegeState(attackerFactionId, defenderFactionId, player.getUUID(), chunk,
-            player.level().dimension().location().toString(), now, now, 0L, 0L, now, 0L);
+            player.level().dimension().location().toString(), now, now, 0L, 0L, now, 0L, 0L);
         ACTIVE_SIEGES.put(attackerFactionId, state);
         return true;
     }
@@ -65,6 +66,7 @@ public final class SiegeManager {
             }
             ServerPlayer attacker = server.getPlayerList().getPlayer(state.attackerPlayerId());
             boolean attackerInChunk = isAttackerInChunk(level, data, state.attackerFactionId(), state.chunk());
+            boolean breakawayDefense = isBreakawayDefense(data, state.attackerFactionId(), state.defenderFactionId());
             long elapsed = now - state.lastTickMillis();
             if (elapsed <= 0) {
                 state.updateLastTick(now);
@@ -77,6 +79,18 @@ public final class SiegeManager {
                 state.addElapsed(elapsed);
             }
             state.updateLastTick(now);
+            if (breakawayDefense) {
+                if (!attackerInChunk) {
+                    state.addDefenseElapsed(elapsed);
+                } else {
+                    state.resetDefenseElapsed();
+                }
+                if (state.defenseElapsedMillis() >= BREAKAWAY_DEFENSE_MILLIS) {
+                    handleBreakawayDefenseSuccess(server, data, state);
+                    iterator.remove();
+                    continue;
+                }
+            }
             if (state.leaderKilledAtMillis() > 0L) {
                 if (attackerInChunk) {
                     state.updateLastAttackerPresence(now);
@@ -89,8 +103,9 @@ public final class SiegeManager {
                     continue;
                 }
             }
-            maybeSendStatus(server, data, state, now, attackerInChunk);
-            if (state.elapsedMillis() < REQUIRED_MILLIS) {
+            long requiredMillis = breakawayDefense ? BREAKAWAY_DEFENSE_MILLIS : REQUIRED_MILLIS;
+            maybeSendStatus(server, data, state, now, attackerInChunk, breakawayDefense, requiredMillis);
+            if (state.elapsedMillis() < requiredMillis) {
                 continue;
             }
             Optional<Faction> attackerFaction = data.getFaction(state.attackerFactionId());
@@ -167,13 +182,19 @@ public final class SiegeManager {
     }
 
     private static void maybeSendStatus(MinecraftServer server, FactionData data, SiegeState state, long now,
-                                        boolean attackerInChunk) {
+                                        boolean attackerInChunk, boolean breakawayDefense, long requiredMillis) {
         if (now - state.lastStatusBroadcastMillis() < STATUS_BROADCAST_INTERVAL_MILLIS) {
             return;
         }
-        long remainingSiege = Math.max(0L, REQUIRED_MILLIS - state.elapsedMillis());
+        long remainingSiege = Math.max(0L, requiredMillis - state.elapsedMillis());
         String siegeTimer = formatDuration(remainingSiege);
         String message = "Siege timer: " + siegeTimer;
+        if (breakawayDefense) {
+            long remainingDefense = Math.max(0L, BREAKAWAY_DEFENSE_MILLIS - state.defenseElapsedMillis());
+            String defenseTimer = formatDuration(remainingDefense);
+            message = "Breakaway defense: " + defenseTimer
+                + (attackerInChunk ? " (attackers in claim)" : " (defenders holding)");
+        }
         if (state.leaderKilledAtMillis() > 0L) {
             long remainingDefense = Math.max(0L, DEFENSE_BREAK_MILLIS - (now - state.lastAttackerPresenceMillis()));
             String defenseTimer = formatDuration(remainingDefense);
@@ -183,6 +204,23 @@ public final class SiegeManager {
         sendFactionActionBar(server, data, state.attackerFactionId(), message);
         sendFactionActionBar(server, data, state.defenderFactionId(), message);
         state.setLastStatusBroadcastMillis(now);
+    }
+
+    private static boolean isBreakawayDefense(FactionData data, UUID attackerFactionId, UUID defenderFactionId) {
+        Optional<UUID> overlordId = data.getOverlord(defenderFactionId);
+        return overlordId.isPresent()
+            && overlordId.get().equals(attackerFactionId)
+            && data.hasActiveBreakaway(defenderFactionId);
+    }
+
+    private static void handleBreakawayDefenseSuccess(MinecraftServer server, FactionData data, SiegeState state) {
+        if (data.releaseVassal(state.attackerFactionId(), state.defenderFactionId())) {
+            data.clearRelation(state.defenderFactionId(), state.attackerFactionId());
+        }
+        notifyFactionMembers(server, data, state.defenderFactionId(),
+            "Your faction has defended long enough to win its breakaway war and is now independent.");
+        notifyFactionMembers(server, data, state.attackerFactionId(),
+            "Your vassal has defended long enough to win their breakaway war and is now independent.");
     }
 
     private static boolean isAttackerInChunk(ServerLevel level, FactionData data, UUID attackerFactionId, ChunkPos chunk) {
@@ -223,10 +261,12 @@ public final class SiegeManager {
         private long leaderKilledAtMillis;
         private long lastAttackerPresenceMillis;
         private long lastStatusBroadcastMillis;
+        private long defenseElapsedMillis;
 
         private SiegeState(UUID attackerFactionId, UUID defenderFactionId, UUID attackerPlayerId, ChunkPos chunk,
                            String dimension, long startedAtMillis, long lastTickMillis, long elapsedMillis,
-                           long leaderKilledAtMillis, long lastAttackerPresenceMillis, long lastStatusBroadcastMillis) {
+                           long leaderKilledAtMillis, long lastAttackerPresenceMillis, long lastStatusBroadcastMillis,
+                           long defenseElapsedMillis) {
             this.attackerFactionId = attackerFactionId;
             this.defenderFactionId = defenderFactionId;
             this.attackerPlayerId = attackerPlayerId;
@@ -238,6 +278,7 @@ public final class SiegeManager {
             this.leaderKilledAtMillis = leaderKilledAtMillis;
             this.lastAttackerPresenceMillis = lastAttackerPresenceMillis;
             this.lastStatusBroadcastMillis = lastStatusBroadcastMillis;
+            this.defenseElapsedMillis = defenseElapsedMillis;
         }
 
         public UUID attackerFactionId() {
@@ -280,12 +321,24 @@ public final class SiegeManager {
             return lastStatusBroadcastMillis;
         }
 
+        public long defenseElapsedMillis() {
+            return defenseElapsedMillis;
+        }
+
         public void updateLastTick(long now) {
             lastTickMillis = now;
         }
 
         public void addElapsed(long delta) {
             elapsedMillis += delta;
+        }
+
+        public void addDefenseElapsed(long delta) {
+            defenseElapsedMillis += delta;
+        }
+
+        public void resetDefenseElapsed() {
+            defenseElapsedMillis = 0L;
         }
 
         public void setLeaderKilledAtMillis(long now) {

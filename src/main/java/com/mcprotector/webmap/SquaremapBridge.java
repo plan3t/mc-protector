@@ -17,6 +17,7 @@ import java.util.Optional;
 public final class SquaremapBridge {
     private static final String LAYER_KEY = "mcprotector_claims";
     private static final int LAYER_PRIORITY = 10;
+    private static final int SAFE_ZONE_COLOR = 0xF9A825;
     private static boolean available;
     private static Object squaremap;
     private static Class<?> worldIdentifierClass;
@@ -72,7 +73,7 @@ public final class SquaremapBridge {
                 markers.remove(markerId);
                 return;
             }
-            markers.put(markerId, createMarker(chunkPos, faction.get()));
+            markers.put(markerId, createMarker(chunkPos, faction.get(), false));
         } catch (Throwable error) {
             McProtectorMod.LOGGER.warn("Failed to update Squaremap marker: {}", error.getMessage());
         }
@@ -95,14 +96,14 @@ public final class SquaremapBridge {
                 ChunkPos chunkPos = new ChunkPos(entry.getKey());
                 Optional<Faction> faction = data.getFaction(entry.getValue());
                 if (faction.isPresent()) {
-                    markers.put(markerId(chunkPos), createMarker(chunkPos, faction.get()));
+                    markers.put(markerId(chunkPos), createMarker(chunkPos, faction.get(), false));
                 }
             }
             for (Map.Entry<Long, java.util.UUID> entry : data.getSafeZoneClaims().entrySet()) {
                 ChunkPos chunkPos = new ChunkPos(entry.getKey());
                 Optional<Faction> faction = data.getFaction(entry.getValue());
                 if (faction.isPresent()) {
-                    markers.put(markerId(chunkPos), createMarker(chunkPos, faction.get()));
+                    markers.put(markerId(chunkPos), createMarker(chunkPos, faction.get(), true));
                 }
             }
         } catch (Throwable error) {
@@ -154,7 +155,7 @@ public final class SquaremapBridge {
         return Proxy.newProxyInstance(layerProviderClass.getClassLoader(), new Class<?>[]{layerProviderClass}, handler);
     }
 
-    private static Object createMarker(ChunkPos chunkPos, Faction faction) throws Exception {
+    private static Object createMarker(ChunkPos chunkPos, Faction faction, boolean safeZone) throws Exception {
         Method pointOf = pointClass.getMethod("of", double.class, double.class);
         double minX = chunkPos.getMinBlockX();
         double minZ = chunkPos.getMinBlockZ();
@@ -165,8 +166,7 @@ public final class SquaremapBridge {
         Method rectangleMethod = markerClass.getMethod("rectangle", pointClass, pointClass);
         Object marker = rectangleMethod.invoke(null, point1, point2);
         Object builder = markerOptionsClass.getMethod("builder").invoke(null);
-        ChatFormatting chatColor = faction.getColor();
-        int rgb = chatColor.getColor() == null ? 0xFFFFFF : chatColor.getColor();
+        int rgb = resolveFactionColor(faction, safeZone);
         Color color = new Color(rgb);
         markerOptionsBuilderClass.getMethod("strokeColor", Color.class).invoke(builder, color);
         markerOptionsBuilderClass.getMethod("fillColor", Color.class).invoke(builder, color);
@@ -177,6 +177,22 @@ public final class SquaremapBridge {
         Object options = markerOptionsBuilderClass.getMethod("build").invoke(builder);
         markerClass.getMethod("markerOptions", markerOptionsClass).invoke(marker, options);
         return marker;
+    }
+
+    private static int resolveFactionColor(Faction faction, boolean safeZone) {
+        if (safeZone) {
+            return SAFE_ZONE_COLOR;
+        }
+        ChatFormatting chatColor = faction.getColor();
+        Integer rgb = chatColor.getColor();
+        if (rgb != null) {
+            return rgb;
+        }
+        int hash = Math.abs(faction.getName().hashCode());
+        int red = 64 + (hash & 0x7F);
+        int green = 64 + ((hash >> 7) & 0x7F);
+        int blue = 64 + ((hash >> 14) & 0x7F);
+        return (red << 16) | (green << 8) | blue;
     }
 
     private static String markerId(ChunkPos chunkPos) {
