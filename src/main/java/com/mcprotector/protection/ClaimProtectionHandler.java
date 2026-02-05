@@ -183,6 +183,9 @@ public class ClaimProtectionHandler {
     public void onEntityAttack(AttackEntityEvent event) {
         Player player = event.getEntity();
         Entity target = event.getTarget();
+        if (target instanceof Player) {
+            return;
+        }
         BlockPos pos = target.blockPosition();
         boolean allowed = isAllowed(player, pos, FactionPermission.ENTITY_INTERACT);
         logAccess(player, pos, FactionPermission.ENTITY_INTERACT, allowed, target.getType().toString());

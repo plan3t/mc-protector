@@ -241,7 +241,7 @@ public final class FactionService {
             source.sendFailure(Component.literal("Your faction is already sieging a claim."));
             return 0;
         }
-        source.sendSuccess(() -> Component.literal("Siege started. Hold this claim for 10 minutes to overtake it."), false);
+        source.sendSuccess(() -> Component.literal("Siege started. Hold this claim for 5 minutes to overtake it."), false);
         notifyFactionMembers(player, data, ownerId.get(),
             "Your faction is under siege by " + faction.get().getName() + "!");
         return 1;
