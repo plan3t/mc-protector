@@ -26,7 +26,13 @@ public final class FactionRelationCommands {
                 .then(Commands.literal("ally")
                     .then(Commands.literal("add")
                         .then(Commands.argument("faction", StringArgumentType.greedyString())
-                            .executes(context -> setRelation(context.getSource(), StringArgumentType.getString(context, "faction"), FactionRelation.ALLY))))
+                            .executes(context -> proposeAlliance(context.getSource(), StringArgumentType.getString(context, "faction")))))
+                    .then(Commands.literal("accept")
+                        .then(Commands.argument("faction", StringArgumentType.greedyString())
+                            .executes(context -> acceptAlliance(context.getSource(), StringArgumentType.getString(context, "faction")))))
+                    .then(Commands.literal("decline")
+                        .then(Commands.argument("faction", StringArgumentType.greedyString())
+                            .executes(context -> declineAlliance(context.getSource(), StringArgumentType.getString(context, "faction")))))
                     .then(Commands.literal("remove")
                         .then(Commands.argument("faction", StringArgumentType.greedyString())
                             .executes(context -> clearRelation(context.getSource(), StringArgumentType.getString(context, "faction"))))))
@@ -113,6 +119,131 @@ public final class FactionRelationCommands {
                     "Your faction is now allied with " + faction.get().getName() + ".");
             }
         }
+        return 1;
+    }
+
+    private static int proposeAlliance(CommandSourceStack source, String targetName) {
+        ServerPlayer player;
+        try {
+            player = source.getPlayerOrException();
+        } catch (CommandSyntaxException e) {
+            source.sendFailure(Component.literal("This command can only be used by a player."));
+            return 0;
+        }
+        FactionData data = FactionData.get(player.serverLevel());
+        Optional<Faction> faction = data.getFactionByPlayer(player.getUUID());
+        if (faction.isEmpty()) {
+            source.sendFailure(Component.literal("You are not in a faction."));
+            return 0;
+        }
+        if (!faction.get().hasPermission(player.getUUID(), FactionPermission.MANAGE_RELATIONS)) {
+            source.sendFailure(Component.literal("You lack permission to manage relations."));
+            return 0;
+        }
+        String trimmed = targetName == null ? "" : targetName.trim();
+        if (trimmed.isEmpty()) {
+            source.sendFailure(Component.literal("Faction name cannot be blank."));
+            return 0;
+        }
+        Optional<Faction> target = data.findFactionByName(trimmed);
+        if (target.isEmpty()) {
+            source.sendFailure(Component.literal("Faction not found."));
+            return 0;
+        }
+        if (target.get().getId().equals(faction.get().getId())) {
+            source.sendFailure(Component.literal("Cannot ally with your own faction."));
+            return 0;
+        }
+        if (data.getRelation(faction.get().getId(), target.get().getId()) == FactionRelation.ALLY) {
+            source.sendFailure(Component.literal("Your faction is already allied with that faction."));
+            return 0;
+        }
+        data.inviteAlly(faction.get().getId(), target.get().getId());
+        source.sendSuccess(() -> Component.literal("Alliance proposal sent to " + target.get().getName() + "."), true);
+        notifyFactionMembers(player, data, target.get().getId(),
+            faction.get().getName() + " has proposed an alliance. Use /faction ally accept " + faction.get().getName()
+                + " or /faction ally decline " + faction.get().getName() + ".");
+        return 1;
+    }
+
+    private static int acceptAlliance(CommandSourceStack source, String proposerName) {
+        ServerPlayer player;
+        try {
+            player = source.getPlayerOrException();
+        } catch (CommandSyntaxException e) {
+            source.sendFailure(Component.literal("This command can only be used by a player."));
+            return 0;
+        }
+        FactionData data = FactionData.get(player.serverLevel());
+        Optional<Faction> faction = data.getFactionByPlayer(player.getUUID());
+        if (faction.isEmpty()) {
+            source.sendFailure(Component.literal("You are not in a faction."));
+            return 0;
+        }
+        if (!faction.get().hasPermission(player.getUUID(), FactionPermission.MANAGE_RELATIONS)) {
+            source.sendFailure(Component.literal("You lack permission to manage relations."));
+            return 0;
+        }
+        String trimmed = proposerName == null ? "" : proposerName.trim();
+        if (trimmed.isEmpty()) {
+            source.sendFailure(Component.literal("Faction name cannot be blank."));
+            return 0;
+        }
+        Optional<Faction> proposer = data.findFactionByName(trimmed);
+        if (proposer.isEmpty()) {
+            source.sendFailure(Component.literal("Faction not found."));
+            return 0;
+        }
+        Optional<FactionData.AllyInvite> invite = data.getAllyInvite(faction.get().getId());
+        if (invite.isEmpty() || !invite.get().proposerId().equals(proposer.get().getId())) {
+            source.sendFailure(Component.literal("You do not have an alliance proposal from that faction."));
+            return 0;
+        }
+        data.clearAllyInvite(faction.get().getId());
+        data.setRelation(faction.get().getId(), proposer.get().getId(), FactionRelation.ALLY);
+        source.sendSuccess(() -> Component.literal("Your faction is now allied with " + proposer.get().getName() + "."), true);
+        notifyFactionMembers(player, data, proposer.get().getId(),
+            faction.get().getName() + " has accepted your alliance proposal.");
+        return 1;
+    }
+
+    private static int declineAlliance(CommandSourceStack source, String proposerName) {
+        ServerPlayer player;
+        try {
+            player = source.getPlayerOrException();
+        } catch (CommandSyntaxException e) {
+            source.sendFailure(Component.literal("This command can only be used by a player."));
+            return 0;
+        }
+        FactionData data = FactionData.get(player.serverLevel());
+        Optional<Faction> faction = data.getFactionByPlayer(player.getUUID());
+        if (faction.isEmpty()) {
+            source.sendFailure(Component.literal("You are not in a faction."));
+            return 0;
+        }
+        if (!faction.get().hasPermission(player.getUUID(), FactionPermission.MANAGE_RELATIONS)) {
+            source.sendFailure(Component.literal("You lack permission to manage relations."));
+            return 0;
+        }
+        String trimmed = proposerName == null ? "" : proposerName.trim();
+        if (trimmed.isEmpty()) {
+            source.sendFailure(Component.literal("Faction name cannot be blank."));
+            return 0;
+        }
+        Optional<Faction> proposer = data.findFactionByName(trimmed);
+        if (proposer.isEmpty()) {
+            source.sendFailure(Component.literal("Faction not found."));
+            return 0;
+        }
+        Optional<FactionData.AllyInvite> invite = data.getAllyInvite(faction.get().getId());
+        if (invite.isEmpty() || !invite.get().proposerId().equals(proposer.get().getId())) {
+            source.sendFailure(Component.literal("You do not have an alliance proposal from that faction."));
+            return 0;
+        }
+        data.clearAllyInvite(faction.get().getId());
+        source.sendSuccess(() -> Component.literal("Alliance proposal declined."), true);
+        notifyFactionMembers(player, data, proposer.get().getId(),
+            faction.get().getName() + " has declined your alliance proposal.");
         return 1;
     }
 
@@ -387,8 +518,8 @@ public final class FactionRelationCommands {
         }
         data.startVassalBreakaway(faction.get().getId(), overlord.get().getId(), requiredClaims);
         data.setRelation(faction.get().getId(), overlord.get().getId(), FactionRelation.WAR);
-        source.sendSuccess(() -> Component.literal("Breakaway war declared. Capture " + requiredClaims
-            + " overlord claim(s) to gain independence."), true);
+        source.sendSuccess(() -> Component.literal("Breakaway war declared. Defend your claimed chunks for 10 minutes "
+            + "during overlord sieges to gain independence."), true);
         notifyFactionMembers(player, data, overlord.get().getId(),
             faction.get().getName() + " has declared a breakaway war.");
         return 1;
