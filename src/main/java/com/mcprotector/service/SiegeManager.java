@@ -44,6 +44,7 @@ public final class SiegeManager {
     }
 
     public static void tick(MinecraftServer server) {
+        startBreakawayCapitalSieges(server);
         long now = System.currentTimeMillis();
         Iterator<SiegeState> iterator = ACTIVE_SIEGES.values().iterator();
         while (iterator.hasNext()) {
@@ -73,18 +74,14 @@ public final class SiegeManager {
                 iterator.remove();
                 continue;
             }
-            ServerPlayer attacker = server.getPlayerList().getPlayer(state.attackerPlayerId());
             boolean attackerInChunk = isAttackerInChunk(level, data, state.attackerFactionId(), state.chunk());
-            boolean breakawayDefense = isBreakawayDefense(data, state.attackerFactionId(), state.defenderFactionId());
+            boolean breakawayDefense = !breakawayAttack && isBreakawayDefense(data, state.attackerFactionId(), state.defenderFactionId());
             long elapsed = now - state.lastTickMillis();
             if (elapsed <= 0) {
                 state.updateLastTick(now);
                 continue;
             }
-            if (attacker != null
-                && attacker.level().dimension().location().toString().equals(state.dimension())
-                && new ChunkPos(attacker.blockPosition()).equals(state.chunk())
-                && state.leaderKilledAtMillis() <= 0L) {
+            if (attackerInChunk) {
                 state.addElapsed(elapsed);
             }
             if (attackerInChunk) {
@@ -115,7 +112,6 @@ public final class SiegeManager {
             }
             long requiredMillis = breakawayAttack ? BREAKAWAY_ATTACK_MILLIS : REQUIRED_MILLIS;
             updateBossBars(server, data, state, now, attackerInChunk, breakawayAttack, requiredMillis);
-            maybeSendStatus(server, data, state, now, attackerInChunk, breakawayAttack, requiredMillis);
             if (state.elapsedMillis() < requiredMillis) {
                 continue;
             }
@@ -172,6 +168,40 @@ public final class SiegeManager {
                     + ". Keep attackers in the claim or lose the siege.");
             notifyFactionMembers(server, FactionData.get(attacker.serverLevel()), state.defenderFactionId(),
                 "Siege leader killed. Keep attackers out for 2 minutes to break the siege.");
+        }
+    }
+
+    private static void startBreakawayCapitalSieges(MinecraftServer server) {
+        for (ServerLevel level : server.getAllLevels()) {
+            FactionData data = FactionData.get(level);
+            for (Map.Entry<UUID, FactionData.VassalBreakaway> entry : data.getActiveBreakaways().entrySet()) {
+                UUID vassalId = entry.getKey();
+                UUID overlordId = entry.getValue().overlordId();
+                Optional<FactionData.FactionHome> home = data.getFactionHome(vassalId);
+                if (home.isEmpty()) {
+                    continue;
+                }
+                if (!home.get().dimension().equals(level.dimension().location().toString())) {
+                    continue;
+                }
+                ChunkPos capitalChunk = new ChunkPos(home.get().pos());
+                if (ACTIVE_SIEGES.containsKey(overlordId)) {
+                    continue;
+                }
+                for (ServerPlayer player : level.players()) {
+                    Optional<UUID> factionId = data.getFactionIdByPlayer(player.getUUID());
+                    if (factionId.isEmpty() || !factionId.get().equals(overlordId)) {
+                        continue;
+                    }
+                    if (!new ChunkPos(player.blockPosition()).equals(capitalChunk)) {
+                        continue;
+                    }
+                    if (data.isAtWar(overlordId, vassalId)) {
+                        startSiege(player, overlordId, vassalId, capitalChunk);
+                    }
+                    break;
+                }
+            }
         }
     }
 

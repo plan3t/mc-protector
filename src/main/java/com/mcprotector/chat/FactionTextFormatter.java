@@ -39,6 +39,10 @@ public final class FactionTextFormatter {
         String role = faction != null ? faction.getRole(sender.getUUID()) : null;
         replacements.put("{role}", role != null ? faction.getRoleDisplayName(role) : "Wanderer");
         String result = format;
+        if (faction != null) {
+            String coloredBracket = color + "[" + factionName + "]" + ChatFormatting.RESET;
+            result = result.replace("[{faction}]", coloredBracket);
+        }
         for (Map.Entry<String, String> entry : replacements.entrySet()) {
             result = result.replace(entry.getKey(), entry.getValue());
         }
