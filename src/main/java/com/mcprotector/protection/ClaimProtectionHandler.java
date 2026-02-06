@@ -111,15 +111,6 @@ public class ClaimProtectionHandler {
         if (!isClaimed(event.getLevel(), pos)) {
             return;
         }
-        Player player = event.getPlayer();
-        if (player != null) {
-            boolean allowed = isAllowed(player, pos, FactionPermission.FLUID_PLACE);
-            logAccess(player, pos, FactionPermission.FLUID_PLACE, allowed, "fluid_place");
-            if (!allowed) {
-                event.setCanceled(true);
-            }
-            return;
-        }
         event.setCanceled(true);
     }
 
