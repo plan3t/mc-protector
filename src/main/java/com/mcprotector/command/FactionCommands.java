@@ -1008,6 +1008,10 @@ public final class FactionCommands {
             source.sendFailure(Component.literal("You lack permission to set the faction home."));
             return 0;
         }
+        if (data.isFactionAtWar(faction.get().getId())) {
+            source.sendFailure(Component.literal("You cannot move faction home while your faction is at war."));
+            return 0;
+        }
         Optional<UUID> ownerId = data.getClaimOwner(player.blockPosition());
         if (ownerId.isEmpty() || !ownerId.get().equals(faction.get().getId())) {
             source.sendFailure(Component.literal("Faction home must be set inside your claimed chunks."));
