@@ -223,6 +223,24 @@ public final class FactionService {
             source.sendFailure(Component.literal("You cannot overtake this chunk unless you are at war with the owner."));
             return 0;
         }
+        if (data.hasActiveBreakaway(ownerId.get())) {
+            Optional<UUID> overlordId = data.getOverlord(ownerId.get());
+            if (overlordId.isPresent() && overlordId.get().equals(faction.get().getId())) {
+                Optional<FactionData.FactionHome> defenderHome = data.getFactionHome(ownerId.get());
+                if (defenderHome.isEmpty()) {
+                    source.sendFailure(Component.literal("The defending vassal has no capital set. They must set /faction home after the war."));
+                    return 0;
+                }
+                ChunkPos capitalChunk = new ChunkPos(defenderHome.get().pos());
+                String capitalDimension = defenderHome.get().dimension();
+                String currentDimension = player.level().dimension().location().toString();
+                if (!capitalChunk.equals(chunk) || !currentDimension.equals(capitalDimension)) {
+                    source.sendFailure(Component.literal("During breakaway, overlords must siege the vassal capital chunk at "
+                        + capitalDimension + " @ " + capitalChunk.x + ", " + capitalChunk.z + "."));
+                    return 0;
+                }
+            }
+        }
         if (ownerId.isPresent() && FactionConfig.SERVER.protectOfflineFactions.get()
             && !data.isFactionOnline(player.serverLevel(), ownerId.get())) {
             source.sendFailure(Component.literal("You cannot overtake claims from an offline faction."));

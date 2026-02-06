@@ -1097,6 +1097,19 @@ public class FactionData extends SavedData {
         return getRelation(source, target) == FactionRelation.WAR;
     }
 
+    public boolean isFactionAtWar(UUID factionId) {
+        Map<UUID, FactionRelation> factionRelations = relations.get(factionId);
+        if (factionRelations == null || factionRelations.isEmpty()) {
+            return false;
+        }
+        for (FactionRelation relation : factionRelations.values()) {
+            if (relation == FactionRelation.WAR) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     public int getFactionLevel(UUID factionId) {
         Faction faction = factions.get(factionId);
         if (faction == null) {
