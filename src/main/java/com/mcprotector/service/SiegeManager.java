@@ -23,6 +23,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public final class SiegeManager {
     private static final long REQUIRED_MILLIS = Duration.ofMinutes(5).toMillis();
+    private static final long BREAKAWAY_ATTACK_MILLIS = Duration.ofMinutes(5).toMillis();
     private static final long BREAKAWAY_DEFENSE_MILLIS = Duration.ofMinutes(10).toMillis();
     private static final long DEFENSE_BREAK_MILLIS = Duration.ofMinutes(2).toMillis();
     private static final long STATUS_BROADCAST_INTERVAL_MILLIS = 1000L;
@@ -43,6 +44,7 @@ public final class SiegeManager {
     }
 
     public static void tick(MinecraftServer server) {
+        startBreakawayCapitalSieges(server);
         long now = System.currentTimeMillis();
         Iterator<SiegeState> iterator = ACTIVE_SIEGES.values().iterator();
         while (iterator.hasNext()) {
@@ -58,29 +60,28 @@ public final class SiegeManager {
                 continue;
             }
             FactionData data = FactionData.get(level);
-            Optional<UUID> ownerId = data.getClaimOwner(state.chunk());
-            if (ownerId.isEmpty() || !ownerId.get().equals(state.defenderFactionId())) {
-                clearBossBars(state);
-                iterator.remove();
-                continue;
+            boolean breakawayAttack = isBreakawayAttack(data, state.attackerFactionId(), state.defenderFactionId(), state.chunk(), state.dimension());
+            if (!breakawayAttack) {
+                Optional<UUID> ownerId = data.getClaimOwner(state.chunk());
+                if (ownerId.isEmpty() || !ownerId.get().equals(state.defenderFactionId())) {
+                    clearBossBars(state);
+                    iterator.remove();
+                    continue;
+                }
             }
             if (!data.isAtWar(state.attackerFactionId(), state.defenderFactionId())) {
                 clearBossBars(state);
                 iterator.remove();
                 continue;
             }
-            ServerPlayer attacker = server.getPlayerList().getPlayer(state.attackerPlayerId());
             boolean attackerInChunk = isAttackerInChunk(level, data, state.attackerFactionId(), state.chunk());
-            boolean breakawayDefense = isBreakawayDefense(data, state.attackerFactionId(), state.defenderFactionId());
+            boolean breakawayDefense = !breakawayAttack && isBreakawayDefense(data, state.attackerFactionId(), state.defenderFactionId());
             long elapsed = now - state.lastTickMillis();
             if (elapsed <= 0) {
                 state.updateLastTick(now);
                 continue;
             }
-            if (attacker != null
-                && attacker.level().dimension().location().toString().equals(state.dimension())
-                && new ChunkPos(attacker.blockPosition()).equals(state.chunk())
-                && state.leaderKilledAtMillis() <= 0L) {
+            if (attackerInChunk) {
                 state.addElapsed(elapsed);
             }
             if (attackerInChunk) {
@@ -109,10 +110,15 @@ public final class SiegeManager {
                 iterator.remove();
                 continue;
             }
-            long requiredMillis = breakawayDefense ? BREAKAWAY_DEFENSE_MILLIS : REQUIRED_MILLIS;
-            updateBossBars(server, data, state, now, attackerInChunk, breakawayDefense, requiredMillis);
-            maybeSendStatus(server, data, state, now, attackerInChunk, breakawayDefense, requiredMillis);
+            long requiredMillis = breakawayAttack ? BREAKAWAY_ATTACK_MILLIS : REQUIRED_MILLIS;
+            updateBossBars(server, data, state, now, attackerInChunk, breakawayAttack, requiredMillis);
             if (state.elapsedMillis() < requiredMillis) {
+                continue;
+            }
+            if (breakawayAttack) {
+                handleBreakawayAttackSuccess(server, data, state);
+                clearBossBars(state);
+                iterator.remove();
                 continue;
             }
             Optional<Faction> attackerFaction = data.getFaction(state.attackerFactionId());
@@ -133,14 +139,6 @@ public final class SiegeManager {
                     + defenderFaction.map(Faction::getName).orElse("an unknown faction") + ".");
             notifyFactionMembers(server, data, state.defenderFactionId(),
                 "Your faction lost a claim to " + attackerFaction.get().getName() + ".");
-            boolean breakawayComplete = data.recordVassalBreakawayCapture(state.attackerFactionId(), state.defenderFactionId());
-            if (breakawayComplete) {
-                data.clearRelation(state.attackerFactionId(), state.defenderFactionId());
-                notifyFactionMembers(server, data, state.attackerFactionId(),
-                    "Your faction has won its breakaway war and is now independent.");
-                notifyFactionMembers(server, data, state.defenderFactionId(),
-                    "Your vassal has won their breakaway war and is now independent.");
-            }
             syncClaimMap(level);
             clearBossBars(state);
             iterator.remove();
@@ -173,6 +171,40 @@ public final class SiegeManager {
         }
     }
 
+    private static void startBreakawayCapitalSieges(MinecraftServer server) {
+        for (ServerLevel level : server.getAllLevels()) {
+            FactionData data = FactionData.get(level);
+            for (Map.Entry<UUID, FactionData.VassalBreakaway> entry : data.getActiveBreakaways().entrySet()) {
+                UUID vassalId = entry.getKey();
+                UUID overlordId = entry.getValue().overlordId();
+                Optional<FactionData.FactionHome> home = data.getFactionHome(vassalId);
+                if (home.isEmpty()) {
+                    continue;
+                }
+                if (!home.get().dimension().equals(level.dimension().location().toString())) {
+                    continue;
+                }
+                ChunkPos capitalChunk = new ChunkPos(home.get().pos());
+                if (ACTIVE_SIEGES.containsKey(overlordId)) {
+                    continue;
+                }
+                for (ServerPlayer player : level.players()) {
+                    Optional<UUID> factionId = data.getFactionIdByPlayer(player.getUUID());
+                    if (factionId.isEmpty() || !factionId.get().equals(overlordId)) {
+                        continue;
+                    }
+                    if (!new ChunkPos(player.blockPosition()).equals(capitalChunk)) {
+                        continue;
+                    }
+                    if (data.isAtWar(overlordId, vassalId)) {
+                        startSiege(player, overlordId, vassalId, capitalChunk);
+                    }
+                    break;
+                }
+            }
+        }
+    }
+
     private static void notifyFactionMembers(MinecraftServer server, FactionData data, UUID factionId, String message) {
         for (ServerPlayer recipient : server.getPlayerList().getPlayers()) {
             Optional<UUID> recipientFactionId = data.getFactionIdByPlayer(recipient.getUUID());
@@ -192,7 +224,7 @@ public final class SiegeManager {
     }
 
     private static void updateBossBars(MinecraftServer server, FactionData data, SiegeState state, long now,
-                                       boolean attackerInChunk, boolean breakawayDefense, long requiredMillis) {
+                                       boolean attackerInChunk, boolean breakawayAttack, long requiredMillis) {
         float siegeProgress = progressFor(requiredMillis - state.elapsedMillis(), requiredMillis);
         ServerBossEvent siegeBar = state.ensureSiegeBossBar();
         siegeBar.setName(Component.literal("Siege Timer: " + formatDuration(Math.max(0L, requiredMillis - state.elapsedMillis()))));
@@ -212,10 +244,10 @@ public final class SiegeManager {
         }
 
         ServerBossEvent breakawayBar = state.ensureBreakawayBossBar();
-        if (breakawayDefense) {
-            long remainingBreakaway = Math.max(0L, BREAKAWAY_DEFENSE_MILLIS - state.defenseElapsedMillis());
-            breakawayBar.setName(Component.literal("Breakaway Defense: " + formatDuration(remainingBreakaway)));
-            breakawayBar.setProgress(progressFor(remainingBreakaway, BREAKAWAY_DEFENSE_MILLIS));
+        if (breakawayAttack) {
+            long remainingBreakaway = Math.max(0L, BREAKAWAY_ATTACK_MILLIS - state.elapsedMillis());
+            breakawayBar.setName(Component.literal("Breakaway Attack: " + formatDuration(remainingBreakaway)));
+            breakawayBar.setProgress(progressFor(remainingBreakaway, BREAKAWAY_ATTACK_MILLIS));
             breakawayBar.setVisible(true);
             syncBossBarPlayers(server, data, state, breakawayBar);
         } else {
@@ -256,17 +288,17 @@ public final class SiegeManager {
     }
 
     private static void maybeSendStatus(MinecraftServer server, FactionData data, SiegeState state, long now,
-                                        boolean attackerInChunk, boolean breakawayDefense, long requiredMillis) {
+                                        boolean attackerInChunk, boolean breakawayAttack, long requiredMillis) {
         if (now - state.lastStatusBroadcastMillis() < STATUS_BROADCAST_INTERVAL_MILLIS) {
             return;
         }
         long remainingSiege = Math.max(0L, requiredMillis - state.elapsedMillis());
         String siegeTimer = formatDuration(remainingSiege);
         String message = "Siege timer: " + siegeTimer;
-        if (breakawayDefense) {
-            long remainingDefense = Math.max(0L, BREAKAWAY_DEFENSE_MILLIS - state.defenseElapsedMillis());
+        if (breakawayAttack) {
+            long remainingDefense = Math.max(0L, BREAKAWAY_ATTACK_MILLIS - state.elapsedMillis());
             String defenseTimer = formatDuration(remainingDefense);
-            message = "Breakaway defense: " + defenseTimer
+            message = "Breakaway attack: " + defenseTimer
                 + (attackerInChunk ? " (attackers in claim)" : " (defenders holding)");
         }
         if (!attackerInChunk) {
@@ -285,6 +317,32 @@ public final class SiegeManager {
         return overlordId.isPresent()
             && overlordId.get().equals(attackerFactionId)
             && data.hasActiveBreakaway(defenderFactionId);
+    }
+
+    private static boolean isBreakawayAttack(FactionData data, UUID attackerFactionId, UUID defenderFactionId,
+                                             ChunkPos targetChunk, String targetDimension) {
+        Optional<UUID> overlordId = data.getOverlord(defenderFactionId);
+        if (overlordId.isEmpty()
+            || !overlordId.get().equals(attackerFactionId)
+            || !data.hasActiveBreakaway(defenderFactionId)) {
+            return false;
+        }
+        Optional<FactionData.FactionHome> home = data.getFactionHome(defenderFactionId);
+        if (home.isEmpty() || !home.get().dimension().equals(targetDimension)) {
+            return false;
+        }
+        return new ChunkPos(home.get().pos()).equals(targetChunk);
+    }
+
+    private static void handleBreakawayAttackSuccess(MinecraftServer server, FactionData data, SiegeState state) {
+        if (data.hasActiveBreakaway(state.defenderFactionId())) {
+            data.cancelVassalBreakaway(state.defenderFactionId(), state.attackerFactionId());
+        }
+        data.clearRelation(state.attackerFactionId(), state.defenderFactionId());
+        notifyFactionMembers(server, data, state.attackerFactionId(),
+            "Your faction has won the breakaway war by holding the enemy capital and kept your vassal.");
+        notifyFactionMembers(server, data, state.defenderFactionId(),
+            "Your breakaway war has failed. The overlord held your capital long enough.");
     }
 
     private static void handleBreakawayDefenseSuccess(MinecraftServer server, FactionData data, SiegeState state) {

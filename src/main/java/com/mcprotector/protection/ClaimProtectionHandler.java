@@ -161,6 +161,9 @@ public class ClaimProtectionHandler {
 
     @SubscribeEvent
     public void onEntityInteract(PlayerInteractEvent.EntityInteract event) {
+        if (isCorpseEntity(event.getTarget())) {
+            return;
+        }
         Player player = event.getEntity();
         BlockPos pos = event.getPos();
         boolean allowed = isAllowed(player, pos, FactionPermission.ENTITY_INTERACT);
@@ -172,6 +175,9 @@ public class ClaimProtectionHandler {
 
     @SubscribeEvent
     public void onEntityInteractSpecific(PlayerInteractEvent.EntityInteractSpecific event) {
+        if (isCorpseEntity(event.getTarget())) {
+            return;
+        }
         Player player = event.getEntity();
         BlockPos pos = event.getPos();
         boolean allowed = isAllowed(player, pos, FactionPermission.ENTITY_INTERACT);
@@ -188,7 +194,7 @@ public class ClaimProtectionHandler {
         if (target instanceof Player) {
             return;
         }
-        if (target instanceof net.minecraft.world.entity.monster.Monster) {
+        if (target instanceof net.minecraft.world.entity.monster.Monster || isCorpseEntity(target)) {
             return;
         }
         BlockPos pos = target.blockPosition();
@@ -268,6 +274,11 @@ public class ClaimProtectionHandler {
         if (isSafeZone(serverLevel) || FactionData.get(serverLevel).isSafeZoneClaimed(event.getEntity().blockPosition())) {
             event.setCanceled(true);
         }
+    }
+
+    private boolean isCorpseEntity(Entity entity) {
+        var typeKey = BuiltInRegistries.ENTITY_TYPE.getKey(entity.getType());
+        return typeKey != null && "corpse".equals(typeKey.getNamespace()) && "corpse".equals(typeKey.getPath());
     }
 
     private boolean isAllowed(Player player, BlockPos pos, FactionPermission permission) {

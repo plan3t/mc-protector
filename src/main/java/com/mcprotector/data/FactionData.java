@@ -559,6 +559,24 @@ public class FactionData extends SavedData {
             .findFirst();
     }
 
+    public boolean renameFaction(UUID factionId, String newName) {
+        Faction faction = factions.get(factionId);
+        if (faction == null) {
+            return false;
+        }
+        String trimmed = newName == null ? "" : newName.trim();
+        if (trimmed.isEmpty()) {
+            return false;
+        }
+        Optional<Faction> existing = findFactionByName(trimmed);
+        if (existing.isPresent() && !existing.get().getId().equals(factionId)) {
+            return false;
+        }
+        faction.setName(trimmed);
+        setDirty();
+        return true;
+    }
+
     public Optional<Faction> getFactionByPlayer(UUID playerId) {
         UUID factionId = playerFaction.get(playerId);
         if (factionId == null) {
@@ -713,6 +731,10 @@ public class FactionData extends SavedData {
 
     public boolean hasActiveBreakaway(UUID vassalId) {
         return vassalBreakaways.containsKey(vassalId);
+    }
+
+    public Map<UUID, VassalBreakaway> getActiveBreakaways() {
+        return Collections.unmodifiableMap(vassalBreakaways);
     }
 
     public boolean isVassalRelationship(UUID factionId, UUID otherId) {
@@ -1095,6 +1117,19 @@ public class FactionData extends SavedData {
 
     public boolean isAtWar(UUID source, UUID target) {
         return getRelation(source, target) == FactionRelation.WAR;
+    }
+
+    public boolean isFactionAtWar(UUID factionId) {
+        Map<UUID, FactionRelation> factionRelations = relations.get(factionId);
+        if (factionRelations == null || factionRelations.isEmpty()) {
+            return false;
+        }
+        for (FactionRelation relation : factionRelations.values()) {
+            if (relation == FactionRelation.WAR) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public int getFactionLevel(UUID factionId) {

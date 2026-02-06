@@ -53,6 +53,9 @@ public final class FactionCommands {
                 .then(Commands.literal("create")
                     .then(Commands.argument("name", StringArgumentType.greedyString())
                         .executes(context -> createFaction(context.getSource(), StringArgumentType.getString(context, "name")))))
+                .then(Commands.literal("rename")
+                    .then(Commands.argument("name", StringArgumentType.greedyString())
+                        .executes(context -> renameFaction(context.getSource(), StringArgumentType.getString(context, "name")))))
                 .then(Commands.literal("disband")
                     .executes(context -> disbandFaction(context.getSource()))
                     .then(Commands.literal("confirm")
@@ -237,6 +240,36 @@ public final class FactionCommands {
         }
         Faction faction = data.createFaction(trimmed, player);
         source.sendSuccess(() -> Component.literal("Created faction " + faction.getName()), false);
+        return 1;
+    }
+
+    private static int renameFaction(CommandSourceStack source, String name) throws CommandSyntaxException {
+        ServerPlayer player = source.getPlayerOrException();
+        FactionData data = FactionData.get(player.serverLevel());
+        Optional<Faction> faction = data.getFactionByPlayer(player.getUUID());
+        if (faction.isEmpty()) {
+            source.sendFailure(Component.literal("You are not in a faction."));
+            return 0;
+        }
+        if (!faction.get().getOwner().equals(player.getUUID())) {
+            source.sendFailure(Component.literal("Only the owner can rename the faction."));
+            return 0;
+        }
+        String trimmed = name == null ? "" : name.trim();
+        if (trimmed.isEmpty()) {
+            source.sendFailure(Component.literal("Faction name cannot be blank."));
+            return 0;
+        }
+        int maxLength = FactionConfig.SERVER.maxFactionNameLength.get();
+        if (trimmed.length() > maxLength) {
+            source.sendFailure(Component.literal("Faction name cannot exceed " + maxLength + " characters."));
+            return 0;
+        }
+        if (!data.renameFaction(faction.get().getId(), trimmed)) {
+            source.sendFailure(Component.literal("A faction with that name already exists."));
+            return 0;
+        }
+        source.sendSuccess(() -> Component.literal("Faction renamed to " + trimmed + "."), true);
         return 1;
     }
 
@@ -1006,6 +1039,10 @@ public final class FactionCommands {
         }
         if (!faction.get().hasPermission(player.getUUID(), FactionPermission.MANAGE_SETTINGS)) {
             source.sendFailure(Component.literal("You lack permission to set the faction home."));
+            return 0;
+        }
+        if (data.isFactionAtWar(faction.get().getId())) {
+            source.sendFailure(Component.literal("You cannot move faction home while your faction is at war."));
             return 0;
         }
         Optional<UUID> ownerId = data.getClaimOwner(player.blockPosition());

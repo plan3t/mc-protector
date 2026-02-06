@@ -519,9 +519,19 @@ public final class FactionRelationCommands {
         data.startVassalBreakaway(faction.get().getId(), overlord.get().getId(), requiredClaims);
         data.setRelation(faction.get().getId(), overlord.get().getId(), FactionRelation.WAR);
         source.sendSuccess(() -> Component.literal("Breakaway war declared. Defend your claimed chunks for 10 minutes "
-            + "during overlord sieges to gain independence."), true);
+            + "to gain independence."), true);
+        Optional<FactionData.FactionHome> vassalHome = data.getFactionHome(faction.get().getId());
+        String capitalMessage = vassalHome
+            .map(home -> {
+                net.minecraft.world.level.ChunkPos capitalChunk = new net.minecraft.world.level.ChunkPos(home.pos());
+                return "Breakaway target capital chunk for " + faction.get().getName() + ": "
+                    + home.dimension() + " @ " + capitalChunk.x + ", " + capitalChunk.z + ".";
+            })
+            .orElse("Breakaway target capital chunk for " + faction.get().getName()
+                + " is not set. They should use /faction sethome after the war.");
         notifyFactionMembers(player, data, overlord.get().getId(),
             faction.get().getName() + " has declared a breakaway war.");
+        notifyFactionMembers(player, data, overlord.get().getId(), capitalMessage);
         return 1;
     }
 
