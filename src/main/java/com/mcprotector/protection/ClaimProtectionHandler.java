@@ -111,8 +111,8 @@ public class ClaimProtectionHandler {
         if (!isClaimed(event.getLevel(), pos)) {
             return;
         }
-        Player player = event.getPlayer();
-        if (player != null) {
+        Entity entity = event.getEntity();
+        if (entity instanceof Player player) {
             boolean allowed = isAllowed(player, pos, FactionPermission.FLUID_PLACE);
             logAccess(player, pos, FactionPermission.FLUID_PLACE, allowed, "fluid_place");
             if (!allowed) {
