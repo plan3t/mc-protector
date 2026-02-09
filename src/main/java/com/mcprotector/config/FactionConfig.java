@@ -118,6 +118,9 @@ public final class FactionConfig {
         public final ModConfigSpec.ConfigValue<String> defaultBannerColor;
         public final ModConfigSpec.ConfigValue<Integer> maxFactionNameLength;
         public final ModConfigSpec.ConfigValue<Boolean> protectOfflineFactions;
+        public final ModConfigSpec.ConfigValue<Boolean> enableSieges;
+        public final ModConfigSpec.ConfigValue<Boolean> enableVassals;
+        public final ModConfigSpec.ConfigValue<Boolean> enableVassalBreakaways;
         public final ModConfigSpec.ConfigValue<Double> vassalBreakawayClaimPercent;
         public final ModConfigSpec.ConfigValue<String> defaultRankPreset;
         public final ModConfigSpec.ConfigValue<List<? extends String>> rankPresets;
@@ -176,6 +179,15 @@ public final class FactionConfig {
             protectOfflineFactions = builder
                 .comment("Prevent war actions against factions with no online members.")
                 .define("protectOfflineFactions", true);
+            enableSieges = builder
+                .comment("Enable siege-based overtake gameplay.")
+                .define("enableSieges", true);
+            enableVassals = builder
+                .comment("Enable vassal contract commands and relationships.")
+                .define("enableVassals", true);
+            enableVassalBreakaways = builder
+                .comment("Allow vassals to declare breakaway wars against overlords.")
+                .define("enableVassalBreakaways", true);
             vassalBreakawayClaimPercent = builder
                 .comment("Percent of overlord claims a vassal must capture to break free.")
                 .defineInRange("vassalBreakawayClaimPercent", 0.5, 0.1, 1.0);

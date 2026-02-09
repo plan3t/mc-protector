@@ -303,6 +303,10 @@ public final class FactionRelationCommands {
             return 0;
         }
         FactionData data = FactionData.get(player.serverLevel());
+        if (!FactionConfig.SERVER.enableVassals.get()) {
+            source.sendFailure(Component.literal("Vassal relationships are disabled by server config."));
+            return 0;
+        }
         Optional<Faction> faction = data.getFactionByPlayer(player.getUUID());
         if (faction.isEmpty()) {
             source.sendFailure(Component.literal("You are not in a faction."));
@@ -351,6 +355,10 @@ public final class FactionRelationCommands {
             return 0;
         }
         FactionData data = FactionData.get(player.serverLevel());
+        if (!FactionConfig.SERVER.enableVassals.get()) {
+            source.sendFailure(Component.literal("Vassal relationships are disabled by server config."));
+            return 0;
+        }
         Optional<Faction> faction = data.getFactionByPlayer(player.getUUID());
         if (faction.isEmpty()) {
             source.sendFailure(Component.literal("You are not in a faction."));
@@ -396,6 +404,10 @@ public final class FactionRelationCommands {
             return 0;
         }
         FactionData data = FactionData.get(player.serverLevel());
+        if (!FactionConfig.SERVER.enableVassals.get()) {
+            source.sendFailure(Component.literal("Vassal relationships are disabled by server config."));
+            return 0;
+        }
         Optional<Faction> faction = data.getFactionByPlayer(player.getUUID());
         if (faction.isEmpty()) {
             source.sendFailure(Component.literal("You are not in a faction."));
@@ -436,6 +448,10 @@ public final class FactionRelationCommands {
             return 0;
         }
         FactionData data = FactionData.get(player.serverLevel());
+        if (!FactionConfig.SERVER.enableVassals.get()) {
+            source.sendFailure(Component.literal("Vassal relationships are disabled by server config."));
+            return 0;
+        }
         Optional<Faction> faction = data.getFactionByPlayer(player.getUUID());
         if (faction.isEmpty()) {
             source.sendFailure(Component.literal("You are not in a faction."));
@@ -474,6 +490,14 @@ public final class FactionRelationCommands {
             return 0;
         }
         FactionData data = FactionData.get(player.serverLevel());
+        if (!FactionConfig.SERVER.enableVassals.get()) {
+            source.sendFailure(Component.literal("Vassal relationships are disabled by server config."));
+            return 0;
+        }
+        if (!FactionConfig.SERVER.enableVassalBreakaways.get()) {
+            source.sendFailure(Component.literal("Vassal breakaways are disabled by server config."));
+            return 0;
+        }
         Optional<Faction> faction = data.getFactionByPlayer(player.getUUID());
         if (faction.isEmpty()) {
             source.sendFailure(Component.literal("You are not in a faction."));

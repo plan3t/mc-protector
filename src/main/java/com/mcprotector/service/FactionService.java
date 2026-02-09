@@ -210,6 +210,10 @@ public final class FactionService {
         if (!isClaimingAllowed(source)) {
             return 0;
         }
+        if (!FactionConfig.SERVER.enableSieges.get()) {
+            source.sendFailure(Component.literal("Sieges are disabled by server config."));
+            return 0;
+        }
         if (data.isSafeZoneClaimed(chunk)) {
             source.sendFailure(Component.literal("Safe zone claims cannot be overtaken."));
             return 0;
@@ -223,7 +227,7 @@ public final class FactionService {
             source.sendFailure(Component.literal("You cannot overtake this chunk unless you are at war with the owner."));
             return 0;
         }
-        if (data.hasActiveBreakaway(ownerId.get())) {
+        if (FactionConfig.SERVER.enableVassalBreakaways.get() && data.hasActiveBreakaway(ownerId.get())) {
             Optional<UUID> overlordId = data.getOverlord(ownerId.get());
             if (overlordId.isPresent() && overlordId.get().equals(faction.get().getId())) {
                 Optional<FactionData.FactionHome> defenderHome = data.getFactionHome(ownerId.get());

@@ -1,5 +1,6 @@
 package com.mcprotector.service;
 
+import com.mcprotector.config.FactionConfig;
 import com.mcprotector.data.Faction;
 import com.mcprotector.data.FactionData;
 import com.mcprotector.webmap.WebmapBridge;
@@ -33,6 +34,9 @@ public final class SiegeManager {
     }
 
     public static boolean startSiege(ServerPlayer player, UUID attackerFactionId, UUID defenderFactionId, ChunkPos chunk) {
+        if (!FactionConfig.SERVER.enableSieges.get()) {
+            return false;
+        }
         if (ACTIVE_SIEGES.containsKey(attackerFactionId)) {
             return false;
         }
@@ -44,6 +48,10 @@ public final class SiegeManager {
     }
 
     public static void tick(MinecraftServer server) {
+        if (!FactionConfig.SERVER.enableSieges.get()) {
+            clearAllSieges();
+            return;
+        }
         startBreakawayCapitalSieges(server);
         long now = System.currentTimeMillis();
         Iterator<SiegeState> iterator = ACTIVE_SIEGES.values().iterator();
@@ -172,6 +180,9 @@ public final class SiegeManager {
     }
 
     private static void startBreakawayCapitalSieges(MinecraftServer server) {
+        if (!FactionConfig.SERVER.enableVassals.get() || !FactionConfig.SERVER.enableVassalBreakaways.get()) {
+            return;
+        }
         for (ServerLevel level : server.getAllLevels()) {
             FactionData data = FactionData.get(level);
             for (Map.Entry<UUID, FactionData.VassalBreakaway> entry : data.getActiveBreakaways().entrySet()) {
@@ -205,6 +216,15 @@ public final class SiegeManager {
         }
     }
 
+
+    private static void clearAllSieges() {
+        Iterator<SiegeState> iterator = ACTIVE_SIEGES.values().iterator();
+        while (iterator.hasNext()) {
+            SiegeState state = iterator.next();
+            clearBossBars(state);
+            iterator.remove();
+        }
+    }
     private static void notifyFactionMembers(MinecraftServer server, FactionData data, UUID factionId, String message) {
         for (ServerPlayer recipient : server.getPlayerList().getPlayers()) {
             Optional<UUID> recipientFactionId = data.getFactionIdByPlayer(recipient.getUUID());
