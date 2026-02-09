@@ -210,6 +210,12 @@ public final class FactionCommands {
                             .executes(context -> setClaimBoost(
                                 context.getSource(),
                                 StringArgumentType.getString(context, "faction"),
+                                IntegerArgumentType.getInteger(context, "amount")))))
+                    .then(Commands.argument("amount", IntegerArgumentType.integer(0))
+                        .then(Commands.argument("faction", StringArgumentType.greedyString())
+                            .executes(context -> setClaimBoost(
+                                context.getSource(),
+                                StringArgumentType.getString(context, "faction"),
                                 IntegerArgumentType.getInteger(context, "amount"))))))
                 .then(Commands.literal("data")
                     .then(Commands.literal("backup")
