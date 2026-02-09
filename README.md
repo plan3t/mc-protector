@@ -11,7 +11,7 @@ MC Protector is a **NeoForge mod for Minecraft 1.21.1** that adds a full faction
 - **Permissions & ranks:** role-based permission grants, rank display name presets, MOTD/description settings, and configurable banner/color styling.
 - **Claims & protection:** claim/unclaim chunks, auto-claim, overtake mechanics, protection tiers, trusted players, claim access logs, and borders.
 - **Homes & maps:** faction home set/teleport, in-game map summaries, and a client-side faction map UI.
-- **Relations:** ally/war relations plus **vassal contracts** with offers, acceptance, releases, and breakaway wars.
+- **Relations:** ally/war relations plus **vassal contracts** with offers, acceptance, releases, and breakaway wars (all toggleable in config).
 - **Chat:** faction chat toggle and explicit chat mode switching.
 - **Administration:** safezone claims (admin-only) and data backup/restore commands.
 - **Dynmap:** optional claim marker sync when Dynmap is present.
@@ -43,6 +43,26 @@ Use `/faction` followed by the subcommands below (some require specific permissi
 - **Relations:** `ally add/remove`, `war declare/end`, `vassal offer/accept/decline/release/break`.
 - **Chat & map:** `chat`, `chat toggle`, `map`, `map sync`.
 - **Data:** `data backup`, `data restore`.
+
+
+## Server configuration
+
+MC Protector writes a server config file at: `world/serverconfig/mcprotector-server.toml`.
+
+New relation/siege toggles:
+- `enableSieges = true` — enables siege-based chunk overtake gameplay.
+- `enableVassals = true` — enables vassal contracts (`/faction vassal ...`).
+- `enableVassalBreakaways = true` — allows vassals to use breakaway wars (`/faction vassal break ...`).
+
+To disable these systems, set them to `false` and restart/reload the server. A common setup is:
+
+```toml
+enableSieges = false
+enableVassals = false
+enableVassalBreakaways = false
+```
+
+When disabled, the related commands/actions are blocked with a clear config message.
 
 ## Dynmap integration
 Dynmap markers are enabled automatically when the Dynmap API is available. Claims are mapped to area markers in the `Faction Claims` marker set, and `/faction map sync` can force a resync.
