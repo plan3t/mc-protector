@@ -5,7 +5,6 @@ import com.mcprotector.config.FactionConfig;
 import com.mcprotector.data.Faction;
 import com.mcprotector.data.FactionData;
 import com.mcprotector.data.FactionRelation;
-import net.minecraft.ChatFormatting;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
@@ -179,11 +178,7 @@ public class FactionClaimMapPacket implements CustomPacketPayload {
         if (faction.isEmpty()) {
             return Optional.empty();
         }
-        ChatFormatting color = faction.get().getColor();
-        Integer rgb = color.getColor();
-        if (rgb == null) {
-            return Optional.empty();
-        }
+        int rgb = faction.get().getColorRgb();
         return Optional.of(0xFF000000 | rgb);
     }
 

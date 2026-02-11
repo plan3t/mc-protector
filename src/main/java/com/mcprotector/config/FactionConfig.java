@@ -6,6 +6,7 @@ import net.minecraft.ChatFormatting;
 import net.neoforged.neoforge.common.ModConfigSpec;
 
 import java.util.LinkedHashMap;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -101,14 +102,81 @@ public final class FactionConfig {
     }
 
     public static ChatFormatting parseColor(String colorName) {
-        if (colorName == null || colorName.isBlank()) {
+        String normalized = normalizeColorInput(colorName);
+        if (normalized.isEmpty()) {
             return ChatFormatting.WHITE;
         }
-        ChatFormatting formatting = ChatFormatting.getByName(colorName.toLowerCase(Locale.ROOT));
+        if (isHexColor(normalized)) {
+            return closestVanillaColor(parseHexColor(normalized));
+        }
+        ChatFormatting formatting = ChatFormatting.getByName(normalized);
         if (formatting == null || !formatting.isColor()) {
             return ChatFormatting.WHITE;
         }
         return formatting;
+    }
+
+    public static String normalizeColorInput(String colorName) {
+        if (colorName == null) {
+            return "";
+        }
+        return colorName.trim().toLowerCase(Locale.ROOT);
+    }
+
+    public static boolean isHexColor(String colorName) {
+        String normalized = normalizeColorInput(colorName);
+        if (normalized.startsWith("#")) {
+            normalized = normalized.substring(1);
+        }
+        return normalized.matches("[0-9a-f]{6}");
+    }
+
+    public static int parseHexColor(String colorName) {
+        String normalized = normalizeColorInput(colorName);
+        if (normalized.startsWith("#")) {
+            normalized = normalized.substring(1);
+        }
+        return HexFormat.fromHexDigits(normalized);
+    }
+
+    public static int resolveRgbColor(String colorName) {
+        String normalized = normalizeColorInput(colorName);
+        if (isHexColor(normalized)) {
+            return parseHexColor(normalized);
+        }
+        ChatFormatting formatting = parseColor(normalized);
+        Integer rgb = formatting.getColor();
+        return rgb == null ? 0xFFFFFF : rgb;
+    }
+
+    public static String toLegacyHexCode(String colorName) {
+        int rgb = resolveRgbColor(colorName);
+        String hex = String.format("%06X", rgb);
+        StringBuilder builder = new StringBuilder("\u00A7x");
+        for (char c : hex.toCharArray()) {
+            builder.append("\u00A7").append(c);
+        }
+        return builder.toString();
+    }
+
+    private static ChatFormatting closestVanillaColor(int rgb) {
+        ChatFormatting best = ChatFormatting.WHITE;
+        int bestDistance = Integer.MAX_VALUE;
+        for (ChatFormatting color : ChatFormatting.values()) {
+            if (!color.isColor() || color.getColor() == null) {
+                continue;
+            }
+            int candidate = color.getColor();
+            int dr = ((candidate >> 16) & 0xFF) - ((rgb >> 16) & 0xFF);
+            int dg = ((candidate >> 8) & 0xFF) - ((rgb >> 8) & 0xFF);
+            int db = (candidate & 0xFF) - (rgb & 0xFF);
+            int distance = dr * dr + dg * dg + db * db;
+            if (distance < bestDistance) {
+                bestDistance = distance;
+                best = color;
+            }
+        }
+        return best;
     }
 
     public static final class Server {
