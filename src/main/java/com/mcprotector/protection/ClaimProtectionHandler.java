@@ -25,9 +25,7 @@ import net.minecraft.world.level.block.TrapDoorBlock;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
-import net.neoforged.neoforge.event.level.BlockDropsEvent;
 import net.neoforged.neoforge.event.level.BlockEvent;
-import net.neoforged.neoforge.event.level.ExplosionEvent;
 import net.neoforged.neoforge.event.entity.living.FinalizeSpawnEvent;
 import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
 import net.neoforged.neoforge.event.entity.living.LivingIncomingDamageEvent;
@@ -49,20 +47,6 @@ public class ClaimProtectionHandler {
         if (!isAllowed(player, pos, FactionPermission.BLOCK_BREAK)) {
             event.setCanceled(true);
         }
-    }
-
-    @SubscribeEvent(priority = EventPriority.HIGHEST)
-    public void onBlockDrops(BlockDropsEvent event) {
-        Entity breaker = event.getBreaker();
-        if (breaker instanceof Player player) {
-            if (isAllowed(player, event.getPos(), FactionPermission.BLOCK_BREAK)) {
-                return;
-            }
-        } else if (!isClaimed(event.getLevel(), event.getPos())) {
-            return;
-        }
-        event.setCanceled(true);
-        restoreBlock(event.getLevel(), event.getPos(), event.getState(), event.getBlockEntity());
     }
 
     @SubscribeEvent(priority = EventPriority.HIGHEST)
@@ -108,7 +92,17 @@ public class ClaimProtectionHandler {
     @SubscribeEvent
     public void onFluidPlace(BlockEvent.FluidPlaceBlockEvent event) {
         BlockPos pos = event.getPos();
-        if (!isClaimed(event.getLevel(), pos)) {
+        if (!isClaimed(event.getLevel(), pos) || event.getLiquidPos() == null) {
+            return;
+        }
+        BlockPos sourcePos = event.getLiquidPos();
+        if (event.getLevel().isClientSide()) {
+            return;
+        }
+        if (sourcePos.equals(pos)) {
+            return;
+        }
+        if (isClaimed(event.getLevel(), sourcePos)) {
             return;
         }
         event.setCanceled(true);
@@ -119,11 +113,16 @@ public class ClaimProtectionHandler {
         if (!(event.getPlacedBlock().getBlock() instanceof BaseFireBlock)) {
             return;
         }
+        if (event.getEntity() instanceof Player player
+            && isAllowed(player, event.getPos(), FactionPermission.BLOCK_USE)) {
+            return;
+        }
         BlockPos pos = event.getPos();
         if (isClaimed(event.getLevel(), pos)) {
             event.setCanceled(true);
         }
     }
+
 
     @SubscribeEvent
     public void onRightClickBlock(PlayerInteractEvent.RightClickBlock event) {
@@ -132,8 +131,10 @@ public class ClaimProtectionHandler {
         BlockState state = event.getLevel().getBlockState(pos);
         if (event.getItemStack().getItem() instanceof net.minecraft.world.item.BucketItem bucketItem
             && bucketItem != net.minecraft.world.item.Items.BUCKET) {
-            BlockPos targetPos = pos.relative(event.getFace());
-            boolean allowedBucket = isAllowed(player, targetPos, FactionPermission.FLUID_PLACE);
+            BlockPos targetPos = event.getFace() == null ? pos : pos.relative(event.getFace());
+            boolean allowedAtClicked = isAllowed(player, pos, FactionPermission.FLUID_PLACE);
+            boolean allowedAtTarget = isAllowed(player, targetPos, FactionPermission.FLUID_PLACE);
+            boolean allowedBucket = allowedAtClicked && allowedAtTarget;
             logAccess(player, targetPos, FactionPermission.FLUID_PLACE, allowedBucket, event.getItemStack().getItem().toString());
             if (!allowedBucket) {
                 event.setCanceled(true);
@@ -203,14 +204,6 @@ public class ClaimProtectionHandler {
         if (!allowed) {
             event.setCanceled(true);
         }
-    }
-
-    @SubscribeEvent
-    public void onExplosionDetonate(ExplosionEvent.Detonate event) {
-        if (!(event.getLevel() instanceof ServerLevel serverLevel)) {
-            return;
-        }
-        event.getAffectedBlocks().removeIf(pos -> FactionData.get(serverLevel).isClaimed(pos));
     }
 
     @SubscribeEvent
@@ -309,17 +302,6 @@ public class ClaimProtectionHandler {
             return false;
         }
         return FactionData.get(serverLevel).isClaimed(pos);
-    }
-
-    private void restoreBlock(ServerLevel level, BlockPos pos, BlockState state, BlockEntity blockEntity) {
-        level.setBlock(pos, state, Block.UPDATE_ALL);
-        if (blockEntity == null) {
-            return;
-        }
-        blockEntity.clearRemoved();
-        blockEntity.setLevel(level);
-        level.setBlockEntity(blockEntity);
-        blockEntity.setChanged();
     }
 
     private FactionPermission permissionForBlockUse(BlockState state, net.minecraft.world.level.Level level, BlockPos pos) {

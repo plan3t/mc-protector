@@ -29,18 +29,18 @@ public final class FactionTextFormatter {
 
     private static String applyFormat(String format, ServerPlayer sender, Faction faction, String message) {
         Map<String, String> replacements = new HashMap<>();
-        ChatFormatting color = faction != null ? faction.getColor() : ChatFormatting.WHITE;
+        String factionColor = faction != null ? faction.getLegacyColorCode() : ChatFormatting.WHITE.toString();
         String factionName = faction != null ? faction.getName() : "NoFaction";
-        replacements.put("{faction}", color + factionName + ChatFormatting.RESET);
+        replacements.put("{faction}", factionColor + factionName + ChatFormatting.RESET);
         replacements.put("{player}", sender.getName().getString());
         replacements.put("{message}", ChatFormatting.RESET + message);
-        replacements.put("{faction_color}", color.toString());
+        replacements.put("{faction_color}", factionColor);
         replacements.put("{reset}", ChatFormatting.RESET.toString());
         String role = faction != null ? faction.getRole(sender.getUUID()) : null;
         replacements.put("{role}", role != null ? faction.getRoleDisplayName(role) : "Wanderer");
         String result = format;
         if (faction != null) {
-            String coloredBracket = color + "[" + factionName + "]" + ChatFormatting.RESET;
+            String coloredBracket = factionColor + "[" + factionName + "]" + ChatFormatting.RESET;
             result = result.replace("[{faction}]", coloredBracket);
         }
         for (Map.Entry<String, String> entry : replacements.entrySet()) {

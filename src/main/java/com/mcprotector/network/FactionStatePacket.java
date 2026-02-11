@@ -166,7 +166,7 @@ public class FactionStatePacket implements CustomPacketPayload {
                     relation = data.getRelation(playerFactionId.get(), entry.getKey()).name();
                 }
             }
-            int color = Optional.ofNullable(faction.getColor().getColor()).orElse(0xFFFFFF);
+            int color = faction.getColorRgb();
             entries.add(new FactionListEntry(entry.getKey(), faction.getName(), faction.getMemberCount(), relation, color));
         }
         entries.sort(Comparator.comparing(FactionListEntry::factionName, String.CASE_INSENSITIVE_ORDER));

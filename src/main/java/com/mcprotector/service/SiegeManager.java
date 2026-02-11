@@ -358,7 +358,7 @@ public final class SiegeManager {
         if (data.hasActiveBreakaway(state.defenderFactionId())) {
             data.cancelVassalBreakaway(state.defenderFactionId(), state.attackerFactionId());
         }
-        data.clearRelation(state.attackerFactionId(), state.defenderFactionId());
+        clearWarRelation(data, state.attackerFactionId(), state.defenderFactionId());
         notifyFactionMembers(server, data, state.attackerFactionId(),
             "Your faction has won the breakaway war by holding the enemy capital and kept your vassal.");
         notifyFactionMembers(server, data, state.defenderFactionId(),
@@ -367,12 +367,19 @@ public final class SiegeManager {
 
     private static void handleBreakawayDefenseSuccess(MinecraftServer server, FactionData data, SiegeState state) {
         if (data.releaseVassal(state.attackerFactionId(), state.defenderFactionId())) {
-            data.clearRelation(state.defenderFactionId(), state.attackerFactionId());
+            clearWarRelation(data, state.defenderFactionId(), state.attackerFactionId());
         }
         notifyFactionMembers(server, data, state.defenderFactionId(),
             "Your faction has defended long enough to win its breakaway war and is now independent.");
         notifyFactionMembers(server, data, state.attackerFactionId(),
             "Your vassal has defended long enough to win their breakaway war and is now independent.");
+    }
+
+    private static void clearWarRelation(FactionData data, UUID firstFactionId, UUID secondFactionId) {
+        data.clearRelation(firstFactionId, secondFactionId);
+        if (data.isAtWar(firstFactionId, secondFactionId) || data.isAtWar(secondFactionId, firstFactionId)) {
+            data.clearRelation(secondFactionId, firstFactionId);
+        }
     }
 
     private static boolean isAttackerInChunk(ServerLevel level, FactionData data, UUID attackerFactionId, ChunkPos chunk) {
