@@ -43,6 +43,9 @@ public class FactionMainScreen extends Screen {
     private static final int MAP_COLOR_PERSONAL = 0xFF9C27B0;
     private static final int SAFEZONE_FIELD_WIDTH = 90;
     private static final int CLAIM_CONTROL_GAP = 6;
+    private static final int MIN_TAB_BUTTON_WIDTH = 52;
+    private static final int TAB_BUTTON_GAP = 4;
+    private static final int PANEL_CONTENT_WIDTH = 388;
     private static final DateTimeFormatter INVITE_TIME_FORMAT = DateTimeFormatter.ofPattern("HH:mm")
         .withZone(ZoneId.systemDefault());
 
@@ -81,6 +84,10 @@ public class FactionMainScreen extends Screen {
     private int relationTypeIndex;
     private int relationPermissionIndex;
     private int panelTop;
+    private int layoutPadding = PANEL_PADDING;
+    private int tabButtonWidth = TAB_BUTTON_WIDTH;
+    private int controlRowSpacing = CONTROL_ROW_SPACING;
+    private int contentStartOffset = CONTENT_START_OFFSET;
     private int permissionsScrollOffset;
     private int mapClaimsScrollOffset;
     private int factionListScrollOffset;
@@ -98,30 +105,32 @@ public class FactionMainScreen extends Screen {
     @Override
     protected void init() {
         super.init();
-        int startX = (this.width - (FactionTab.values().length * (TAB_BUTTON_WIDTH + 4))) / 2;
+        recalculateLayout();
+        int panelLeft = getPanelLeft();
+        int startX = (this.width - (FactionTab.values().length * (tabButtonWidth + TAB_BUTTON_GAP))) / 2;
         int y = 42;
         for (FactionTab tab : FactionTab.values()) {
-            int x = startX + tab.ordinal() * (TAB_BUTTON_WIDTH + 4);
+            int x = startX + tab.ordinal() * (tabButtonWidth + TAB_BUTTON_GAP);
             this.addRenderableWidget(Button.builder(Component.literal(tab.getLabel()), button -> {
                 selectedTab = tab;
                 updateVisibility();
-            }).bounds(x, y, TAB_BUTTON_WIDTH, TAB_BUTTON_HEIGHT).build());
+            }).bounds(x, y, tabButtonWidth, TAB_BUTTON_HEIGHT).build());
         }
         panelTop = y + TAB_BUTTON_HEIGHT + 10;
         int controlRowOne = panelTop + CONTROL_TOP_OFFSET;
-        int controlRowTwo = controlRowOne + CONTROL_ROW_SPACING;
-        int controlRowThree = controlRowTwo + CONTROL_ROW_SPACING;
-        inviteNameField = new EditBox(this.font, PANEL_PADDING, controlRowOne, 140, 18, Component.literal("Player name"));
+        int controlRowTwo = controlRowOne + controlRowSpacing;
+        int controlRowThree = controlRowTwo + controlRowSpacing;
+        inviteNameField = new EditBox(this.font, panelLeft, controlRowOne, 140, 18, Component.literal("Player name"));
         inviteNameField.setMaxLength(32);
         this.addRenderableWidget(inviteNameField);
         inviteButton = this.addRenderableWidget(Button.builder(Component.literal("Send Invite"), button -> sendInvite())
-            .bounds(PANEL_PADDING + 150, controlRowOne, 100, 20)
+            .bounds(panelLeft + 150, controlRowOne, 100, 20)
             .build());
         joinInviteButton = this.addRenderableWidget(Button.builder(Component.literal("Join Faction"), button -> acceptInvite())
-            .bounds(PANEL_PADDING, controlRowTwo, 110, 20)
+            .bounds(panelLeft, controlRowTwo, 110, 20)
             .build());
         declineInviteButton = this.addRenderableWidget(Button.builder(Component.literal("Decline"), button -> declineInvite())
-            .bounds(PANEL_PADDING + 120, controlRowTwo, 80, 20)
+            .bounds(panelLeft + 120, controlRowTwo, 80, 20)
             .build());
 
         roleButton = this.addRenderableWidget(Button.builder(Component.literal("Role: " + currentRoleDisplay()), button -> {
@@ -130,32 +139,32 @@ public class FactionMainScreen extends Screen {
                 roleIndex = (roleIndex + 1) % roleCount;
                 updatePermissionLabels();
             }
-        }).bounds(PANEL_PADDING, controlRowOne, 140, 20).build());
+        }).bounds(panelLeft, controlRowOne, 140, 20).build());
         permissionButton = this.addRenderableWidget(Button.builder(Component.literal("Perm: " + currentPermission().name()), button -> {
             permissionIndex = (permissionIndex + 1) % FactionPermission.values().length;
             updatePermissionLabels();
-        }).bounds(PANEL_PADDING + 150, controlRowOne, 140, 20).build());
+        }).bounds(panelLeft + 150, controlRowOne, 140, 20).build());
         grantButton = this.addRenderableWidget(Button.builder(Component.literal("Grant"), button -> sendPermission(true))
-            .bounds(PANEL_PADDING, controlRowTwo, 70, 20)
+            .bounds(panelLeft, controlRowTwo, 70, 20)
             .build());
         revokeButton = this.addRenderableWidget(Button.builder(Component.literal("Revoke"), button -> sendPermission(false))
-            .bounds(PANEL_PADDING + 80, controlRowTwo, 70, 20)
+            .bounds(panelLeft + 80, controlRowTwo, 70, 20)
             .build());
-        roleNameField = new EditBox(this.font, PANEL_PADDING, controlRowThree, 140, 18, Component.literal("Role name"));
+        roleNameField = new EditBox(this.font, panelLeft, controlRowThree, 140, 18, Component.literal("Role name"));
         roleNameField.setMaxLength(32);
         this.addRenderableWidget(roleNameField);
         createRoleButton = this.addRenderableWidget(Button.builder(Component.literal("Create Role"), button -> sendCreateRole())
-            .bounds(PANEL_PADDING + 150, controlRowThree, 100, 20)
+            .bounds(panelLeft + 150, controlRowThree, 100, 20)
             .build());
         deleteRoleButton = this.addRenderableWidget(Button.builder(Component.literal("Delete Role"), button -> sendDeleteRole())
-            .bounds(PANEL_PADDING + 260, controlRowThree, 100, 20)
+            .bounds(panelLeft + 260, controlRowThree, 100, 20)
             .build());
 
-        memberNameField = new EditBox(this.font, PANEL_PADDING, controlRowOne, 140, 18, Component.literal("Member name"));
+        memberNameField = new EditBox(this.font, panelLeft, controlRowOne, 140, 18, Component.literal("Member name"));
         memberNameField.setMaxLength(32);
         this.addRenderableWidget(memberNameField);
         kickMemberButton = this.addRenderableWidget(Button.builder(Component.literal("Kick"), button -> sendMemberAction())
-            .bounds(PANEL_PADDING + 150, controlRowOne, 60, 20)
+            .bounds(panelLeft + 150, controlRowOne, 60, 20)
             .build());
         memberRoleButton = this.addRenderableWidget(Button.builder(Component.literal("Role: " + currentMemberRoleDisplay()), button -> {
             int roleCount = getRoleOptions().size();
@@ -163,59 +172,59 @@ public class FactionMainScreen extends Screen {
                 memberRoleIndex = (memberRoleIndex + 1) % roleCount;
                 updateMemberRoleLabel();
             }
-        }).bounds(PANEL_PADDING + 215, controlRowOne, 90, 20).build());
+        }).bounds(panelLeft + 215, controlRowOne, 90, 20).build());
         setRoleButton = this.addRenderableWidget(Button.builder(Component.literal("Set Role"), button -> sendMemberRole())
-            .bounds(PANEL_PADDING + 310, controlRowOne, 70, 20)
+            .bounds(panelLeft + 310, controlRowOne, 70, 20)
             .build());
 
-        ruleField = new EditBox(this.font, PANEL_PADDING, controlRowOne, 200, 18, Component.literal("New rule"));
+        ruleField = new EditBox(this.font, panelLeft, controlRowOne, 200, 18, Component.literal("New rule"));
         ruleField.setMaxLength(120);
         this.addRenderableWidget(ruleField);
         addRuleButton = this.addRenderableWidget(Button.builder(Component.literal("Add"), button -> sendAddRule())
-            .bounds(PANEL_PADDING + 210, controlRowOne, 60, 20)
+            .bounds(panelLeft + 210, controlRowOne, 60, 20)
             .build());
         removeRuleButton = this.addRenderableWidget(Button.builder(Component.literal("Remove selected"), button -> sendRemoveSelectedRule())
-            .bounds(PANEL_PADDING, controlRowOne, 130, 20)
+            .bounds(panelLeft, controlRowOne, 130, 20)
             .build());
 
         relationTypeButton = this.addRenderableWidget(Button.builder(Component.literal("Relation: " + currentRelation().name()), button -> {
             relationTypeIndex = (relationTypeIndex + 1) % relationOptions().size();
             updateRelationLabels();
-        }).bounds(PANEL_PADDING, controlRowOne, 140, 20).build());
+        }).bounds(panelLeft, controlRowOne, 140, 20).build());
         relationPermissionButton = this.addRenderableWidget(Button.builder(Component.literal("Perm: " + currentRelationPermission().name()), button -> {
             relationPermissionIndex = (relationPermissionIndex + 1) % FactionPermission.values().length;
             updateRelationLabels();
-        }).bounds(PANEL_PADDING + 150, controlRowOne, 140, 20).build());
+        }).bounds(panelLeft + 150, controlRowOne, 140, 20).build());
         relationGrantButton = this.addRenderableWidget(Button.builder(Component.literal("Grant"), button -> sendRelationPermission(true))
-            .bounds(PANEL_PADDING, controlRowTwo, 70, 20)
+            .bounds(panelLeft, controlRowTwo, 70, 20)
             .build());
         relationRevokeButton = this.addRenderableWidget(Button.builder(Component.literal("Revoke"), button -> sendRelationPermission(false))
-            .bounds(PANEL_PADDING + 80, controlRowTwo, 70, 20)
+            .bounds(panelLeft + 80, controlRowTwo, 70, 20)
             .build());
 
-        int bottomRowY = this.height - PANEL_PADDING - 20;
+        int bottomRowY = this.height - layoutPadding - 20;
         refreshButton = this.addRenderableWidget(Button.builder(Component.literal("Refresh"), button -> {
             FactionClientData.requestUpdate();
             FactionMapClientData.requestUpdate();
         })
-            .bounds(this.width - PANEL_PADDING - 80, bottomRowY, 80, 20)
+            .bounds(this.width - layoutPadding - 80, bottomRowY, 80, 20)
             .build());
         dynmapSyncButton = this.addRenderableWidget(Button.builder(Component.literal("Sync Dynmap"), button -> sendDynmapSync())
-            .bounds(PANEL_PADDING, bottomRowY, 110, 20)
+            .bounds(panelLeft, bottomRowY, 110, 20)
             .build());
         leaveFactionButton = this.addRenderableWidget(Button.builder(Component.literal("Leave Faction"), button -> leaveFaction())
-            .bounds(PANEL_PADDING, bottomRowY, 110, 20)
+            .bounds(panelLeft, bottomRowY, 110, 20)
             .build());
-        safeZoneFactionField = new EditBox(this.font, PANEL_PADDING, controlRowOne, SAFEZONE_FIELD_WIDTH, 16,
+        safeZoneFactionField = new EditBox(this.font, panelLeft, controlRowOne, SAFEZONE_FIELD_WIDTH, 16,
             Component.literal("Safe zone faction"));
         safeZoneFactionField.setMaxLength(32);
         this.addRenderableWidget(safeZoneFactionField);
         claimTypeButton = this.addRenderableWidget(Button.builder(Component.literal("Claim: " + selectedClaimType.getLabel()),
                 button -> cycleClaimType())
-            .bounds(PANEL_PADDING + SAFEZONE_FIELD_WIDTH + CLAIM_CONTROL_GAP, controlRowOne - 2, 120, 16)
+            .bounds(panelLeft + SAFEZONE_FIELD_WIDTH + CLAIM_CONTROL_GAP, controlRowOne - 2, 120, 16)
             .build());
         submitClaimsButton = this.addRenderableWidget(Button.builder(Component.literal("✓"), button -> promptClaimConfirm())
-            .bounds(PANEL_PADDING + SAFEZONE_FIELD_WIDTH + CLAIM_CONTROL_GAP + 124, controlRowOne - 2, 16, 16)
+            .bounds(panelLeft + SAFEZONE_FIELD_WIDTH + CLAIM_CONTROL_GAP + 124, controlRowOne - 2, 16, 16)
             .build());
 
         updateVisibility();
@@ -226,6 +235,12 @@ public class FactionMainScreen extends Screen {
     @Override
     public void tick() {
         super.tick();
+    }
+
+    @Override
+    public void resize(Minecraft minecraft, int width, int height) {
+        recalculateLayout();
+        super.resize(minecraft, width, height);
     }
 
     @Override
@@ -278,12 +293,12 @@ public class FactionMainScreen extends Screen {
         String headline = snapshot.inFaction()
             ? "Faction: " + snapshot.factionName() + " (" + getRoleDisplayName(snapshot, snapshot.roleName()) + ")"
             : "No faction";
-        guiGraphics.drawString(this.font, headline, PANEL_PADDING, 18, 0xE0E0E0);
+        guiGraphics.drawString(this.font, headline, getPanelLeft(), 18, 0xE0E0E0);
         if (snapshot.inFaction()) {
             String stats = "Level " + snapshot.factionLevel()
                 + " | Claims " + snapshot.claimCount() + "/" + snapshot.maxClaims()
                 + " | Protection " + snapshot.protectionTier();
-            guiGraphics.drawString(this.font, stats, PANEL_PADDING, 28, 0xBDBDBD);
+            guiGraphics.drawString(this.font, stats, getPanelLeft(), 28, 0xBDBDBD);
         }
         int contentStart = getContentStart(snapshot);
         switch (selectedTab) {
@@ -307,7 +322,7 @@ public class FactionMainScreen extends Screen {
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
         if (selectedTab == FactionTab.PERMISSIONS) {
             int lineHeight = 10;
-            int listStart = panelTop + CONTENT_START_OFFSET + 22;
+            int listStart = panelTop + contentStartOffset + 22;
             int availableHeight = Math.max(0, this.height - listStart - 30);
             int visibleLines = Math.max(1, availableHeight / lineHeight);
             int maxOffset = Math.max(0, getSelectedPermissions().size() - visibleLines);
@@ -353,7 +368,7 @@ public class FactionMainScreen extends Screen {
         if (selectedTab == FactionTab.FACTION_MAP) {
             FactionMapClientData.MapSnapshot mapSnapshot = FactionMapClientData.getSnapshot();
             FactionMapRenderer.MapRegion region = FactionMapRenderer.buildMapRegion(getContentStart(FactionClientData.getSnapshot()), mapSnapshot.radius(),
-                this.width, this.height, PANEL_PADDING);
+                this.width, this.height, layoutPadding);
             int listStart = FactionMapRenderer.getMapClaimsListStart(region);
             if (mouseY >= listStart) {
                 int lineHeight = 10;
@@ -377,7 +392,7 @@ public class FactionMainScreen extends Screen {
             FactionClientData.FactionSnapshot snapshot = FactionClientData.getSnapshot();
             int listStart = getRulesListStart(getContentStart(snapshot));
             int listBottom = getRulesListBottom(selectedRuleIndex >= 0);
-            if (mouseY >= listStart && mouseY <= listBottom && mouseX >= PANEL_PADDING && mouseX <= this.width - PANEL_PADDING) {
+            if (mouseY >= listStart && mouseY <= listBottom && mouseX >= getPanelLeft() && mouseX <= this.width - getPanelLeft()) {
                 int lineHeight = 10;
                 int availableHeight = Math.max(0, listBottom - listStart);
                 int visibleLines = Math.max(1, availableHeight / lineHeight);
@@ -392,7 +407,7 @@ public class FactionMainScreen extends Screen {
         if (selectedTab == FactionTab.FACTION_MAP && button == 0) {
             FactionMapClientData.MapSnapshot mapSnapshot = FactionMapClientData.getSnapshot();
             FactionMapRenderer.MapRegion region = FactionMapRenderer.buildMapRegion(getContentStart(FactionClientData.getSnapshot()), mapSnapshot.radius(),
-                this.width, this.height, PANEL_PADDING);
+                this.width, this.height, layoutPadding);
             ChunkPos clicked = FactionMapRenderer.getChunkFromMouse(region, mouseX, mouseY, mapSnapshot);
             if (clicked != null) {
                 startSelection(clicked);
@@ -407,7 +422,7 @@ public class FactionMainScreen extends Screen {
         if (selectedTab == FactionTab.FACTION_MAP && button == 0 && selectionActive) {
             FactionMapClientData.MapSnapshot mapSnapshot = FactionMapClientData.getSnapshot();
             FactionMapRenderer.MapRegion region = FactionMapRenderer.buildMapRegion(getContentStart(FactionClientData.getSnapshot()), mapSnapshot.radius(),
-                this.width, this.height, PANEL_PADDING);
+                this.width, this.height, layoutPadding);
             ChunkPos hovered = FactionMapRenderer.getChunkFromMouse(region, mouseX, mouseY, mapSnapshot);
             if (hovered != null) {
                 updateSelectionRectangle(hovered);
@@ -429,6 +444,10 @@ public class FactionMainScreen extends Screen {
     @Override
     public boolean isPauseScreen() {
         return false;
+    }
+
+    public boolean isMapTabSelected() {
+        return selectedTab == FactionTab.FACTION_MAP;
     }
 
     @Override
@@ -826,8 +845,8 @@ public class FactionMainScreen extends Screen {
     }
 
     private void renderPanels(GuiGraphics guiGraphics) {
-        int panelLeft = Math.max(6, PANEL_PADDING - 8);
-        int panelRight = Math.min(this.width - 6, this.width - PANEL_PADDING + 8);
+        int panelLeft = Math.max(6, getPanelLeft() - 8);
+        int panelRight = Math.min(this.width - 6, this.width - getPanelLeft() + 8);
         int headerTop = 4;
         int headerBottom = Math.max(headerTop + 18, panelTop - 6);
         int contentTop = Math.max(headerBottom + 4, panelTop - 2);
@@ -849,6 +868,40 @@ public class FactionMainScreen extends Screen {
         guiGraphics.fill(left, bottom - 1, right, bottom, PANEL_BORDER);
         guiGraphics.fill(left, top, left + 1, bottom, PANEL_BORDER);
         guiGraphics.fill(right - 1, top, right, bottom, PANEL_BORDER);
+    }
+
+    private void recalculateLayout() {
+        int minDimension = Math.min(this.width, this.height);
+        layoutPadding = Math.max(8, Math.min(PANEL_PADDING, minDimension / 24));
+        controlRowSpacing = this.height < 340 ? 20 : CONTROL_ROW_SPACING;
+        contentStartOffset = this.height < 340 ? 46 : CONTENT_START_OFFSET;
+        int tabCount = FactionTab.values().length;
+        int availableWidth = this.width - layoutPadding * 2 - (tabCount - 1) * TAB_BUTTON_GAP;
+        tabButtonWidth = Math.max(MIN_TAB_BUTTON_WIDTH, Math.min(TAB_BUTTON_WIDTH, availableWidth / tabCount));
+    }
+
+    private int getPanelLeft() {
+        int maxLeft = Math.max(layoutPadding, (this.width - PANEL_CONTENT_WIDTH) / 2);
+        return Math.max(8, maxLeft);
+    }
+
+    private int getPanelRight() {
+        return this.width - getPanelLeft();
+    }
+
+    private void renderScrollIndicator(GuiGraphics guiGraphics, int totalEntries, int visibleEntries, int offset,
+                                       int topY, int bottomY) {
+        if (totalEntries <= visibleEntries || bottomY <= topY) {
+            return;
+        }
+        int trackX = getPanelRight() - 6;
+        guiGraphics.fill(trackX, topY, trackX + 2, bottomY, 0x66424242);
+        int trackHeight = bottomY - topY;
+        int thumbHeight = Math.max(8, (int) ((visibleEntries / (float) totalEntries) * trackHeight));
+        int maxOffset = Math.max(1, totalEntries - visibleEntries);
+        int thumbRange = Math.max(0, trackHeight - thumbHeight);
+        int thumbY = topY + Math.round((offset / (float) maxOffset) * thumbRange);
+        guiGraphics.fill(trackX, thumbY, trackX + 2, thumbY + thumbHeight, 0xCCBDBDBD);
     }
 
     private List<ClaimType> getClaimTypeOptions() {
@@ -881,40 +934,40 @@ public class FactionMainScreen extends Screen {
     }
 
     private void renderMembers(GuiGraphics guiGraphics, List<com.mcprotector.network.FactionStatePacket.MemberEntry> members, int startY) {
-        guiGraphics.drawString(this.font, "Members:", PANEL_PADDING, startY, 0xFFFFFF);
+        guiGraphics.drawString(this.font, "Members:", getPanelLeft(), startY, 0xFFFFFF);
         int y = startY + 12;
         for (var member : members) {
             String roleLabel = getRoleDisplayName(FactionClientData.getSnapshot(), member.role());
-            guiGraphics.drawString(this.font, member.name() + " - " + roleLabel, PANEL_PADDING, y, 0xCCCCCC);
+            guiGraphics.drawString(this.font, member.name() + " - " + roleLabel, getPanelLeft(), y, 0xCCCCCC);
             y += 10;
         }
     }
 
     private void renderInvites(GuiGraphics guiGraphics, FactionClientData.FactionSnapshot snapshot, int startY) {
-        guiGraphics.drawString(this.font, "Invites:", PANEL_PADDING, startY, 0xFFFFFF);
+        guiGraphics.drawString(this.font, "Invites:", getPanelLeft(), startY, 0xFFFFFF);
         int y = startY + 12;
         if (!snapshot.inFaction()) {
             if (!snapshot.pendingInviteFaction().isEmpty()) {
-                guiGraphics.drawString(this.font, "Pending invite to: " + snapshot.pendingInviteFaction(), PANEL_PADDING, y, 0xCCCCCC);
-                guiGraphics.drawString(this.font, "Use the buttons above to respond.", PANEL_PADDING, y + 12, 0x777777);
+                guiGraphics.drawString(this.font, "Pending invite to: " + snapshot.pendingInviteFaction(), getPanelLeft(), y, 0xCCCCCC);
+                guiGraphics.drawString(this.font, "Use the buttons above to respond.", getPanelLeft(), y + 12, 0x777777);
             } else {
-                guiGraphics.drawString(this.font, "No pending invites.", PANEL_PADDING, y, 0x777777);
+                guiGraphics.drawString(this.font, "No pending invites.", getPanelLeft(), y, 0x777777);
             }
             return;
         }
         if (snapshot.invites().isEmpty()) {
-            guiGraphics.drawString(this.font, "No outgoing invites.", PANEL_PADDING, y, 0x777777);
+            guiGraphics.drawString(this.font, "No outgoing invites.", getPanelLeft(), y, 0x777777);
             return;
         }
         for (var invite : snapshot.invites()) {
             String expiry = INVITE_TIME_FORMAT.format(Instant.ofEpochMilli(invite.expiresAt()));
-            guiGraphics.drawString(this.font, invite.name() + " (expires " + expiry + ")", PANEL_PADDING, y, 0xCCCCCC);
+            guiGraphics.drawString(this.font, invite.name() + " (expires " + expiry + ")", getPanelLeft(), y, 0xCCCCCC);
             y += 10;
         }
     }
 
     private void renderPermissions(GuiGraphics guiGraphics, List<com.mcprotector.network.FactionStatePacket.PermissionEntry> permissions, int startY) {
-        guiGraphics.drawString(this.font, "Permissions:", PANEL_PADDING, startY, 0xFFFFFF);
+        guiGraphics.drawString(this.font, "Permissions:", getPanelLeft(), startY, 0xFFFFFF);
         String selectedRole = currentRoleName();
         com.mcprotector.network.FactionStatePacket.PermissionEntry selected = permissions.stream()
             .filter(entry -> entry.role().equalsIgnoreCase(selectedRole))
@@ -922,10 +975,10 @@ public class FactionMainScreen extends Screen {
             .orElse(null);
         int y = startY + 12;
         if (selected == null) {
-            guiGraphics.drawString(this.font, "No permissions found for " + currentRoleDisplay() + ".", PANEL_PADDING, y, 0x777777);
+            guiGraphics.drawString(this.font, "No permissions found for " + currentRoleDisplay() + ".", getPanelLeft(), y, 0x777777);
             return;
         }
-        guiGraphics.drawString(this.font, currentRoleDisplay() + ":", PANEL_PADDING, y, 0xCCCCCC);
+        guiGraphics.drawString(this.font, currentRoleDisplay() + ":", getPanelLeft(), y, 0xCCCCCC);
         y += 10;
         int lineHeight = 10;
         int availableHeight = Math.max(0, this.height - y - 30);
@@ -935,9 +988,11 @@ public class FactionMainScreen extends Screen {
         List<String> visiblePerms = selected.permissions()
             .subList(permissionsScrollOffset, Math.min(selected.permissions().size(), permissionsScrollOffset + visibleLines));
         for (String perm : visiblePerms) {
-            guiGraphics.drawString(this.font, "- " + perm, PANEL_PADDING, y, 0xAAAAAA);
+            guiGraphics.drawString(this.font, "- " + perm, getPanelLeft(), y, 0xAAAAAA);
             y += lineHeight;
         }
+        renderScrollIndicator(guiGraphics, selected.permissions().size(), visibleLines, permissionsScrollOffset,
+            startY + 22, getPermissionsBottom());
     }
 
     private List<String> getSelectedPermissions() {
@@ -952,31 +1007,31 @@ public class FactionMainScreen extends Screen {
                                  List<com.mcprotector.network.FactionStatePacket.RelationEntry> relations,
                                  List<com.mcprotector.network.FactionStatePacket.RelationPermissionEntry> relationPermissions,
                                  int startY) {
-        guiGraphics.drawString(this.font, "Relations:", PANEL_PADDING, startY, 0xFFFFFF);
+        guiGraphics.drawString(this.font, "Relations:", getPanelLeft(), startY, 0xFFFFFF);
         int y = startY + 12;
         if (relations.isEmpty()) {
-            guiGraphics.drawString(this.font, "No active relations.", PANEL_PADDING, y, 0x777777);
+            guiGraphics.drawString(this.font, "No active relations.", getPanelLeft(), y, 0x777777);
             y += 12;
         } else {
             for (var relation : relations) {
-                guiGraphics.drawString(this.font, relation.factionName() + " - " + relation.relation(), PANEL_PADDING, y, 0xCCCCCC);
+                guiGraphics.drawString(this.font, relation.factionName() + " - " + relation.relation(), getPanelLeft(), y, 0xCCCCCC);
                 y += 10;
             }
         }
         y += 6;
         String relationLabel = currentRelation().name();
-        guiGraphics.drawString(this.font, "Relation Permissions (" + relationLabel + "):", PANEL_PADDING, y, 0xFFFFFF);
+        guiGraphics.drawString(this.font, "Relation Permissions (" + relationLabel + "):", getPanelLeft(), y, 0xFFFFFF);
         y += 12;
         com.mcprotector.network.FactionStatePacket.RelationPermissionEntry selected = relationPermissions.stream()
             .filter(entry -> entry.relation().equalsIgnoreCase(relationLabel))
             .findFirst()
             .orElse(null);
         if (selected == null || selected.permissions().isEmpty()) {
-            guiGraphics.drawString(this.font, "No permissions configured.", PANEL_PADDING, y, 0x777777);
+            guiGraphics.drawString(this.font, "No permissions configured.", getPanelLeft(), y, 0x777777);
             return;
         }
         for (String perm : selected.permissions()) {
-            guiGraphics.drawString(this.font, "- " + perm, PANEL_PADDING, y, 0xAAAAAA);
+            guiGraphics.drawString(this.font, "- " + perm, getPanelLeft(), y, 0xAAAAAA);
             y += 10;
         }
     }
@@ -984,10 +1039,10 @@ public class FactionMainScreen extends Screen {
     private void renderFactionList(GuiGraphics guiGraphics,
                                    List<com.mcprotector.network.FactionStatePacket.FactionListEntry> factions,
                                    int startY) {
-        guiGraphics.drawString(this.font, "Factions:", PANEL_PADDING, startY, 0xFFFFFF);
+        guiGraphics.drawString(this.font, "Factions:", getPanelLeft(), startY, 0xFFFFFF);
         int listStart = getFactionListStart(startY);
         if (factions.isEmpty()) {
-            guiGraphics.drawString(this.font, "No factions found.", PANEL_PADDING, listStart, 0x777777);
+            guiGraphics.drawString(this.font, "No factions found.", getPanelLeft(), listStart, 0x777777);
             return;
         }
         int listBottom = getFactionListBottom();
@@ -1007,16 +1062,17 @@ public class FactionMainScreen extends Screen {
                 label += " - " + faction.relation();
             }
             int color = 0xFF000000 | faction.color();
-            guiGraphics.drawString(this.font, label, PANEL_PADDING, y, color);
+            guiGraphics.drawString(this.font, label, getPanelLeft(), y, color);
             y += lineHeight;
         }
+        renderScrollIndicator(guiGraphics, factions.size(), visibleLines, factionListScrollOffset, listStart, listBottom);
     }
 
     private void renderRules(GuiGraphics guiGraphics, List<String> rules, int startY) {
-        guiGraphics.drawString(this.font, "Rules:", PANEL_PADDING, startY, 0xFFFFFF);
+        guiGraphics.drawString(this.font, "Rules:", getPanelLeft(), startY, 0xFFFFFF);
         int listStart = getRulesListStart(startY);
         if (rules.isEmpty()) {
-            guiGraphics.drawString(this.font, "No rules set yet.", PANEL_PADDING, listStart, 0x777777);
+            guiGraphics.drawString(this.font, "No rules set yet.", getPanelLeft(), listStart, 0x777777);
             removeRuleButton.visible = false;
             return;
         }
@@ -1036,13 +1092,14 @@ public class FactionMainScreen extends Screen {
             int index = rulesScrollOffset + i;
             String rule = visibleRules.get(i);
             if (index == selectedRuleIndex) {
-                guiGraphics.fill(PANEL_PADDING - 2, y - 1, this.width - PANEL_PADDING + 2, y + lineHeight - 1, PANEL_HIGHLIGHT);
+                guiGraphics.fill(getPanelLeft() - 2, y - 1, getPanelRight() + 2, y + lineHeight - 1, PANEL_HIGHLIGHT);
             }
-            guiGraphics.drawString(this.font, (index + 1) + ". " + rule, PANEL_PADDING, y, 0xCCCCCC);
+            guiGraphics.drawString(this.font, (index + 1) + ". " + rule, getPanelLeft(), y, 0xCCCCCC);
             y += lineHeight;
         }
+        renderScrollIndicator(guiGraphics, rules.size(), visibleLines, rulesScrollOffset, listStart, listBottom);
         if (showRemove) {
-            removeRuleButton.setX(PANEL_PADDING);
+            removeRuleButton.setX(getPanelLeft());
             removeRuleButton.setY(listBottom + 6);
             removeRuleButton.visible = true;
         } else {
@@ -1054,19 +1111,19 @@ public class FactionMainScreen extends Screen {
     private void renderFactionMap(GuiGraphics guiGraphics, FactionClientData.FactionSnapshot snapshot, int startY, int mouseX, int mouseY) {
         FactionMapClientData.MapSnapshot mapSnapshot = FactionMapClientData.getSnapshot();
         int radius = mapSnapshot.radius();
-        guiGraphics.drawString(this.font, "Faction Map:", PANEL_PADDING, startY, 0xFFFFFF);
+        guiGraphics.drawString(this.font, "Faction Map:", getPanelLeft(), startY, 0xFFFFFF);
         if (radius <= 0) {
-            guiGraphics.drawString(this.font, "Map data unavailable. Click Refresh.", PANEL_PADDING, startY + 14, 0x777777);
+            guiGraphics.drawString(this.font, "Map data unavailable. Click Refresh.", getPanelLeft(), startY + 14, 0x777777);
             return;
         }
-        FactionMapRenderer.MapRegion region = FactionMapRenderer.buildMapRegion(startY, radius, this.width, this.height, PANEL_PADDING);
+        FactionMapRenderer.MapRegion region = FactionMapRenderer.buildMapRegion(startY, radius, this.width, this.height, layoutPadding);
         updateMapControlLayout();
         FactionMapRenderer.renderMapGrid(guiGraphics, mapSnapshot, region);
         renderMapCardinalMarkers(guiGraphics, region);
         if (!selectedChunks.isEmpty()) {
             FactionMapRenderer.renderSelectionOverlay(guiGraphics, mapSnapshot, region, selectedChunks);
         } else {
-            guiGraphics.drawString(this.font, "Drag to select up to 9 chunks", PANEL_PADDING, startY + 14, 0x777777);
+            guiGraphics.drawString(this.font, "Drag to select up to 9 chunks", getPanelLeft(), startY + 14, 0x777777);
         }
         ChunkPos hovered = FactionMapRenderer.getChunkFromMouse(region, mouseX, mouseY, mapSnapshot);
         if (hovered != null) {
@@ -1076,7 +1133,7 @@ public class FactionMainScreen extends Screen {
         mapClaimsScrollOffset = renderMapClaimsList(guiGraphics, snapshot.claims(), region, mapClaimsScrollOffset);
         if (!selectedChunks.isEmpty()) {
             guiGraphics.drawString(this.font, "Selected " + selectedChunks.size() + " chunk(s)",
-                PANEL_PADDING, startY + 14, 0xF9A825);
+                getPanelLeft(), startY + 14, 0xF9A825);
         }
     }
 
@@ -1085,10 +1142,10 @@ public class FactionMainScreen extends Screen {
                                     FactionMapRenderer.MapRegion region,
                                     int scrollOffset) {
         int startY = FactionMapRenderer.getMapClaimsListStart(region);
-        guiGraphics.drawString(this.font, "Claims:", PANEL_PADDING, startY, 0xFFFFFF);
+        guiGraphics.drawString(this.font, "Claims:", getPanelLeft(), startY, 0xFFFFFF);
         int y = startY + 12;
         if (claims.isEmpty()) {
-            guiGraphics.drawString(this.font, "No claims.", PANEL_PADDING, y, 0x777777);
+            guiGraphics.drawString(this.font, "No claims.", getPanelLeft(), y, 0x777777);
             return 0;
         }
         int lineHeight = 10;
@@ -1099,16 +1156,17 @@ public class FactionMainScreen extends Screen {
         List<com.mcprotector.network.FactionStatePacket.ClaimEntry> visibleClaims = claims
             .subList(clampedOffset, Math.min(claims.size(), clampedOffset + visibleLines));
         for (var claim : visibleClaims) {
-            guiGraphics.drawString(this.font, "Chunk " + claim.chunkX() + ", " + claim.chunkZ(), PANEL_PADDING, y, 0xCCCCCC);
+            guiGraphics.drawString(this.font, "Chunk " + claim.chunkX() + ", " + claim.chunkZ(), getPanelLeft(), y, 0xCCCCCC);
             y += lineHeight;
         }
+        renderScrollIndicator(guiGraphics, claims.size(), visibleLines, clampedOffset, y - (visibleClaims.size() * lineHeight), getMapClaimsBottomRow() - 2);
         return clampedOffset;
     }
 
     private void renderMapLegend(GuiGraphics guiGraphics, FactionMapRenderer.MapRegion region) {
         int gridSize = region.cellSize() * (region.radius() * 2 + 1);
         int y = region.originY() + gridSize + 2;
-        int x = PANEL_PADDING;
+        int x = getPanelLeft();
         String[] labels = {"Own", "Ally", "War", "Neutral", "Safe", "Personal"};
         int[] colors = {MAP_COLOR_OWN, MAP_COLOR_ALLY, MAP_COLOR_WAR, MAP_COLOR_NEUTRAL, MAP_COLOR_SAFE, MAP_COLOR_PERSONAL};
         for (int i = 0; i < labels.length; i++) {
@@ -1150,15 +1208,19 @@ public class FactionMainScreen extends Screen {
             || (selectedTab == FactionTab.RELATIONS && snapshot.inFaction())
             || (selectedTab == FactionTab.MEMBERS && snapshot.inFaction())
             || (selectedTab == FactionTab.RULES && snapshot.inFaction());
-        int controlOffset = CONTENT_START_OFFSET;
+        int controlOffset = contentStartOffset;
         if (selectedTab == FactionTab.PERMISSIONS) {
-            controlOffset += CONTROL_ROW_SPACING;
+            controlOffset += controlRowSpacing;
         }
         return panelTop + (hasControls ? controlOffset : CONTROL_TOP_OFFSET);
     }
 
     private int getMapClaimsBottomRow() {
-        return this.height - PANEL_PADDING - 20;
+        return this.height - layoutPadding - 20;
+    }
+
+    private int getPermissionsBottom() {
+        return this.height - layoutPadding - 20;
     }
 
     private int getRulesListStart(int startY) {
@@ -1171,19 +1233,19 @@ public class FactionMainScreen extends Screen {
 
     private int getRulesListBottom(boolean showRemove) {
         int padding = showRemove ? 26 : 6;
-        return this.height - PANEL_PADDING - 20 - padding;
+        return this.height - layoutPadding - 20 - padding;
     }
 
     private int getFactionListBottom() {
-        return this.height - PANEL_PADDING - 20;
+        return this.height - layoutPadding - 20;
     }
 
     private void updateMapControlLayout() {
         int controlsY = getMapClaimsBottomRow();
         boolean showSafeZoneField = safeZoneFactionField.isVisible();
         int claimBlockWidth = (showSafeZoneField ? SAFEZONE_FIELD_WIDTH + CLAIM_CONTROL_GAP : 0) + 120 + CLAIM_CONTROL_GAP + 16;
-        int leftLimit = PANEL_PADDING + 120;
-        int rightLimit = this.width - PANEL_PADDING - 80 - 8;
+        int leftLimit = getPanelLeft() + 120;
+        int rightLimit = this.width - layoutPadding - 80 - 8;
         int claimStart = Math.max(leftLimit, (leftLimit + rightLimit - claimBlockWidth) / 2);
         if (showSafeZoneField) {
             safeZoneFactionField.setX(claimStart);
