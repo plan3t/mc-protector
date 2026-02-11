@@ -75,6 +75,10 @@ public final class FactionCommands {
                         .executes(context -> confirmOvertake(context.getSource()))))
                 .then(Commands.literal("info")
                     .executes(context -> factionInfo(context.getSource())))
+                .then(Commands.literal("help")
+                    .executes(context -> factionHelp(context.getSource(), 1))
+                    .then(Commands.argument("page", IntegerArgumentType.integer(1, 4))
+                        .executes(context -> factionHelp(context.getSource(), IntegerArgumentType.getInteger(context, "page")))))
                 .then(Commands.literal("list")
                     .executes(context -> listFactions(context.getSource())))
                 .then(Commands.literal("chat")
@@ -287,6 +291,36 @@ public final class FactionCommands {
             return 0;
         }
         source.sendSuccess(() -> Component.literal("Faction renamed to " + trimmed + "."), true);
+        return 1;
+    }
+
+    private static int factionHelp(CommandSourceStack source, int page) {
+        int resolvedPage = Math.max(1, Math.min(4, page));
+        source.sendSuccess(() -> Component.literal("=== Faction Help (" + resolvedPage + "/4) ===").withStyle(ChatFormatting.GOLD), false);
+        switch (resolvedPage) {
+            case 1 -> {
+                source.sendSuccess(() -> Component.literal("Core: /faction create, rename, disband, join, leave, info, list"), false);
+                source.sendSuccess(() -> Component.literal("Membership: /faction invite, kick, promote, demote"), false);
+                source.sendSuccess(() -> Component.literal("Roles: /faction role list|add|remove, /faction rank ..."), false);
+            }
+            case 2 -> {
+                source.sendSuccess(() -> Component.literal("Claims: /faction claim, unclaim, overtake, claiminfo, logs"), false);
+                source.sendSuccess(() -> Component.literal("Map: /faction map [radius], /faction map sync"), false);
+                source.sendSuccess(() -> Component.literal("Utility: /faction home, sethome, border, trust ..."), false);
+            }
+            case 3 -> {
+                source.sendSuccess(() -> Component.literal("Relations: /faction ally add|remove, war declare|end"), false);
+                source.sendSuccess(() -> Component.literal("Vassals: /faction vassal offer|accept|decline|release|break"), false);
+                source.sendSuccess(() -> Component.literal("Chat: /faction chat [public|faction|ally], /faction chat toggle"), false);
+            }
+            case 4 -> {
+                source.sendSuccess(() -> Component.literal("Admin: /faction safezone claim|unclaim, boost, data backup|restore"), false);
+                source.sendSuccess(() -> Component.literal("Admin: /faction bypass [on|off]"), false);
+                source.sendSuccess(() -> Component.literal("Tip: run /faction help <1-4> to view all sections."), false);
+            }
+            default -> {
+            }
+        }
         return 1;
     }
 

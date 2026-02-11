@@ -19,6 +19,7 @@ import org.lwjgl.glfw.GLFW;
 @EventBusSubscriber(modid = McProtectorMod.MOD_ID, value = Dist.CLIENT)
 public final class ClientModEvents {
     private static KeyMapping factionUiKey;
+    private static final int MAP_UPDATE_INTERVAL_TICKS = 80;
     private static int claimMapTickCounter = 0;
 
     private ClientModEvents() {
@@ -37,16 +38,20 @@ public final class ClientModEvents {
     }
 
     private static void onClientTick(ClientTickEvent.Post event) {
-        claimMapTickCounter++;
-        if (claimMapTickCounter >= 40) {
+        Minecraft client = Minecraft.getInstance();
+        if (client.screen instanceof FactionMainScreen screen && screen.isMapTabSelected()) {
+            claimMapTickCounter++;
+            if (claimMapTickCounter >= MAP_UPDATE_INTERVAL_TICKS) {
+                claimMapTickCounter = 0;
+                FactionMapClientData.requestUpdate();
+            }
+        } else {
             claimMapTickCounter = 0;
-            FactionMapClientData.requestUpdate();
         }
         if (factionUiKey == null) {
             return;
         }
         while (factionUiKey.consumeClick()) {
-            Minecraft client = Minecraft.getInstance();
             if (client.player == null) {
                 return;
             }
