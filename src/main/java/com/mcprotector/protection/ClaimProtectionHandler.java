@@ -26,6 +26,7 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
 import net.neoforged.neoforge.event.level.BlockEvent;
+import net.neoforged.neoforge.event.level.ExplosionEvent;
 import net.neoforged.neoforge.event.entity.living.FinalizeSpawnEvent;
 import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
 import net.neoforged.neoforge.event.entity.living.LivingIncomingDamageEvent;
@@ -102,10 +103,20 @@ public class ClaimProtectionHandler {
         if (sourcePos.equals(pos)) {
             return;
         }
-        if (isClaimed(event.getLevel(), sourcePos)) {
+        Optional<UUID> targetOwner = getClaimOwner(event.getLevel(), pos);
+        Optional<UUID> sourceOwner = getClaimOwner(event.getLevel(), sourcePos);
+        if (targetOwner.isPresent() && sourceOwner.isPresent() && targetOwner.get().equals(sourceOwner.get())) {
             return;
         }
         event.setCanceled(true);
+    }
+
+    @SubscribeEvent(priority = EventPriority.HIGHEST)
+    public void onExplosionDetonate(ExplosionEvent.Detonate event) {
+        if (!(event.getLevel() instanceof ServerLevel serverLevel)) {
+            return;
+        }
+        event.getAffectedBlocks().removeIf(pos -> FactionData.get(serverLevel).isClaimed(pos));
     }
 
     @SubscribeEvent
@@ -302,6 +313,13 @@ public class ClaimProtectionHandler {
             return false;
         }
         return FactionData.get(serverLevel).isClaimed(pos);
+    }
+
+    private Optional<UUID> getClaimOwner(LevelAccessor level, BlockPos pos) {
+        if (!(level instanceof ServerLevel serverLevel)) {
+            return Optional.empty();
+        }
+        return FactionData.get(serverLevel).getClaimOwner(pos);
     }
 
     private FactionPermission permissionForBlockUse(BlockState state, net.minecraft.world.level.Level level, BlockPos pos) {

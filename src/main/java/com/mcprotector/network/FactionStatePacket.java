@@ -116,10 +116,19 @@ public class FactionStatePacket implements CustomPacketPayload {
                 continue;
             }
             FactionRelation relation = data.getRelation(factionData.getId(), entry.getKey());
-            if (relation == FactionRelation.NEUTRAL) {
+            if (relation != FactionRelation.NEUTRAL) {
+                relations.add(new RelationEntry(entry.getKey(), entry.getValue().getName(), relation.name()));
+            }
+        }
+        data.getOverlord(factionData.getId())
+            .flatMap(data::getFaction)
+            .ifPresent(overlord -> relations.add(new RelationEntry(overlord.getId(), overlord.getName(), "OVERLORD")));
+        for (Map.Entry<UUID, FactionData.VassalContract> entry : data.getVassalContracts().entrySet()) {
+            if (!entry.getValue().overlordId().equals(factionData.getId())) {
                 continue;
             }
-            relations.add(new RelationEntry(entry.getKey(), entry.getValue().getName(), relation.name()));
+            data.getFaction(entry.getKey())
+                .ifPresent(vassal -> relations.add(new RelationEntry(vassal.getId(), vassal.getName(), "VASSAL")));
         }
         List<ClaimEntry> claims = new ArrayList<>();
         for (Map.Entry<Long, UUID> entry : data.getClaims().entrySet()) {

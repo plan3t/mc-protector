@@ -27,7 +27,7 @@ import java.util.UUID;
 
 public class FactionData extends SavedData {
     private static final String DATA_NAME = "mcprotector_factions";
-    private static final int DATA_VERSION = 10;
+    private static final int DATA_VERSION = 11;
 
     private final Map<UUID, Faction> factions = new HashMap<>();
     private final Map<UUID, UUID> playerFaction = new HashMap<>();
@@ -236,7 +236,8 @@ public class FactionData extends SavedData {
                 UUID overlordId = breakaway.getUUID("Overlord");
                 int requiredClaims = breakaway.getInt("RequiredClaims");
                 int capturedClaims = breakaway.getInt("CapturedClaims");
-                data.vassalBreakaways.put(vassalId, new VassalBreakaway(overlordId, requiredClaims, capturedClaims));
+                long startedAt = breakaway.contains("StartedAt") ? breakaway.getLong("StartedAt") : System.currentTimeMillis();
+                data.vassalBreakaways.put(vassalId, new VassalBreakaway(overlordId, requiredClaims, capturedClaims, startedAt));
             }
         }
         if (dataVersion >= 3 && tag.contains("AccessLogs")) {
@@ -486,6 +487,7 @@ public class FactionData extends SavedData {
             breakaway.putUUID("Overlord", entry.getValue().overlordId());
             breakaway.putInt("RequiredClaims", entry.getValue().requiredClaims());
             breakaway.putInt("CapturedClaims", entry.getValue().capturedClaims());
+            breakaway.putLong("StartedAt", entry.getValue().startedAt());
             breakawayTag.add(breakaway);
         }
         tag.put("VassalBreakaways", breakawayTag);
@@ -737,6 +739,10 @@ public class FactionData extends SavedData {
         return Collections.unmodifiableMap(vassalBreakaways);
     }
 
+    public Map<UUID, VassalContract> getVassalContracts() {
+        return Collections.unmodifiableMap(vassalContracts);
+    }
+
     public boolean isVassalRelationship(UUID factionId, UUID otherId) {
         Optional<UUID> overlord = getOverlord(factionId);
         if (overlord.isPresent() && overlord.get().equals(otherId)) {
@@ -767,7 +773,7 @@ public class FactionData extends SavedData {
     }
 
     public void startVassalBreakaway(UUID vassalId, UUID overlordId, int requiredClaims) {
-        vassalBreakaways.put(vassalId, new VassalBreakaway(overlordId, requiredClaims, 0));
+        vassalBreakaways.put(vassalId, new VassalBreakaway(overlordId, requiredClaims, 0, System.currentTimeMillis()));
         setDirty();
     }
 
@@ -784,7 +790,7 @@ public class FactionData extends SavedData {
             setDirty();
             return true;
         }
-        vassalBreakaways.put(vassalId, new VassalBreakaway(overlordId, required, captured));
+        vassalBreakaways.put(vassalId, new VassalBreakaway(overlordId, required, captured, breakaway.startedAt()));
         setDirty();
         return false;
     }
@@ -1020,7 +1026,9 @@ public class FactionData extends SavedData {
         if (playerFactionId.isPresent()) {
             Optional<UUID> overlordId = getOverlord(ownerId.get());
             if (overlordId.isPresent() && overlordId.get().equals(playerFactionId.get())) {
-                return true;
+                return permission != FactionPermission.BLOCK_BREAK
+                    && permission != FactionPermission.BLOCK_PLACE
+                    && permission != FactionPermission.FLUID_PLACE;
             }
         }
         if (playerFactionId.isEmpty()) {
@@ -1258,7 +1266,7 @@ public class FactionData extends SavedData {
     public record VassalContract(UUID overlordId, long startedAt) {
     }
 
-    public record VassalBreakaway(UUID overlordId, int requiredClaims, int capturedClaims) {
+    public record VassalBreakaway(UUID overlordId, int requiredClaims, int capturedClaims, long startedAt) {
     }
 
     public record FactionAccessLog(long timestamp, UUID playerId, String playerName, BlockPos pos, String action,
