@@ -353,6 +353,10 @@ public final class FactionCommands {
             source.sendFailure(Component.literal("Only the owner can disband the faction."));
             return 0;
         }
+        if (data.getOverlord(faction.get().getId()).isPresent()) {
+            source.sendFailure(Component.literal("Vassal factions cannot disband while under an overlord."));
+            return 0;
+        }
         DISBAND_CONFIRMATIONS.put(player.getUUID(), System.currentTimeMillis());
         source.sendSuccess(() -> Component.literal("Run /faction disband confirm within 10 seconds to confirm."), false);
         return 1;
@@ -373,6 +377,10 @@ public final class FactionCommands {
         }
         if (!faction.get().getOwner().equals(player.getUUID())) {
             source.sendFailure(Component.literal("Only the owner can disband the faction."));
+            return 0;
+        }
+        if (data.getOverlord(faction.get().getId()).isPresent()) {
+            source.sendFailure(Component.literal("Vassal factions cannot disband while under an overlord."));
             return 0;
         }
         UUID factionId = faction.get().getId();
@@ -492,11 +500,47 @@ public final class FactionCommands {
             members.append(resolvePlayerName(source.getServer(), uuid)).append(" (")
                 .append(faction.get().getRoleDisplayName(role)).append(")");
         });
+
+        java.util.List<String> allies = new java.util.ArrayList<>();
+        java.util.List<String> wars = new java.util.ArrayList<>();
+        for (Map.Entry<UUID, Faction> entry : data.getFactions().entrySet()) {
+            if (entry.getKey().equals(faction.get().getId())) {
+                continue;
+            }
+            FactionRelation relation = data.getRelation(faction.get().getId(), entry.getKey());
+            if (relation == FactionRelation.ALLY) {
+                allies.add(entry.getValue().getName());
+            } else if (relation == FactionRelation.WAR) {
+                wars.add(entry.getValue().getName());
+            }
+        }
+        Optional<UUID> overlordId = data.getOverlord(faction.get().getId());
+        String overlordName = overlordId.flatMap(data::getFaction).map(Faction::getName).orElse("None");
+        java.util.List<String> vassals = new java.util.ArrayList<>();
+        for (Map.Entry<UUID, FactionData.VassalContract> entry : data.getVassalContracts().entrySet()) {
+            if (!entry.getValue().overlordId().equals(faction.get().getId())) {
+                continue;
+            }
+            data.getFaction(entry.getKey()).map(Faction::getName).ifPresent(vassals::add);
+        }
+
         source.sendSuccess(() -> Component.literal("Faction: " + faction.get().getName()
             + " | Level: " + level
             + " | Claims: " + claims + "/" + maxClaims
-            + "\nMembers: " + members), false);
+            + "\nMembers: " + members
+            + "\nAllies: " + formatRelationNames(allies)
+            + "\nWars: " + formatRelationNames(wars)
+            + "\nOverlord: " + overlordName
+            + "\nVassals: " + formatRelationNames(vassals)), false);
         return 1;
+    }
+
+    private static String formatRelationNames(java.util.List<String> names) {
+        if (names.isEmpty()) {
+            return "None";
+        }
+        names.sort(String.CASE_INSENSITIVE_ORDER);
+        return String.join(", ", names);
     }
 
     private static String resolvePlayerName(MinecraftServer server, UUID playerId) {
@@ -851,9 +895,19 @@ public final class FactionCommands {
                 if (faction.getId().equals(playerFactionId.get())) {
                     relationLabel = "Your faction";
                 } else {
-                    FactionRelation relation = data.getRelation(playerFactionId.get(), faction.getId());
-                    if (relation != FactionRelation.NEUTRAL) {
-                        relationLabel = relation.name();
+                    Optional<UUID> playerOverlord = data.getOverlord(playerFactionId.get());
+                    if (playerOverlord.isPresent() && playerOverlord.get().equals(faction.getId())) {
+                        relationLabel = "OVERLORD";
+                    } else {
+                        Optional<UUID> theirOverlord = data.getOverlord(faction.getId());
+                        if (theirOverlord.isPresent() && theirOverlord.get().equals(playerFactionId.get())) {
+                            relationLabel = "VASSAL";
+                        } else {
+                            FactionRelation relation = data.getRelation(playerFactionId.get(), faction.getId());
+                            if (relation != FactionRelation.NEUTRAL) {
+                                relationLabel = relation.name();
+                            }
+                        }
                     }
                 }
             }
