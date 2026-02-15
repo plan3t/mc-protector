@@ -243,6 +243,14 @@ public final class FactionCommands {
                         .then(Commands.argument("faction", StringArgumentType.greedyString())
                             .suggests(FactionCommandSuggestions::factionNames)
                             .executes(context -> adminDisbandFaction(context.getSource(), StringArgumentType.getString(context, "faction")))))
+                    .then(Commands.literal("rename")
+                        .then(Commands.argument("faction", StringArgumentType.string())
+                            .suggests(FactionCommandSuggestions::factionNames)
+                            .then(Commands.argument("name", StringArgumentType.greedyString())
+                                .executes(context -> adminRenameFaction(
+                                    context.getSource(),
+                                    StringArgumentType.getString(context, "faction"),
+                                    StringArgumentType.getString(context, "name"))))))
                     .then(Commands.literal("claim")
                         .then(Commands.argument("faction", StringArgumentType.greedyString())
                             .suggests(FactionCommandSuggestions::factionNames)
@@ -289,6 +297,10 @@ public final class FactionCommands {
             source.sendFailure(Component.literal("Faction name cannot exceed " + maxLength + " characters."));
             return 0;
         }
+        if (data.hasSimilarFactionName(trimmed, null)) {
+            source.sendFailure(Component.literal("A faction with that name or a very similar one already exists."));
+            return 0;
+        }
         Faction faction = data.createFaction(trimmed, player);
         source.sendSuccess(() -> Component.literal("Created faction " + faction.getName()), false);
         return 1;
@@ -317,7 +329,7 @@ public final class FactionCommands {
             return 0;
         }
         if (!data.renameFaction(faction.get().getId(), trimmed)) {
-            source.sendFailure(Component.literal("A faction with that name already exists."));
+            source.sendFailure(Component.literal("A faction with that name or a very similar one already exists."));
             return 0;
         }
         source.sendSuccess(() -> Component.literal("Faction renamed to " + trimmed + "."), true);
@@ -344,7 +356,7 @@ public final class FactionCommands {
                 source.sendSuccess(() -> Component.literal("Chat: /faction chat [public|faction|ally], /faction chat toggle"), false);
             }
             case 4 -> {
-                source.sendSuccess(() -> Component.literal("Admin: /faction safezone claim|unclaim, boost <value> <faction>, admin disband|claim|unclaim"), false);
+                source.sendSuccess(() -> Component.literal("Admin: /faction safezone claim|unclaim, boost <value> <faction>, admin disband|rename|claim|unclaim"), false);
                 source.sendSuccess(() -> Component.literal("Admin: /faction bypass [on|off]"), false);
                 source.sendSuccess(() -> Component.literal("Tip: run /faction help <1-4> to view all sections."), false);
             }
@@ -1285,6 +1297,37 @@ public final class FactionCommands {
         }
         data.disbandFaction(faction.get().getId());
         source.sendSuccess(() -> Component.literal("Disbanded faction " + faction.get().getName() + "."), true);
+        return 1;
+    }
+
+    private static int adminRenameFaction(CommandSourceStack source, String factionName, String newName) {
+        String trimmedFactionName = factionName == null ? "" : factionName.trim();
+        if (trimmedFactionName.isEmpty()) {
+            source.sendFailure(Component.literal("Faction name cannot be blank."));
+            return 0;
+        }
+        String trimmedNewName = newName == null ? "" : newName.trim();
+        if (trimmedNewName.isEmpty()) {
+            source.sendFailure(Component.literal("New faction name cannot be blank."));
+            return 0;
+        }
+        int maxLength = FactionConfig.SERVER.maxFactionNameLength.get();
+        if (trimmedNewName.length() > maxLength) {
+            source.sendFailure(Component.literal("Faction name cannot exceed " + maxLength + " characters."));
+            return 0;
+        }
+        FactionData data = FactionData.get(source.getLevel());
+        Optional<Faction> faction = data.findFactionByName(trimmedFactionName);
+        if (faction.isEmpty()) {
+            source.sendFailure(Component.literal("Faction not found."));
+            return 0;
+        }
+        String previousName = faction.get().getName();
+        if (!data.renameFaction(faction.get().getId(), trimmedNewName)) {
+            source.sendFailure(Component.literal("A faction with that name or a very similar one already exists."));
+            return 0;
+        }
+        source.sendSuccess(() -> Component.literal("Renamed faction " + previousName + " to " + trimmedNewName + "."), true);
         return 1;
     }
 
