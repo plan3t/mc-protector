@@ -14,6 +14,7 @@ import com.mcprotector.data.FactionRelation;
 import com.mcprotector.protection.FactionBypassManager;
 import com.mcprotector.webmap.WebmapBridge;
 import com.mcprotector.service.FactionService;
+import com.mcprotector.service.HomeTeleportManager;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
@@ -49,6 +50,7 @@ public final class FactionCommands {
     private static final long CONFIRM_TIMEOUT_MILLIS = 10_000L;
     private static final ConcurrentHashMap<UUID, Long> DISBAND_CONFIRMATIONS = new ConcurrentHashMap<>();
     private static final ConcurrentHashMap<UUID, Long> OVERTAKE_CONFIRMATIONS = new ConcurrentHashMap<>();
+    private static final ConcurrentHashMap<UUID, Long> PERSONAL_WIPE_CONFIRMATIONS = new ConcurrentHashMap<>();
     private FactionCommands() {
     }
 
@@ -248,7 +250,18 @@ public final class FactionCommands {
                     .then(Commands.literal("unclaim")
                         .then(Commands.argument("faction", StringArgumentType.greedyString())
                             .suggests(FactionCommandSuggestions::factionNames)
-                            .executes(context -> adminUnclaimFactionChunk(context.getSource(), StringArgumentType.getString(context, "faction"))))))
+                            .executes(context -> adminUnclaimFactionChunk(context.getSource(), StringArgumentType.getString(context, "faction")))))
+                    .then(Commands.literal("personal")
+                        .then(Commands.literal("removechunk")
+                            .executes(context -> adminRemovePersonalChunk(context.getSource())))
+                        .then(Commands.literal("removeplayer")
+                            .then(Commands.argument("player", EntityArgument.player())
+                                .executes(context -> adminRemovePersonalByPlayer(context.getSource(), EntityArgument.getPlayer(context, "player")))))
+                        .then(Commands.literal("wipe")
+                            .executes(context -> adminWipePersonalClaims(context.getSource(), null))
+                            .then(Commands.argument("confirm", StringArgumentType.word())
+                                .suggests(FactionCommandSuggestions::yesNo)
+                                .executes(context -> adminWipePersonalClaims(context.getSource(), StringArgumentType.getString(context, "confirm")))))))
                 .then(Commands.literal("data")
                     .then(Commands.literal("backup")
                         .executes(context -> backupData(context.getSource())))
@@ -1327,6 +1340,69 @@ public final class FactionCommands {
         return 1;
     }
 
+    private static int adminRemovePersonalChunk(CommandSourceStack source) throws CommandSyntaxException {
+        ServerPlayer player = source.getPlayerOrException();
+        FactionData data = FactionData.get(player.serverLevel());
+        ChunkPos chunk = new ChunkPos(player.blockPosition());
+        Optional<UUID> owner = data.getPersonalClaimOwner(chunk);
+        if (owner.isEmpty()) {
+            source.sendFailure(Component.literal("Current chunk is not a personal claim."));
+            return 0;
+        }
+        if (!data.unclaimPersonalChunk(chunk, owner.get())) {
+            source.sendFailure(Component.literal("Unable to remove personal claim from current chunk."));
+            return 0;
+        }
+        source.sendSuccess(() -> Component.literal("Removed personal claim in current chunk."), true);
+        return 1;
+    }
+
+    private static int adminRemovePersonalByPlayer(CommandSourceStack source, ServerPlayer target) {
+        FactionData data = FactionData.get(source.getLevel());
+        int removed = data.removeAllPersonalClaims(target.getUUID());
+        if (removed == 0) {
+            source.sendFailure(Component.literal("That player has no personal claims."));
+            return 0;
+        }
+        source.sendSuccess(() -> Component.literal("Removed " + removed + " personal claim(s) owned by "
+            + target.getGameProfile().getName() + "."), true);
+        return 1;
+    }
+
+    private static int adminWipePersonalClaims(CommandSourceStack source, String confirm) {
+        if (source.getEntity() == null) {
+            source.sendFailure(Component.literal("This command must be run by a player for confirmation safety."));
+            return 0;
+        }
+        UUID requester = source.getEntity().getUUID();
+        if (confirm == null || confirm.isBlank()) {
+            PERSONAL_WIPE_CONFIRMATIONS.put(requester, System.currentTimeMillis() + CONFIRM_TIMEOUT_MILLIS);
+            source.sendSuccess(() -> Component.literal("Are you sure? Type /faction admin personal wipe yes to continue or /faction admin personal wipe no to cancel."), false);
+            return 1;
+        }
+        String answer = confirm.trim().toLowerCase(Locale.ROOT);
+        if ("no".equals(answer)) {
+            PERSONAL_WIPE_CONFIRMATIONS.remove(requester);
+            source.sendSuccess(() -> Component.literal("Cancelled personal-claim wipe."), false);
+            return 1;
+        }
+        if (!"yes".equals(answer)) {
+            source.sendFailure(Component.literal("Please answer yes or no."));
+            return 0;
+        }
+        Long expiresAt = PERSONAL_WIPE_CONFIRMATIONS.get(requester);
+        if (expiresAt == null || expiresAt < System.currentTimeMillis()) {
+            PERSONAL_WIPE_CONFIRMATIONS.remove(requester);
+            source.sendFailure(Component.literal("Confirmation expired. Run the wipe command again."));
+            return 0;
+        }
+        PERSONAL_WIPE_CONFIRMATIONS.remove(requester);
+        FactionData data = FactionData.get(source.getLevel());
+        int removed = data.clearPersonalClaims();
+        source.sendSuccess(() -> Component.literal("Removed all personal claims on the server (" + removed + ")."), true);
+        return 1;
+    }
+
     private static int claimSafeZone(CommandSourceStack source, String factionName) throws CommandSyntaxException {
         ServerPlayer player = source.getPlayerOrException();
         ChunkPos chunk = new ChunkPos(player.blockPosition());
@@ -1402,8 +1478,8 @@ public final class FactionCommands {
             source.sendFailure(Component.literal("Faction home is no longer inside your claimed chunks."));
             return 0;
         }
-        player.teleportTo(level, pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5, player.getYRot(), player.getXRot());
-        source.sendSuccess(() -> Component.literal("Teleported to faction home."), true);
+        HomeTeleportManager.startTeleport(player, level, pos);
+        source.sendSuccess(() -> Component.literal("Home teleport countdown started (20s)."), true);
         return 1;
     }
 
