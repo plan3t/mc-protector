@@ -219,6 +219,10 @@ public final class FactionConfig {
         public final ModConfigSpec.ConfigValue<Boolean> allowDoorUseInClaims;
         public final ModConfigSpec.ConfigValue<Boolean> trustedAllowBuild;
         public final ModConfigSpec.ConfigValue<Boolean> allowFakePlayerActionsInClaims;
+        public final ModConfigSpec.ConfigValue<Boolean> enablePersonalClaims;
+        public final ModConfigSpec.ConfigValue<Boolean> personalClaimsRequireFactionClaim;
+        public final ModConfigSpec.ConfigValue<Boolean> personalClaimsUseFactionLevelLimit;
+        public final ModConfigSpec.ConfigValue<Integer> maxPersonalClaimsPerPlayer;
         public final ModConfigSpec.ConfigValue<Integer> adminBypassPermissionLevel;
         public final ModConfigSpec.ConfigValue<Integer> accessLogSize;
         public final ModConfigSpec.ConfigValue<Boolean> dynmapFullSyncOnStart;
@@ -329,6 +333,18 @@ public final class FactionConfig {
             allowFakePlayerActionsInClaims = builder
                 .comment("Allow fake players (automation) to interact inside claimed chunks.")
                 .define("allowFakePlayerActionsInClaims", false);
+            enablePersonalClaims = builder
+                .comment("Enable personal claim chunks.")
+                .define("enablePersonalClaims", true);
+            personalClaimsRequireFactionClaim = builder
+                .comment("Require personal claims to be inside your faction's claimed chunks.")
+                .define("personalClaimsRequireFactionClaim", true);
+            personalClaimsUseFactionLevelLimit = builder
+                .comment("Limit each player's personal claim count to their faction level.")
+                .define("personalClaimsUseFactionLevelLimit", true);
+            maxPersonalClaimsPerPlayer = builder
+                .comment("Maximum personal claims per player when level-based limit is disabled.")
+                .defineInRange("maxPersonalClaimsPerPlayer", 3, 0, 1024);
             adminBypassPermissionLevel = builder
                 .comment("Permission level required to bypass claim protections (default 2).")
                 .define("adminBypassPermissionLevel", 2);

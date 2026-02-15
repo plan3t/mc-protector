@@ -27,7 +27,7 @@ import java.util.UUID;
 
 public class FactionData extends SavedData {
     private static final String DATA_NAME = "mcprotector_factions";
-    private static final int DATA_VERSION = 11;
+    private static final int DATA_VERSION = 12;
 
     private final Map<UUID, Faction> factions = new HashMap<>();
     private final Map<UUID, UUID> playerFaction = new HashMap<>();
@@ -45,6 +45,9 @@ public class FactionData extends SavedData {
     private final Map<UUID, Boolean> autoClaimSettings = new HashMap<>();
     private final Map<UUID, Boolean> borderSettings = new HashMap<>();
     private final Map<UUID, FactionHome> factionHomes = new HashMap<>();
+    private final Map<String, Long> warDeclaredAt = new HashMap<>();
+    private final Map<String, UUID> warDeclaredBy = new HashMap<>();
+    private final Map<String, WarEndRequest> pendingWarEndRequests = new HashMap<>();
 
     public static FactionData get(ServerLevel level) {
         return level.getDataStorage().computeIfAbsent(
@@ -297,6 +300,33 @@ public class FactionData extends SavedData {
                 }
             }
         }
+        if (dataVersion >= 12 && tag.contains("WarStates")) {
+            ListTag warTag = tag.getList("WarStates", Tag.TAG_COMPOUND);
+            for (Tag entry : warTag) {
+                CompoundTag warState = (CompoundTag) entry;
+                UUID first = warState.getUUID("First");
+                UUID second = warState.getUUID("Second");
+                String key = createWarPairKey(first, second);
+                if (warState.contains("DeclaredAt")) {
+                    data.warDeclaredAt.put(key, warState.getLong("DeclaredAt"));
+                }
+                if (warState.contains("DeclaredBy")) {
+                    data.warDeclaredBy.put(key, warState.getUUID("DeclaredBy"));
+                }
+            }
+        }
+        if (dataVersion >= 12 && tag.contains("WarEndRequests")) {
+            ListTag requestsTag = tag.getList("WarEndRequests", Tag.TAG_COMPOUND);
+            for (Tag entry : requestsTag) {
+                CompoundTag requestTag = (CompoundTag) entry;
+                UUID first = requestTag.getUUID("First");
+                UUID second = requestTag.getUUID("Second");
+                String key = createWarPairKey(first, second);
+                UUID requester = requestTag.getUUID("Requester");
+                long createdAt = requestTag.getLong("CreatedAt");
+                data.pendingWarEndRequests.put(key, new WarEndRequest(requester, createdAt));
+            }
+        }
         return data;
     }
 
@@ -318,6 +348,9 @@ public class FactionData extends SavedData {
         autoClaimSettings.clear();
         borderSettings.clear();
         factionHomes.clear();
+        warDeclaredAt.clear();
+        warDeclaredBy.clear();
+        pendingWarEndRequests.clear();
         factions.putAll(loaded.factions);
         playerFaction.putAll(loaded.playerFaction);
         claims.putAll(loaded.claims);
@@ -334,6 +367,9 @@ public class FactionData extends SavedData {
         autoClaimSettings.putAll(loaded.autoClaimSettings);
         borderSettings.putAll(loaded.borderSettings);
         factionHomes.putAll(loaded.factionHomes);
+        warDeclaredAt.putAll(loaded.warDeclaredAt);
+        warDeclaredBy.putAll(loaded.warDeclaredBy);
+        pendingWarEndRequests.putAll(loaded.pendingWarEndRequests);
         setDirty();
     }
 
@@ -543,6 +579,37 @@ public class FactionData extends SavedData {
             homesTag.add(homeTag);
         }
         tag.put("Homes", homesTag);
+        ListTag warTag = new ListTag();
+        for (Map.Entry<String, Long> entry : warDeclaredAt.entrySet()) {
+            UUID[] pair = parseWarPairKey(entry.getKey());
+            if (pair == null) {
+                continue;
+            }
+            CompoundTag warState = new CompoundTag();
+            warState.putUUID("First", pair[0]);
+            warState.putUUID("Second", pair[1]);
+            warState.putLong("DeclaredAt", entry.getValue());
+            UUID declarer = warDeclaredBy.get(entry.getKey());
+            if (declarer != null) {
+                warState.putUUID("DeclaredBy", declarer);
+            }
+            warTag.add(warState);
+        }
+        tag.put("WarStates", warTag);
+        ListTag requestTag = new ListTag();
+        for (Map.Entry<String, WarEndRequest> entry : pendingWarEndRequests.entrySet()) {
+            UUID[] pair = parseWarPairKey(entry.getKey());
+            if (pair == null) {
+                continue;
+            }
+            CompoundTag request = new CompoundTag();
+            request.putUUID("First", pair[0]);
+            request.putUUID("Second", pair[1]);
+            request.putUUID("Requester", entry.getValue().requesterFactionId());
+            request.putLong("CreatedAt", entry.getValue().createdAt());
+            requestTag.add(request);
+        }
+        tag.put("WarEndRequests", requestTag);
         return tag;
     }
 
@@ -849,6 +916,10 @@ public class FactionData extends SavedData {
         pendingAllyInvites.entrySet().removeIf(entry -> entry.getValue().proposerId().equals(factionId));
         vassalContracts.entrySet().removeIf(entry -> entry.getValue().overlordId().equals(factionId));
         vassalBreakaways.entrySet().removeIf(entry -> entry.getValue().overlordId().equals(factionId));
+        warDeclaredAt.entrySet().removeIf(entry -> entry.getKey().contains(factionId.toString()));
+        warDeclaredBy.entrySet().removeIf(entry -> entry.getKey().contains(factionId.toString()) || factionId.equals(entry.getValue()));
+        pendingWarEndRequests.entrySet().removeIf(entry -> entry.getKey().contains(factionId.toString())
+            || factionId.equals(entry.getValue().requesterFactionId()));
         setDirty();
     }
 
@@ -1100,6 +1171,12 @@ public class FactionData extends SavedData {
     public void setRelation(UUID source, UUID target, FactionRelation relation) {
         relations.computeIfAbsent(source, key -> new HashMap<>()).put(target, relation);
         relations.computeIfAbsent(target, key -> new HashMap<>()).put(source, relation);
+        if (relation != FactionRelation.WAR) {
+            String key = createWarPairKey(source, target);
+            warDeclaredAt.remove(key);
+            warDeclaredBy.remove(key);
+            pendingWarEndRequests.remove(key);
+        }
         setDirty();
     }
 
@@ -1112,6 +1189,10 @@ public class FactionData extends SavedData {
         if (targetRelations != null) {
             targetRelations.remove(source);
         }
+        String key = createWarPairKey(source, target);
+        warDeclaredAt.remove(key);
+        warDeclaredBy.remove(key);
+        pendingWarEndRequests.remove(key);
         setDirty();
     }
 
@@ -1138,6 +1219,88 @@ public class FactionData extends SavedData {
             }
         }
         return false;
+    }
+
+    public long recordWarDeclaration(UUID source, UUID target) {
+        long now = System.currentTimeMillis();
+        String key = createWarPairKey(source, target);
+        warDeclaredAt.put(key, now);
+        warDeclaredBy.put(key, source);
+        pendingWarEndRequests.remove(key);
+        setDirty();
+        return now;
+    }
+
+    public Optional<Long> getWarDeclaredAt(UUID source, UUID target) {
+        return Optional.ofNullable(warDeclaredAt.get(createWarPairKey(source, target)));
+    }
+
+    public Optional<UUID> getWarDeclarer(UUID source, UUID target) {
+        return Optional.ofNullable(warDeclaredBy.get(createWarPairKey(source, target)));
+    }
+
+    public Optional<WarEndRequest> getWarEndRequest(UUID source, UUID target) {
+        String key = createWarPairKey(source, target);
+        WarEndRequest request = pendingWarEndRequests.get(key);
+        if (request == null) {
+            return Optional.empty();
+        }
+        if (request.createdAt() + 120_000L < System.currentTimeMillis()) {
+            pendingWarEndRequests.remove(key);
+            setDirty();
+            return Optional.empty();
+        }
+        return Optional.of(request);
+    }
+
+    public void requestWarEnd(UUID source, UUID target, UUID requesterFactionId) {
+        String key = createWarPairKey(source, target);
+        pendingWarEndRequests.put(key, new WarEndRequest(requesterFactionId, System.currentTimeMillis()));
+        setDirty();
+    }
+
+    public void clearWarEndRequest(UUID source, UUID target) {
+        String key = createWarPairKey(source, target);
+        if (pendingWarEndRequests.remove(key) != null) {
+            setDirty();
+        }
+    }
+
+    public void clearWarState(UUID source, UUID target) {
+        String key = createWarPairKey(source, target);
+        warDeclaredAt.remove(key);
+        warDeclaredBy.remove(key);
+        pendingWarEndRequests.remove(key);
+        setDirty();
+    }
+
+    public int getPersonalClaimCount(UUID playerId) {
+        int count = 0;
+        for (UUID id : personalClaims.values()) {
+            if (playerId.equals(id)) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    public int removeAllPersonalClaims(UUID playerId) {
+        int before = personalClaims.size();
+        personalClaims.values().removeIf(playerId::equals);
+        int removed = before - personalClaims.size();
+        if (removed > 0) {
+            setDirty();
+        }
+        return removed;
+    }
+
+    public int clearPersonalClaims() {
+        int removed = personalClaims.size();
+        if (removed > 0) {
+            personalClaims.clear();
+            setDirty();
+        }
+        return removed;
     }
 
     public int getFactionLevel(UUID factionId) {
@@ -1252,6 +1415,27 @@ public class FactionData extends SavedData {
             return getFactionLevel(factionId) >= FactionConfig.SERVER.strictProtectionMinLevel.get();
         }
         return true;
+    }
+
+    private static String createWarPairKey(UUID source, UUID target) {
+        String a = source.toString();
+        String b = target.toString();
+        return a.compareTo(b) <= 0 ? a + "|" + b : b + "|" + a;
+    }
+
+    private static UUID[] parseWarPairKey(String key) {
+        String[] parts = key.split("\\|", 2);
+        if (parts.length != 2) {
+            return null;
+        }
+        try {
+            return new UUID[]{UUID.fromString(parts[0]), UUID.fromString(parts[1])};
+        } catch (IllegalArgumentException ex) {
+            return null;
+        }
+    }
+
+    public record WarEndRequest(UUID requesterFactionId, long createdAt) {
     }
 
     public record FactionInvite(UUID factionId, long expiresAt) {

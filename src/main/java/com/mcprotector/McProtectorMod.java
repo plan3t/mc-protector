@@ -11,6 +11,7 @@ import com.mcprotector.network.FactionClaimMapPacket;
 import com.mcprotector.network.FactionStatePacket;
 import com.mcprotector.network.NetworkHandler;
 import com.mcprotector.protection.ClaimProtectionHandler;
+import com.mcprotector.service.HomeTeleportManager;
 import com.mcprotector.service.SiegeManager;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.common.Mod;
@@ -47,6 +48,7 @@ public class McProtectorMod {
         NeoForge.EVENT_BUS.register(new ClaimProtectionHandler());
         NeoForge.EVENT_BUS.register(new FactionChatHandler());
         NeoForge.EVENT_BUS.register(new FactionClaimHandler());
+        NeoForge.EVENT_BUS.register(new HomeTeleportManager());
     }
 
     private void onCommonSetup(FMLCommonSetupEvent event) {
