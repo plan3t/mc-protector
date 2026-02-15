@@ -20,6 +20,7 @@ import java.util.Deque;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -628,6 +629,77 @@ public class FactionData extends SavedData {
             .findFirst();
     }
 
+    public boolean hasSimilarFactionName(String name, UUID excludedFactionId) {
+        String normalized = normalizeFactionName(name);
+        if (normalized.isEmpty()) {
+            return false;
+        }
+        for (Faction faction : factions.values()) {
+            if (excludedFactionId != null && faction.getId().equals(excludedFactionId)) {
+                continue;
+            }
+            if (isVerySimilarFactionName(normalized, normalizeFactionName(faction.getName()))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean isVerySimilarFactionName(String first, String second) {
+        if (first.isEmpty() || second.isEmpty()) {
+            return false;
+        }
+        if (first.equals(second)) {
+            return true;
+        }
+        int lengthDifference = Math.abs(first.length() - second.length());
+        if ((first.startsWith(second) || second.startsWith(first)) && lengthDifference <= 2) {
+            return true;
+        }
+        if (Math.min(first.length(), second.length()) < 4) {
+            return false;
+        }
+        int threshold = Math.min(first.length(), second.length()) >= 10 ? 2 : 1;
+        if (lengthDifference > threshold) {
+            return false;
+        }
+        return levenshteinDistance(first, second) <= threshold;
+    }
+
+    private static int levenshteinDistance(String first, String second) {
+        int[] previous = new int[second.length() + 1];
+        int[] current = new int[second.length() + 1];
+        for (int j = 0; j <= second.length(); j++) {
+            previous[j] = j;
+        }
+        for (int i = 1; i <= first.length(); i++) {
+            current[0] = i;
+            for (int j = 1; j <= second.length(); j++) {
+                int substitutionCost = first.charAt(i - 1) == second.charAt(j - 1) ? 0 : 1;
+                current[j] = Math.min(
+                    Math.min(current[j - 1] + 1, previous[j] + 1),
+                    previous[j - 1] + substitutionCost
+                );
+            }
+            int[] swap = previous;
+            previous = current;
+            current = swap;
+        }
+        return previous[second.length()];
+    }
+
+    private static String normalizeFactionName(String name) {
+        String trimmed = name == null ? "" : name.trim().toLowerCase(Locale.ROOT);
+        StringBuilder builder = new StringBuilder(trimmed.length());
+        for (int i = 0; i < trimmed.length(); i++) {
+            char ch = trimmed.charAt(i);
+            if (Character.isLetterOrDigit(ch)) {
+                builder.append(ch);
+            }
+        }
+        return builder.toString();
+    }
+
     public boolean renameFaction(UUID factionId, String newName) {
         Faction faction = factions.get(factionId);
         if (faction == null) {
@@ -637,8 +709,7 @@ public class FactionData extends SavedData {
         if (trimmed.isEmpty()) {
             return false;
         }
-        Optional<Faction> existing = findFactionByName(trimmed);
-        if (existing.isPresent() && !existing.get().getId().equals(factionId)) {
+        if (hasSimilarFactionName(trimmed, factionId)) {
             return false;
         }
         faction.setName(trimmed);
