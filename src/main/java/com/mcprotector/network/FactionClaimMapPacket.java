@@ -222,12 +222,12 @@ public class FactionClaimMapPacket implements CustomPacketPayload {
         if (personal) {
             return PERSONAL_CLAIM_COLOR;
         }
-        return switch (relation) {
+        return resolveFactionColor(faction).orElseGet(() -> switch (relation) {
             case "OWN" -> 0xFF4CAF50;
             case "ALLY" -> 0xFF4FC3F7;
             case "WAR" -> 0xFFEF5350;
-            default -> resolveFactionColor(faction).orElse(0xFF8D8D8D);
-        };
+            default -> 0xFF8D8D8D;
+        });
     }
 
     private static Optional<Integer> resolveFactionColor(Optional<Faction> faction) {

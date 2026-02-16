@@ -213,7 +213,7 @@ public class Faction {
     }
 
     public void setColorName(String colorName) {
-        this.colorName = colorName;
+        this.colorName = FactionConfig.normalizeFactionHexColor(colorName);
     }
 
     public String getMotd() {
@@ -267,7 +267,7 @@ public class Faction {
     }
 
     private void applyDefaults() {
-        colorName = FactionConfig.getDefaultColorName();
+        colorName = FactionConfig.normalizeFactionHexColor(FactionConfig.getDefaultColorName());
         motd = FactionConfig.getDefaultMotd();
         description = FactionConfig.getDefaultDescription();
         bannerColor = FactionConfig.getDefaultBannerColor();
