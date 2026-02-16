@@ -79,6 +79,9 @@ public class FactionMainScreen extends Screen {
     private EditBox safeZoneFactionField;
     private Button claimTypeButton;
     private Button submitClaimsButton;
+    private Button mapBackgroundButton;
+    private Button mapZoomOutButton;
+    private Button mapZoomInButton;
     private int roleIndex;
     private int permissionIndex;
     private int memberRoleIndex;
@@ -228,6 +231,24 @@ public class FactionMainScreen extends Screen {
             .build());
         submitClaimsButton = this.addRenderableWidget(Button.builder(Component.literal("✓"), button -> promptClaimConfirm())
             .bounds(panelX(SAFEZONE_FIELD_WIDTH + CLAIM_CONTROL_GAP + 124), controlRowOne - 2, scaledWidth(16), 16)
+            .build());
+        mapBackgroundButton = this.addRenderableWidget(Button.builder(Component.literal("Bg: Off"), button -> {
+                FactionMapClientData.cycleBackgroundMode();
+                updateMapBackgroundControls();
+            })
+            .bounds(panelLeft, controlRowOne + 20, 86, 16)
+            .build());
+        mapZoomOutButton = this.addRenderableWidget(Button.builder(Component.literal("-"), button -> {
+                FactionMapClientData.adjustZoom(-1);
+                updateMapBackgroundControls();
+            })
+            .bounds(panelLeft + 90, controlRowOne + 20, 16, 16)
+            .build());
+        mapZoomInButton = this.addRenderableWidget(Button.builder(Component.literal("+"), button -> {
+                FactionMapClientData.adjustZoom(1);
+                updateMapBackgroundControls();
+            })
+            .bounds(panelLeft + 110, controlRowOne + 20, 16, 16)
             .build());
 
         updateVisibility();
@@ -492,6 +513,9 @@ public class FactionMainScreen extends Screen {
         boolean mapTab = selectedTab == FactionTab.FACTION_MAP;
         claimTypeButton.visible = mapTab;
         submitClaimsButton.visible = mapTab;
+        mapBackgroundButton.visible = mapTab;
+        mapZoomOutButton.visible = mapTab;
+        mapZoomInButton.visible = mapTab;
         safeZoneFactionField.setVisible(mapTab && selectedClaimType == ClaimType.SAFEZONE && isOperator());
         if (!mapTab) {
             selectionActive = false;
@@ -835,6 +859,7 @@ public class FactionMainScreen extends Screen {
             selectedClaimType = options.get(0);
         }
         updateClaimTypeButtonLabel(snapshot);
+        updateMapBackgroundControls();
     }
 
     private void updateClaimTypeButtonLabel() {
@@ -1144,6 +1169,7 @@ public class FactionMainScreen extends Screen {
             FactionMapRenderer.renderMapTooltip(guiGraphics, mapSnapshot, hovered, mouseX, mouseY, this.font);
         }
         renderMapLegend(guiGraphics, region);
+        renderMapBackgroundStatus(guiGraphics, region, mapSnapshot.backgroundState());
         mapClaimsScrollOffset = renderMapClaimsList(guiGraphics, snapshot.claims(), region, mapClaimsScrollOffset);
         if (!selectedChunks.isEmpty()) {
             guiGraphics.drawString(this.font, "Selected " + selectedChunks.size() + " chunk(s)",
@@ -1216,6 +1242,32 @@ public class FactionMainScreen extends Screen {
             centerY - this.font.lineHeight / 2, color);
     }
 
+
+    private void renderMapBackgroundStatus(GuiGraphics guiGraphics, FactionMapRenderer.MapRegion region,
+                                           FactionMapClientData.MapBackgroundState backgroundState) {
+        if (backgroundState == null || !backgroundState.available()) {
+            guiGraphics.drawString(this.font, "Background: Off", getPanelLeft(), region.originY() - 10, 0x777777);
+            return;
+        }
+        String status = backgroundState.enabled()
+            ? "Background: " + backgroundState.providerType().name() + " z" + backgroundState.zoom()
+            : "Background: Off";
+        guiGraphics.drawString(this.font, status, getPanelLeft(), region.originY() - 10, backgroundState.enabled() ? 0xA5D6A7 : 0x777777);
+    }
+
+    private void updateMapBackgroundControls() {
+        if (mapBackgroundButton == null || mapZoomOutButton == null || mapZoomInButton == null) {
+            return;
+        }
+        FactionMapClientData.MapBackgroundState state = FactionMapClientData.getSnapshot().backgroundState();
+        boolean available = state != null && state.available();
+        boolean enabled = available && state.enabled();
+        mapBackgroundButton.setMessage(Component.literal(enabled ? "Bg: On" : "Bg: Off"));
+        mapBackgroundButton.active = available;
+        mapZoomOutButton.active = enabled && state.zoom() > state.minZoom();
+        mapZoomInButton.active = enabled && state.zoom() < state.maxZoom();
+    }
+
     private int getContentStart(FactionClientData.FactionSnapshot snapshot) {
         boolean hasControls = selectedTab == FactionTab.INVITES
             || selectedTab == FactionTab.PERMISSIONS
@@ -1276,6 +1328,15 @@ public class FactionMainScreen extends Screen {
         claimTypeButton.setY(controlsY);
         submitClaimsButton.setX(claimTypeButton.getX() + claimTypeWidth + claimGap);
         submitClaimsButton.setY(controlsY);
+        int backgroundControlsY = Math.max(panelTop + CONTROL_TOP_OFFSET, controlsY - 18);
+        int bgX = getPanelLeft();
+        mapBackgroundButton.setX(bgX);
+        mapBackgroundButton.setY(backgroundControlsY);
+        mapZoomOutButton.setX(bgX + mapBackgroundButton.getWidth() + 4);
+        mapZoomOutButton.setY(backgroundControlsY);
+        mapZoomInButton.setX(bgX + mapBackgroundButton.getWidth() + 24);
+        mapZoomInButton.setY(backgroundControlsY);
+        updateMapBackgroundControls();
     }
 
     private enum ClaimType {
