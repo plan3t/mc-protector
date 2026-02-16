@@ -31,7 +31,7 @@ public class HomeTeleportManager {
             return;
         }
         PENDING.put(player.getUUID(), new PendingHomeTeleport(level, pos, faction.get().getId(), player.position(),
-            System.currentTimeMillis(), System.currentTimeMillis()));
+            System.currentTimeMillis()));
         player.sendSystemMessage(Component.literal("Starting Home Teleport Sequence: Don't move!"));
     }
 
@@ -59,9 +59,8 @@ public class HomeTeleportManager {
             }
             int elapsed = (int) ((System.currentTimeMillis() - pending.startedAt()) / 1000L);
             int remaining = Math.max(0, TELEPORT_DELAY_SECONDS - elapsed);
-            if (System.currentTimeMillis() - pending.lastNoticeAt() >= 1000L) {
+            if (pending.shouldSendCountdownNotice(remaining)) {
                 player.sendSystemMessage(Component.literal("Home teleport in " + remaining + "s..."));
-                pending.lastNoticeAt = System.currentTimeMillis();
             }
             if (remaining > 0) {
                 continue;
@@ -133,16 +132,16 @@ public class HomeTeleportManager {
         private final UUID factionId;
         private final Vec3 startPos;
         private final long startedAt;
-        private long lastNoticeAt;
+        private int lastNoticeRemaining;
         private long lastParticleAt;
 
-        private PendingHomeTeleport(ServerLevel level, BlockPos targetPos, UUID factionId, Vec3 startPos, long startedAt, long lastNoticeAt) {
+        private PendingHomeTeleport(ServerLevel level, BlockPos targetPos, UUID factionId, Vec3 startPos, long startedAt) {
             this.level = level;
             this.targetPos = targetPos;
             this.factionId = factionId;
             this.startPos = startPos;
             this.startedAt = startedAt;
-            this.lastNoticeAt = lastNoticeAt;
+            this.lastNoticeRemaining = Integer.MIN_VALUE;
             this.lastParticleAt = startedAt;
         }
 
@@ -166,12 +165,16 @@ public class HomeTeleportManager {
             return startedAt;
         }
 
-        private long lastNoticeAt() {
-            return lastNoticeAt;
-        }
-
         private long lastParticleAt() {
             return lastParticleAt;
+        }
+
+        private boolean shouldSendCountdownNotice(int remaining) {
+            if (remaining == lastNoticeRemaining) {
+                return false;
+            }
+            lastNoticeRemaining = remaining;
+            return remaining == 10 || (remaining <= 3 && remaining > 0);
         }
     }
 }
