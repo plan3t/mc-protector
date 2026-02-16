@@ -14,6 +14,7 @@ import com.mcprotector.data.FactionRelation;
 import com.mcprotector.protection.FactionBypassManager;
 import com.mcprotector.webmap.WebmapBridge;
 import com.mcprotector.service.FactionService;
+import com.mcprotector.service.HomeTeleportManager;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
@@ -34,9 +35,13 @@ import net.minecraft.core.BlockPos;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -45,6 +50,7 @@ public final class FactionCommands {
     private static final long CONFIRM_TIMEOUT_MILLIS = 10_000L;
     private static final ConcurrentHashMap<UUID, Long> DISBAND_CONFIRMATIONS = new ConcurrentHashMap<>();
     private static final ConcurrentHashMap<UUID, Long> OVERTAKE_CONFIRMATIONS = new ConcurrentHashMap<>();
+    private static final ConcurrentHashMap<UUID, Long> PERSONAL_WIPE_CONFIRMATIONS = new ConcurrentHashMap<>();
     private FactionCommands() {
     }
 
@@ -62,6 +68,8 @@ public final class FactionCommands {
                         .executes(context -> confirmDisband(context.getSource()))))
                 .then(Commands.literal("claim")
                     .executes(context -> claimChunk(context.getSource()))
+                    .then(Commands.literal("fill")
+                        .executes(context -> fillClaims(context.getSource())))
                     .then(Commands.literal("auto")
                         .executes(context -> toggleAutoClaim(context.getSource(), null))
                         .then(Commands.argument("state", StringArgumentType.word())
@@ -75,6 +83,10 @@ public final class FactionCommands {
                         .executes(context -> confirmOvertake(context.getSource()))))
                 .then(Commands.literal("info")
                     .executes(context -> factionInfo(context.getSource())))
+                .then(Commands.literal("show")
+                    .then(Commands.argument("faction", StringArgumentType.greedyString())
+                        .suggests(FactionCommandSuggestions::factionNames)
+                        .executes(context -> showFaction(context.getSource(), StringArgumentType.getString(context, "faction")))))
                 .then(Commands.literal("help")
                     .executes(context -> factionHelp(context.getSource(), 1))
                     .then(Commands.argument("page", IntegerArgumentType.integer(1, 4))
@@ -147,7 +159,7 @@ public final class FactionCommands {
                         .executes(context -> clearDescription(context.getSource()))))
                 .then(Commands.literal("color")
                     .executes(context -> showColor(context.getSource()))
-                    .then(Commands.argument("color", StringArgumentType.word())
+                    .then(Commands.argument("color", StringArgumentType.greedyString())
                         .executes(context -> setColor(context.getSource(), StringArgumentType.getString(context, "color")))))
                 .then(Commands.literal("rank")
                     .then(Commands.literal("list")
@@ -164,7 +176,7 @@ public final class FactionCommands {
                 .then(Commands.literal("banner")
                     .executes(context -> showBanner(context.getSource()))
                     .then(Commands.literal("set")
-                        .then(Commands.argument("color", StringArgumentType.word())
+                        .then(Commands.argument("color", StringArgumentType.greedyString())
                             .executes(context -> setBanner(context.getSource(), StringArgumentType.getString(context, "color")))))
                     .then(Commands.literal("clear")
                         .executes(context -> clearBanner(context.getSource()))))
@@ -218,13 +230,6 @@ public final class FactionCommands {
                         .executes(context -> unclaimSafeZone(context.getSource()))))
                 .then(Commands.literal("boost")
                     .requires(source -> source.hasPermission(FactionConfig.SERVER.adminBypassPermissionLevel.get()))
-                    .then(Commands.argument("faction", StringArgumentType.string())
-                        .suggests(FactionCommandSuggestions::factionNames)
-                        .then(Commands.argument("amount", IntegerArgumentType.integer(0))
-                            .executes(context -> setClaimBoost(
-                                context.getSource(),
-                                StringArgumentType.getString(context, "faction"),
-                                IntegerArgumentType.getInteger(context, "amount")))))
                     .then(Commands.argument("amount", IntegerArgumentType.integer(0))
                         .then(Commands.argument("faction", StringArgumentType.greedyString())
                             .suggests(FactionCommandSuggestions::factionNames)
@@ -232,6 +237,39 @@ public final class FactionCommands {
                                 context.getSource(),
                                 StringArgumentType.getString(context, "faction"),
                                 IntegerArgumentType.getInteger(context, "amount"))))))
+                .then(Commands.literal("admin")
+                    .requires(source -> source.hasPermission(FactionConfig.SERVER.adminBypassPermissionLevel.get()))
+                    .then(Commands.literal("disband")
+                        .then(Commands.argument("faction", StringArgumentType.greedyString())
+                            .suggests(FactionCommandSuggestions::factionNames)
+                            .executes(context -> adminDisbandFaction(context.getSource(), StringArgumentType.getString(context, "faction")))))
+                    .then(Commands.literal("rename")
+                        .then(Commands.argument("faction", StringArgumentType.string())
+                            .suggests(FactionCommandSuggestions::factionNames)
+                            .then(Commands.argument("name", StringArgumentType.greedyString())
+                                .executes(context -> adminRenameFaction(
+                                    context.getSource(),
+                                    StringArgumentType.getString(context, "faction"),
+                                    StringArgumentType.getString(context, "name"))))))
+                    .then(Commands.literal("claim")
+                        .then(Commands.argument("faction", StringArgumentType.greedyString())
+                            .suggests(FactionCommandSuggestions::factionNames)
+                            .executes(context -> adminClaimChunk(context.getSource(), StringArgumentType.getString(context, "faction")))))
+                    .then(Commands.literal("unclaim")
+                        .then(Commands.argument("faction", StringArgumentType.greedyString())
+                            .suggests(FactionCommandSuggestions::factionNames)
+                            .executes(context -> adminUnclaimFactionChunk(context.getSource(), StringArgumentType.getString(context, "faction")))))
+                    .then(Commands.literal("personal")
+                        .then(Commands.literal("removechunk")
+                            .executes(context -> adminRemovePersonalChunk(context.getSource())))
+                        .then(Commands.literal("removeplayer")
+                            .then(Commands.argument("player", EntityArgument.player())
+                                .executes(context -> adminRemovePersonalByPlayer(context.getSource(), EntityArgument.getPlayer(context, "player")))))
+                        .then(Commands.literal("wipe")
+                            .executes(context -> adminWipePersonalClaims(context.getSource(), null))
+                            .then(Commands.argument("confirm", StringArgumentType.word())
+                                .suggests(FactionCommandSuggestions::yesNo)
+                                .executes(context -> adminWipePersonalClaims(context.getSource(), StringArgumentType.getString(context, "confirm")))))))
                 .then(Commands.literal("data")
                     .then(Commands.literal("backup")
                         .executes(context -> backupData(context.getSource())))
@@ -257,6 +295,10 @@ public final class FactionCommands {
         int maxLength = FactionConfig.SERVER.maxFactionNameLength.get();
         if (trimmed.length() > maxLength) {
             source.sendFailure(Component.literal("Faction name cannot exceed " + maxLength + " characters."));
+            return 0;
+        }
+        if (data.hasSimilarFactionName(trimmed, null)) {
+            source.sendFailure(Component.literal("A faction with that name or a very similar one already exists."));
             return 0;
         }
         Faction faction = data.createFaction(trimmed, player);
@@ -287,7 +329,7 @@ public final class FactionCommands {
             return 0;
         }
         if (!data.renameFaction(faction.get().getId(), trimmed)) {
-            source.sendFailure(Component.literal("A faction with that name already exists."));
+            source.sendFailure(Component.literal("A faction with that name or a very similar one already exists."));
             return 0;
         }
         source.sendSuccess(() -> Component.literal("Faction renamed to " + trimmed + "."), true);
@@ -314,7 +356,7 @@ public final class FactionCommands {
                 source.sendSuccess(() -> Component.literal("Chat: /faction chat [public|faction|ally], /faction chat toggle"), false);
             }
             case 4 -> {
-                source.sendSuccess(() -> Component.literal("Admin: /faction safezone claim|unclaim, boost, data backup|restore"), false);
+                source.sendSuccess(() -> Component.literal("Admin: /faction safezone claim|unclaim, boost <value> <faction>, admin disband|rename|claim|unclaim"), false);
                 source.sendSuccess(() -> Component.literal("Admin: /faction bypass [on|off]"), false);
                 source.sendSuccess(() -> Component.literal("Tip: run /faction help <1-4> to view all sections."), false);
             }
@@ -334,6 +376,10 @@ public final class FactionCommands {
         }
         if (!faction.get().getOwner().equals(player.getUUID())) {
             source.sendFailure(Component.literal("Only the owner can disband the faction."));
+            return 0;
+        }
+        if (data.getOverlord(faction.get().getId()).isPresent()) {
+            source.sendFailure(Component.literal("Vassal factions cannot disband while under an overlord."));
             return 0;
         }
         DISBAND_CONFIRMATIONS.put(player.getUUID(), System.currentTimeMillis());
@@ -356,6 +402,10 @@ public final class FactionCommands {
         }
         if (!faction.get().getOwner().equals(player.getUUID())) {
             source.sendFailure(Component.literal("Only the owner can disband the faction."));
+            return 0;
+        }
+        if (data.getOverlord(faction.get().getId()).isPresent()) {
+            source.sendFailure(Component.literal("Vassal factions cannot disband while under an overlord."));
             return 0;
         }
         UUID factionId = faction.get().getId();
@@ -448,6 +498,157 @@ public final class FactionCommands {
             + "\nDescription: " + faction.get().getDescription()
             + "\nBanner: " + faction.get().getBannerColor();
         source.sendSuccess(() -> Component.literal(message), false);
+        return 1;
+    }
+
+
+    private static int showFaction(CommandSourceStack source, String factionName) {
+        String trimmed = factionName == null ? "" : factionName.trim();
+        if (trimmed.isEmpty()) {
+            source.sendFailure(Component.literal("Faction name cannot be blank."));
+            return 0;
+        }
+        FactionData data = FactionData.get(source.getLevel());
+        Optional<Faction> faction = data.findFactionByName(trimmed);
+        if (faction.isEmpty()) {
+            source.sendFailure(Component.literal("Faction not found."));
+            return 0;
+        }
+        int claims = data.getClaimCount(faction.get().getId());
+        int maxClaims = data.getMaxClaims(faction.get().getId());
+        int level = data.getFactionLevel(faction.get().getId());
+        StringBuilder members = new StringBuilder();
+        faction.get().getMembers().forEach((uuid, role) -> {
+            if (!members.isEmpty()) {
+                members.append(", ");
+            }
+            members.append(resolvePlayerName(source.getServer(), uuid)).append(" (")
+                .append(faction.get().getRoleDisplayName(role)).append(")");
+        });
+
+        java.util.List<String> allies = new java.util.ArrayList<>();
+        java.util.List<String> wars = new java.util.ArrayList<>();
+        for (Map.Entry<UUID, Faction> entry : data.getFactions().entrySet()) {
+            if (entry.getKey().equals(faction.get().getId())) {
+                continue;
+            }
+            FactionRelation relation = data.getRelation(faction.get().getId(), entry.getKey());
+            if (relation == FactionRelation.ALLY) {
+                allies.add(entry.getValue().getName());
+            } else if (relation == FactionRelation.WAR) {
+                wars.add(entry.getValue().getName());
+            }
+        }
+        Optional<UUID> overlordId = data.getOverlord(faction.get().getId());
+        String overlordName = overlordId.flatMap(data::getFaction).map(Faction::getName).orElse("None");
+        java.util.List<String> vassals = new java.util.ArrayList<>();
+        for (Map.Entry<UUID, FactionData.VassalContract> entry : data.getVassalContracts().entrySet()) {
+            if (!entry.getValue().overlordId().equals(faction.get().getId())) {
+                continue;
+            }
+            data.getFaction(entry.getKey()).map(Faction::getName).ifPresent(vassals::add);
+        }
+
+        source.sendSuccess(() -> Component.literal("Faction: " + faction.get().getName()
+            + " | Level: " + level
+            + " | Claims: " + claims + "/" + maxClaims
+            + "\nMembers: " + members
+            + "\nAllies: " + formatRelationNames(allies)
+            + "\nWars: " + formatRelationNames(wars)
+            + "\nOverlord: " + overlordName
+            + "\nVassals: " + formatRelationNames(vassals)), false);
+        return 1;
+    }
+
+    private static String formatRelationNames(java.util.List<String> names) {
+        if (names.isEmpty()) {
+            return "None";
+        }
+        names.sort(String.CASE_INSENSITIVE_ORDER);
+        return String.join(", ", names);
+    }
+
+    private static String resolvePlayerName(MinecraftServer server, UUID playerId) {
+        if (server == null) {
+            return playerId.toString();
+        }
+        return server.getProfileCache().get(playerId).map(profile -> profile.getName()).orElse(playerId.toString());
+    }
+
+    private static int fillClaims(CommandSourceStack source) throws CommandSyntaxException {
+        ServerPlayer player = source.getPlayerOrException();
+        FactionData data = FactionData.get(player.serverLevel());
+        Optional<Faction> faction = data.getFactionByPlayer(player.getUUID());
+        if (faction.isEmpty()) {
+            source.sendFailure(Component.literal("You are not in a faction."));
+            return 0;
+        }
+        UUID factionId = faction.get().getId();
+        Set<ChunkPos> owned = new HashSet<>();
+        for (Map.Entry<Long, UUID> entry : data.getClaims().entrySet()) {
+            if (factionId.equals(entry.getValue())) {
+                owned.add(new ChunkPos(entry.getKey()));
+            }
+        }
+        if (owned.isEmpty()) {
+            source.sendFailure(Component.literal("Your faction must have existing claims before using fill."));
+            return 0;
+        }
+        int minX = owned.stream().mapToInt(c -> c.x).min().orElse(0) - 1;
+        int maxX = owned.stream().mapToInt(c -> c.x).max().orElse(0) + 1;
+        int minZ = owned.stream().mapToInt(c -> c.z).min().orElse(0) - 1;
+        int maxZ = owned.stream().mapToInt(c -> c.z).max().orElse(0) + 1;
+
+        Set<Long> outside = new HashSet<>();
+        ArrayDeque<ChunkPos> queue = new ArrayDeque<>();
+        queue.add(new ChunkPos(minX, minZ));
+        while (!queue.isEmpty()) {
+            ChunkPos current = queue.poll();
+            if (current.x < minX || current.x > maxX || current.z < minZ || current.z > maxZ) {
+                continue;
+            }
+            long key = current.toLong();
+            if (outside.contains(key) || owned.contains(current)) {
+                continue;
+            }
+            outside.add(key);
+            queue.add(new ChunkPos(current.x + 1, current.z));
+            queue.add(new ChunkPos(current.x - 1, current.z));
+            queue.add(new ChunkPos(current.x, current.z + 1));
+            queue.add(new ChunkPos(current.x, current.z - 1));
+        }
+
+        Set<ChunkPos> fillTargets = new HashSet<>();
+        for (int x = minX + 1; x < maxX; x++) {
+            for (int z = minZ + 1; z < maxZ; z++) {
+                ChunkPos chunk = new ChunkPos(x, z);
+                if (owned.contains(chunk) || data.isClaimed(chunk) || outside.contains(chunk.toLong())) {
+                    continue;
+                }
+                fillTargets.add(chunk);
+            }
+        }
+        if (fillTargets.isEmpty()) {
+            source.sendFailure(Component.literal("No enclosed area found to fill."));
+            return 0;
+        }
+        int available = data.getMaxClaims(factionId) - data.getClaimCount(factionId);
+        if (fillTargets.size() > available) {
+            source.sendFailure(Component.literal("Not enough claim power. Need " + fillTargets.size() + ", available " + available + "."));
+            return 0;
+        }
+        int claimed = 0;
+        for (ChunkPos chunk : fillTargets) {
+            if (data.claimChunk(chunk, factionId)) {
+                claimed++;
+            }
+        }
+        if (claimed == 0) {
+            source.sendFailure(Component.literal("No chunks were claimed."));
+            return 0;
+        }
+        int finalClaimed = claimed;
+        source.sendSuccess(() -> Component.literal("Filled " + finalClaimed + " enclosed chunk(s)."), true);
         return 1;
     }
 
@@ -719,9 +920,19 @@ public final class FactionCommands {
                 if (faction.getId().equals(playerFactionId.get())) {
                     relationLabel = "Your faction";
                 } else {
-                    FactionRelation relation = data.getRelation(playerFactionId.get(), faction.getId());
-                    if (relation != FactionRelation.NEUTRAL) {
-                        relationLabel = relation.name();
+                    Optional<UUID> playerOverlord = data.getOverlord(playerFactionId.get());
+                    if (playerOverlord.isPresent() && playerOverlord.get().equals(faction.getId())) {
+                        relationLabel = "OVERLORD";
+                    } else {
+                        Optional<UUID> theirOverlord = data.getOverlord(faction.getId());
+                        if (theirOverlord.isPresent() && theirOverlord.get().equals(playerFactionId.get())) {
+                            relationLabel = "VASSAL";
+                        } else {
+                            FactionRelation relation = data.getRelation(playerFactionId.get(), faction.getId());
+                            if (relation != FactionRelation.NEUTRAL) {
+                                relationLabel = relation.name();
+                            }
+                        }
                     }
                 }
             }
@@ -822,14 +1033,17 @@ public final class FactionCommands {
         if (faction.isEmpty()) {
             return 0;
         }
-        ChatFormatting color = FactionConfig.parseColor(colorName);
-        if (color == ChatFormatting.WHITE && !"white".equalsIgnoreCase(colorName)) {
-            source.sendFailure(Component.literal("Unknown color name."));
+        String normalized = FactionConfig.normalizeColorInput(colorName);
+        ChatFormatting named = ChatFormatting.getByName(normalized);
+        boolean validNamed = named != null && named.isColor();
+        boolean validHex = FactionConfig.isHexColor(normalized);
+        if (!validNamed && !validHex) {
+            source.sendFailure(Component.literal("Unknown color. Use a vanilla color name or hex format (#RRGGBB)."));
             return 0;
         }
-        faction.get().setColorName(color.getName());
+        faction.get().setColorName(normalized);
         FactionData.get(source.getLevel()).setDirty();
-        source.sendSuccess(() -> Component.literal("Faction color updated to " + color.getName()), true);
+        source.sendSuccess(() -> Component.literal("Faction color updated to " + normalized), true);
         return 1;
     }
 
@@ -1068,6 +1282,170 @@ public final class FactionCommands {
         return 1;
     }
 
+
+    private static int adminDisbandFaction(CommandSourceStack source, String factionName) {
+        String trimmed = factionName == null ? "" : factionName.trim();
+        if (trimmed.isEmpty()) {
+            source.sendFailure(Component.literal("Faction name cannot be blank."));
+            return 0;
+        }
+        FactionData data = FactionData.get(source.getLevel());
+        Optional<Faction> faction = data.findFactionByName(trimmed);
+        if (faction.isEmpty()) {
+            source.sendFailure(Component.literal("Faction not found."));
+            return 0;
+        }
+        data.disbandFaction(faction.get().getId());
+        source.sendSuccess(() -> Component.literal("Disbanded faction " + faction.get().getName() + "."), true);
+        return 1;
+    }
+
+    private static int adminRenameFaction(CommandSourceStack source, String factionName, String newName) {
+        String trimmedFactionName = factionName == null ? "" : factionName.trim();
+        if (trimmedFactionName.isEmpty()) {
+            source.sendFailure(Component.literal("Faction name cannot be blank."));
+            return 0;
+        }
+        String trimmedNewName = newName == null ? "" : newName.trim();
+        if (trimmedNewName.isEmpty()) {
+            source.sendFailure(Component.literal("New faction name cannot be blank."));
+            return 0;
+        }
+        int maxLength = FactionConfig.SERVER.maxFactionNameLength.get();
+        if (trimmedNewName.length() > maxLength) {
+            source.sendFailure(Component.literal("Faction name cannot exceed " + maxLength + " characters."));
+            return 0;
+        }
+        FactionData data = FactionData.get(source.getLevel());
+        Optional<Faction> faction = data.findFactionByName(trimmedFactionName);
+        if (faction.isEmpty()) {
+            source.sendFailure(Component.literal("Faction not found."));
+            return 0;
+        }
+        String previousName = faction.get().getName();
+        if (!data.renameFaction(faction.get().getId(), trimmedNewName)) {
+            source.sendFailure(Component.literal("A faction with that name or a very similar one already exists."));
+            return 0;
+        }
+        source.sendSuccess(() -> Component.literal("Renamed faction " + previousName + " to " + trimmedNewName + "."), true);
+        return 1;
+    }
+
+    private static int adminClaimChunk(CommandSourceStack source, String factionName) throws CommandSyntaxException {
+        ServerPlayer player = source.getPlayerOrException();
+        String trimmed = factionName == null ? "" : factionName.trim();
+        if (trimmed.isEmpty()) {
+            source.sendFailure(Component.literal("Faction name cannot be blank."));
+            return 0;
+        }
+        FactionData data = FactionData.get(player.serverLevel());
+        Optional<Faction> faction = data.findFactionByName(trimmed);
+        if (faction.isEmpty()) {
+            source.sendFailure(Component.literal("Faction not found."));
+            return 0;
+        }
+        ChunkPos chunk = new ChunkPos(player.blockPosition());
+        Optional<UUID> owner = data.getClaimOwner(chunk);
+        if (owner.isPresent() && owner.get().equals(faction.get().getId())) {
+            source.sendFailure(Component.literal("This chunk is already owned by that faction."));
+            return 0;
+        }
+        if (owner.isPresent()) {
+            data.getClaims().remove(chunk.toLong());
+        }
+        if (!data.claimChunk(chunk, faction.get().getId())) {
+            source.sendFailure(Component.literal("Unable to claim this chunk for " + faction.get().getName() + "."));
+            return 0;
+        }
+        source.sendSuccess(() -> Component.literal("Claimed current chunk for " + faction.get().getName() + "."), true);
+        return 1;
+    }
+
+    private static int adminUnclaimFactionChunk(CommandSourceStack source, String factionName) throws CommandSyntaxException {
+        ServerPlayer player = source.getPlayerOrException();
+        String trimmed = factionName == null ? "" : factionName.trim();
+        if (trimmed.isEmpty()) {
+            source.sendFailure(Component.literal("Faction name cannot be blank."));
+            return 0;
+        }
+        FactionData data = FactionData.get(player.serverLevel());
+        Optional<Faction> faction = data.findFactionByName(trimmed);
+        if (faction.isEmpty()) {
+            source.sendFailure(Component.literal("Faction not found."));
+            return 0;
+        }
+        ChunkPos chunk = new ChunkPos(player.blockPosition());
+        if (!data.unclaimChunk(chunk, faction.get().getId())) {
+            source.sendFailure(Component.literal("Current chunk is not claimed by " + faction.get().getName() + "."));
+            return 0;
+        }
+        source.sendSuccess(() -> Component.literal("Unclaimed current chunk from " + faction.get().getName() + "."), true);
+        return 1;
+    }
+
+    private static int adminRemovePersonalChunk(CommandSourceStack source) throws CommandSyntaxException {
+        ServerPlayer player = source.getPlayerOrException();
+        FactionData data = FactionData.get(player.serverLevel());
+        ChunkPos chunk = new ChunkPos(player.blockPosition());
+        Optional<UUID> owner = data.getPersonalClaimOwner(chunk);
+        if (owner.isEmpty()) {
+            source.sendFailure(Component.literal("Current chunk is not a personal claim."));
+            return 0;
+        }
+        if (!data.unclaimPersonalChunk(chunk, owner.get())) {
+            source.sendFailure(Component.literal("Unable to remove personal claim from current chunk."));
+            return 0;
+        }
+        source.sendSuccess(() -> Component.literal("Removed personal claim in current chunk."), true);
+        return 1;
+    }
+
+    private static int adminRemovePersonalByPlayer(CommandSourceStack source, ServerPlayer target) {
+        FactionData data = FactionData.get(source.getLevel());
+        int removed = data.removeAllPersonalClaims(target.getUUID());
+        if (removed == 0) {
+            source.sendFailure(Component.literal("That player has no personal claims."));
+            return 0;
+        }
+        source.sendSuccess(() -> Component.literal("Removed " + removed + " personal claim(s) owned by "
+            + target.getGameProfile().getName() + "."), true);
+        return 1;
+    }
+
+    private static int adminWipePersonalClaims(CommandSourceStack source, String confirm) {
+        if (source.getEntity() == null) {
+            source.sendFailure(Component.literal("This command must be run by a player for confirmation safety."));
+            return 0;
+        }
+        UUID requester = source.getEntity().getUUID();
+        if (confirm == null || confirm.isBlank()) {
+            PERSONAL_WIPE_CONFIRMATIONS.put(requester, System.currentTimeMillis() + CONFIRM_TIMEOUT_MILLIS);
+            source.sendSuccess(() -> Component.literal("Are you sure? Type /faction admin personal wipe yes to continue or /faction admin personal wipe no to cancel."), false);
+            return 1;
+        }
+        String answer = confirm.trim().toLowerCase(Locale.ROOT);
+        if ("no".equals(answer)) {
+            PERSONAL_WIPE_CONFIRMATIONS.remove(requester);
+            source.sendSuccess(() -> Component.literal("Cancelled personal-claim wipe."), false);
+            return 1;
+        }
+        if (!"yes".equals(answer)) {
+            source.sendFailure(Component.literal("Please answer yes or no."));
+            return 0;
+        }
+        Long expiresAt = PERSONAL_WIPE_CONFIRMATIONS.get(requester);
+        if (expiresAt == null || expiresAt < System.currentTimeMillis()) {
+            PERSONAL_WIPE_CONFIRMATIONS.remove(requester);
+            source.sendFailure(Component.literal("Confirmation expired. Run the wipe command again."));
+            return 0;
+        }
+        PERSONAL_WIPE_CONFIRMATIONS.remove(requester);
+        FactionData data = FactionData.get(source.getLevel());
+        int removed = data.clearPersonalClaims();
+        source.sendSuccess(() -> Component.literal("Removed all personal claims on the server (" + removed + ")."), true);
+        return 1;
+    }
+
     private static int claimSafeZone(CommandSourceStack source, String factionName) throws CommandSyntaxException {
         ServerPlayer player = source.getPlayerOrException();
         ChunkPos chunk = new ChunkPos(player.blockPosition());
@@ -1143,8 +1521,8 @@ public final class FactionCommands {
             source.sendFailure(Component.literal("Faction home is no longer inside your claimed chunks."));
             return 0;
         }
-        player.teleportTo(level, pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5, player.getYRot(), player.getXRot());
-        source.sendSuccess(() -> Component.literal("Teleported to faction home."), true);
+        HomeTeleportManager.startTeleport(player, level, pos);
+        source.sendSuccess(() -> Component.literal("Home teleport countdown started (20s)."), true);
         return 1;
     }
 

@@ -234,11 +234,7 @@ public class FactionClaimMapPacket implements CustomPacketPayload {
         if (faction.isEmpty()) {
             return Optional.empty();
         }
-        ChatFormatting color = faction.get().getColor();
-        Integer rgb = color.getColor();
-        if (rgb == null) {
-            return Optional.empty();
-        }
+        int rgb = faction.get().getColorRgb();
         return Optional.of(0xFF000000 | rgb);
     }
 

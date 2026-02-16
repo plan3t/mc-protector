@@ -204,6 +204,14 @@ public class Faction {
         return FactionConfig.parseColor(colorName);
     }
 
+    public int getColorRgb() {
+        return FactionConfig.resolveRgbColor(colorName);
+    }
+
+    public String getLegacyColorCode() {
+        return FactionConfig.toLegacyHexCode(colorName);
+    }
+
     public void setColorName(String colorName) {
         this.colorName = colorName;
     }

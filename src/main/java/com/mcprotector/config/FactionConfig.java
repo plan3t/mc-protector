@@ -6,6 +6,7 @@ import net.minecraft.ChatFormatting;
 import net.neoforged.neoforge.common.ModConfigSpec;
 
 import java.util.LinkedHashMap;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -101,14 +102,81 @@ public final class FactionConfig {
     }
 
     public static ChatFormatting parseColor(String colorName) {
-        if (colorName == null || colorName.isBlank()) {
+        String normalized = normalizeColorInput(colorName);
+        if (normalized.isEmpty()) {
             return ChatFormatting.WHITE;
         }
-        ChatFormatting formatting = ChatFormatting.getByName(colorName.toLowerCase(Locale.ROOT));
+        if (isHexColor(normalized)) {
+            return closestVanillaColor(parseHexColor(normalized));
+        }
+        ChatFormatting formatting = ChatFormatting.getByName(normalized);
         if (formatting == null || !formatting.isColor()) {
             return ChatFormatting.WHITE;
         }
         return formatting;
+    }
+
+    public static String normalizeColorInput(String colorName) {
+        if (colorName == null) {
+            return "";
+        }
+        return colorName.trim().toLowerCase(Locale.ROOT);
+    }
+
+    public static boolean isHexColor(String colorName) {
+        String normalized = normalizeColorInput(colorName);
+        if (normalized.startsWith("#")) {
+            normalized = normalized.substring(1);
+        }
+        return normalized.matches("[0-9a-f]{6}");
+    }
+
+    public static int parseHexColor(String colorName) {
+        String normalized = normalizeColorInput(colorName);
+        if (normalized.startsWith("#")) {
+            normalized = normalized.substring(1);
+        }
+        return HexFormat.fromHexDigits(normalized);
+    }
+
+    public static int resolveRgbColor(String colorName) {
+        String normalized = normalizeColorInput(colorName);
+        if (isHexColor(normalized)) {
+            return parseHexColor(normalized);
+        }
+        ChatFormatting formatting = parseColor(normalized);
+        Integer rgb = formatting.getColor();
+        return rgb == null ? 0xFFFFFF : rgb;
+    }
+
+    public static String toLegacyHexCode(String colorName) {
+        int rgb = resolveRgbColor(colorName);
+        String hex = String.format("%06X", rgb);
+        StringBuilder builder = new StringBuilder("\u00A7x");
+        for (char c : hex.toCharArray()) {
+            builder.append("\u00A7").append(c);
+        }
+        return builder.toString();
+    }
+
+    private static ChatFormatting closestVanillaColor(int rgb) {
+        ChatFormatting best = ChatFormatting.WHITE;
+        int bestDistance = Integer.MAX_VALUE;
+        for (ChatFormatting color : ChatFormatting.values()) {
+            if (!color.isColor() || color.getColor() == null) {
+                continue;
+            }
+            int candidate = color.getColor();
+            int dr = ((candidate >> 16) & 0xFF) - ((rgb >> 16) & 0xFF);
+            int dg = ((candidate >> 8) & 0xFF) - ((rgb >> 8) & 0xFF);
+            int db = (candidate & 0xFF) - (rgb & 0xFF);
+            int distance = dr * dr + dg * dg + db * db;
+            if (distance < bestDistance) {
+                bestDistance = distance;
+                best = color;
+            }
+        }
+        return best;
     }
 
     public static final class Server {
@@ -151,6 +219,10 @@ public final class FactionConfig {
         public final ModConfigSpec.ConfigValue<Boolean> allowDoorUseInClaims;
         public final ModConfigSpec.ConfigValue<Boolean> trustedAllowBuild;
         public final ModConfigSpec.ConfigValue<Boolean> allowFakePlayerActionsInClaims;
+        public final ModConfigSpec.ConfigValue<Boolean> enablePersonalClaims;
+        public final ModConfigSpec.ConfigValue<Boolean> personalClaimsRequireFactionClaim;
+        public final ModConfigSpec.ConfigValue<Boolean> personalClaimsUseFactionLevelLimit;
+        public final ModConfigSpec.ConfigValue<Integer> maxPersonalClaimsPerPlayer;
         public final ModConfigSpec.ConfigValue<Integer> adminBypassPermissionLevel;
         public final ModConfigSpec.ConfigValue<Integer> accessLogSize;
         public final ModConfigSpec.ConfigValue<Boolean> dynmapFullSyncOnStart;
@@ -267,6 +339,18 @@ public final class FactionConfig {
             allowFakePlayerActionsInClaims = builder
                 .comment("Allow fake players (automation) to interact inside claimed chunks.")
                 .define("allowFakePlayerActionsInClaims", false);
+            enablePersonalClaims = builder
+                .comment("Enable personal claim chunks.")
+                .define("enablePersonalClaims", true);
+            personalClaimsRequireFactionClaim = builder
+                .comment("Require personal claims to be inside your faction's claimed chunks.")
+                .define("personalClaimsRequireFactionClaim", true);
+            personalClaimsUseFactionLevelLimit = builder
+                .comment("Limit each player's personal claim count to their faction level.")
+                .define("personalClaimsUseFactionLevelLimit", true);
+            maxPersonalClaimsPerPlayer = builder
+                .comment("Maximum personal claims per player when level-based limit is disabled.")
+                .defineInRange("maxPersonalClaimsPerPlayer", 3, 0, 1024);
             adminBypassPermissionLevel = builder
                 .comment("Permission level required to bypass claim protections (default 2).")
                 .define("adminBypassPermissionLevel", 2);

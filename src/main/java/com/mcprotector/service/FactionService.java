@@ -341,14 +341,35 @@ public final class FactionService {
     public static int togglePersonalChunks(CommandSourceStack source, Iterable<ChunkPos> chunks) throws CommandSyntaxException {
         ServerPlayer player = source.getPlayerOrException();
         FactionData data = FactionData.get(player.serverLevel());
+        if (!FactionConfig.SERVER.enablePersonalClaims.get()) {
+            source.sendFailure(Component.literal("Personal claims are disabled by server config."));
+            return 0;
+        }
+        Optional<Faction> faction = data.getFactionByPlayer(player.getUUID());
+        if (faction.isEmpty()) {
+            source.sendFailure(Component.literal("You must be in a faction to use personal claims."));
+            return 0;
+        }
         if (!isClaimingAllowed(source)) {
             return 0;
         }
         int claimed = 0;
         int unclaimed = 0;
+        int maxPersonalClaims = FactionConfig.SERVER.personalClaimsUseFactionLevelLimit.get()
+            ? data.getFactionLevel(faction.get().getId())
+            : FactionConfig.SERVER.maxPersonalClaimsPerPlayer.get();
         for (ChunkPos chunk : chunks) {
             if (data.unclaimPersonalChunk(chunk, player.getUUID())) {
                 unclaimed++;
+                continue;
+            }
+            if (FactionConfig.SERVER.personalClaimsRequireFactionClaim.get()) {
+                Optional<UUID> owner = data.getClaimOwner(chunk);
+                if (owner.isEmpty() || !owner.get().equals(faction.get().getId())) {
+                    continue;
+                }
+            }
+            if (maxPersonalClaims > 0 && data.getPersonalClaimCount(player.getUUID()) >= maxPersonalClaims) {
                 continue;
             }
             if (data.claimPersonalChunk(chunk, player.getUUID())) {
