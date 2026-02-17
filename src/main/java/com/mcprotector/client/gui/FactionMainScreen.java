@@ -26,8 +26,8 @@ import java.util.List;
 import java.util.Set;
 
 public class FactionMainScreen extends Screen {
-    private static final int TAB_BUTTON_HEIGHT = 16;
-    private static final int TAB_BUTTON_WIDTH = 66;
+    private static final int TAB_BUTTON_HEIGHT = 14;
+    private static final int TAB_BUTTON_WIDTH = 58;
     private static final int PANEL_PADDING = 16;
     private static final int CONTROL_TOP_OFFSET = 6;
     private static final int CONTROL_ROW_SPACING = 24;
@@ -44,14 +44,14 @@ public class FactionMainScreen extends Screen {
     private static final int MAP_COLOR_PERSONAL = 0xFF9C27B0;
     private static final int SAFEZONE_FIELD_WIDTH = 90;
     private static final int CLAIM_CONTROL_GAP = 6;
-    private static final int MIN_TAB_BUTTON_WIDTH = 44;
-    private static final int TAB_BUTTON_GAP = 3;
-    private static final int PANEL_CONTENT_WIDTH = 388;
-    private static final int TAB_COMPACT_LABEL_THRESHOLD = 58;
+    private static final int MIN_TAB_BUTTON_WIDTH = 38;
+    private static final int TAB_BUTTON_GAP = 2;
+    private static final int PANEL_CONTENT_WIDTH = 360;
+    private static final int TAB_COMPACT_LABEL_THRESHOLD = 54;
     private static final int MEMBER_SECTION_BUTTON_WIDTH = 72;
     private static final int MEMBER_SECTION_BUTTON_HEIGHT = 16;
     private static final int MEMBER_SECTION_BUTTON_GAP = 4;
-    private static final int MIN_PANEL_CONTENT_WIDTH = 300;
+    private static final int MIN_PANEL_CONTENT_WIDTH = 280;
     private static final DateTimeFormatter INVITE_TIME_FORMAT = DateTimeFormatter.ofPattern("HH:mm")
         .withZone(ZoneId.systemDefault());
 
@@ -118,7 +118,9 @@ public class FactionMainScreen extends Screen {
         super.init();
         recalculateLayout();
         int panelLeft = getPanelLeft();
-        int startX = (this.width - (FactionTab.values().length * (tabButtonWidth + TAB_BUTTON_GAP))) / 2;
+        int tabCount = FactionTab.values().length;
+        int totalTabWidth = tabCount * tabButtonWidth + (tabCount - 1) * TAB_BUTTON_GAP;
+        int startX = (this.width - totalTabWidth) / 2;
         int y = 42;
         for (FactionTab tab : FactionTab.values()) {
             int x = startX + tab.ordinal() * (tabButtonWidth + TAB_BUTTON_GAP);
@@ -580,15 +582,18 @@ public class FactionMainScreen extends Screen {
         int buttonWidth = scaledWidth(MEMBER_SECTION_BUTTON_WIDTH);
         int buttonHeight = MEMBER_SECTION_BUTTON_HEIGHT;
         int gap = scaledWidth(MEMBER_SECTION_BUTTON_GAP);
-        int right = getPanelRight();
-        invitesSectionButton.setWidth(buttonWidth);
-        invitesSectionButton.setHeight(buttonHeight);
-        invitesSectionButton.setX(right - buttonWidth);
-        invitesSectionButton.setY(panelTop + CONTROL_TOP_OFFSET + controlRowSpacing + 2);
+        int startX = getPanelLeft();
+        int y = panelTop + CONTROL_TOP_OFFSET + controlRowSpacing + 2;
+
         membersSectionButton.setWidth(buttonWidth);
         membersSectionButton.setHeight(buttonHeight);
-        membersSectionButton.setX(invitesSectionButton.getX() - gap - buttonWidth);
-        membersSectionButton.setY(invitesSectionButton.getY());
+        membersSectionButton.setX(startX);
+        membersSectionButton.setY(y);
+
+        invitesSectionButton.setWidth(buttonWidth);
+        invitesSectionButton.setHeight(buttonHeight);
+        invitesSectionButton.setX(startX + buttonWidth + gap);
+        invitesSectionButton.setY(y);
     }
 
     private void updateMemberSectionButtonState() {
