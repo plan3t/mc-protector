@@ -34,6 +34,10 @@ public final class FactionCommandSuggestions {
         return SharedSuggestionProvider.suggest(List.of("on", "off"), builder);
     }
 
+    public static CompletableFuture<Suggestions> yesNo(CommandContext<CommandSourceStack> context, SuggestionsBuilder builder) {
+        return SharedSuggestionProvider.suggest(List.of("yes", "no"), builder);
+    }
+
     public static CompletableFuture<Suggestions> chatModes(CommandContext<CommandSourceStack> context, SuggestionsBuilder builder) {
         return SharedSuggestionProvider.suggest(List.of("public", "faction", "ally"), builder);
     }

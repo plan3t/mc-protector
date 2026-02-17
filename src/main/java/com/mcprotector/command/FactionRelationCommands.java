@@ -17,6 +17,8 @@ import java.util.Optional;
 import java.util.UUID;
 
 public final class FactionRelationCommands {
+    private static final long WAR_END_COOLDOWN_MILLIS = 5 * 60 * 1000L;
+
     private FactionRelationCommands() {
     }
 
@@ -48,7 +50,11 @@ public final class FactionRelationCommands {
                     .then(Commands.literal("end")
                         .then(Commands.argument("faction", StringArgumentType.greedyString())
                             .suggests(FactionCommandSuggestions::factionNames)
-                            .executes(context -> clearRelation(context.getSource(), StringArgumentType.getString(context, "faction"))))))
+                            .executes(context -> endWar(context.getSource(), StringArgumentType.getString(context, "faction")))))
+                    .then(Commands.literal("deny")
+                        .then(Commands.argument("faction", StringArgumentType.greedyString())
+                            .suggests(FactionCommandSuggestions::factionNames)
+                            .executes(context -> denyWarEnd(context.getSource(), StringArgumentType.getString(context, "faction"))))))
                 .then(Commands.literal("vassal")
                     .then(Commands.literal("offer")
                         .then(Commands.argument("faction", StringArgumentType.greedyString())
@@ -70,6 +76,21 @@ public final class FactionRelationCommands {
                         .then(Commands.argument("faction", StringArgumentType.greedyString())
                             .suggests(FactionCommandSuggestions::factionNames)
                             .executes(context -> breakVassal(context.getSource(), StringArgumentType.getString(context, "faction"))))))
+        );
+        dispatcher.register(
+            Commands.literal("war")
+                .then(Commands.literal("declare")
+                    .then(Commands.argument("faction", StringArgumentType.greedyString())
+                        .suggests(FactionCommandSuggestions::factionNames)
+                        .executes(context -> setRelation(context.getSource(), StringArgumentType.getString(context, "faction"), FactionRelation.WAR))))
+                .then(Commands.literal("end")
+                    .then(Commands.argument("faction", StringArgumentType.greedyString())
+                        .suggests(FactionCommandSuggestions::factionNames)
+                        .executes(context -> endWar(context.getSource(), StringArgumentType.getString(context, "faction")))))
+                .then(Commands.literal("deny")
+                    .then(Commands.argument("faction", StringArgumentType.greedyString())
+                        .suggests(FactionCommandSuggestions::factionNames)
+                        .executes(context -> denyWarEnd(context.getSource(), StringArgumentType.getString(context, "faction")))))
         );
     }
 
@@ -116,6 +137,9 @@ public final class FactionRelationCommands {
         }
         FactionRelation previous = data.getRelation(faction.get().getId(), target.get().getId());
         data.setRelation(faction.get().getId(), target.get().getId(), relation);
+        if (relation == FactionRelation.WAR && previous != FactionRelation.WAR) {
+            data.recordWarDeclaration(faction.get().getId(), target.get().getId());
+        }
         source.sendSuccess(() -> Component.literal("Relation set to " + relation.name() + " with " + target.get().getName()), true);
         if (relation != previous) {
             if (relation == FactionRelation.WAR) {
@@ -302,6 +326,121 @@ public final class FactionRelationCommands {
             notifyFactionMembers(player, data, target.get().getId(),
                 "Your faction is no longer at war with " + faction.get().getName() + ".");
         }
+        return 1;
+    }
+
+    private static int endWar(CommandSourceStack source, String targetName) {
+        ServerPlayer player;
+        try {
+            player = source.getPlayerOrException();
+        } catch (CommandSyntaxException e) {
+            source.sendFailure(Component.literal("This command can only be used by a player."));
+            return 0;
+        }
+        FactionData data = FactionData.get(player.serverLevel());
+        Optional<Faction> faction = data.getFactionByPlayer(player.getUUID());
+        if (faction.isEmpty()) {
+            source.sendFailure(Component.literal("You are not in a faction."));
+            return 0;
+        }
+        if (!faction.get().hasPermission(player.getUUID(), FactionPermission.MANAGE_RELATIONS)) {
+            source.sendFailure(Component.literal("You lack permission to manage relations."));
+            return 0;
+        }
+        String trimmed = targetName == null ? "" : targetName.trim();
+        if (trimmed.isEmpty()) {
+            source.sendFailure(Component.literal("Faction name cannot be blank."));
+            return 0;
+        }
+        Optional<Faction> target = data.findFactionByName(trimmed);
+        if (target.isEmpty()) {
+            source.sendFailure(Component.literal("Faction not found."));
+            return 0;
+        }
+        if (data.getRelation(faction.get().getId(), target.get().getId()) != FactionRelation.WAR) {
+            source.sendFailure(Component.literal("Your factions are not at war."));
+            return 0;
+        }
+        Optional<FactionData.WarEndRequest> pending = data.getWarEndRequest(faction.get().getId(), target.get().getId());
+        if (pending.isPresent()
+            && pending.get().requesterFactionId().equals(target.get().getId())) {
+            if (!faction.get().getOwner().equals(player.getUUID())) {
+                source.sendFailure(Component.literal("Only the faction owner can accept war-end requests."));
+                return 0;
+            }
+            data.clearRelation(faction.get().getId(), target.get().getId());
+            data.cancelVassalBreakaway(faction.get().getId(), target.get().getId());
+            data.cancelVassalBreakaway(target.get().getId(), faction.get().getId());
+            source.sendSuccess(() -> Component.literal("War ended with " + target.get().getName() + "."), true);
+            notifyFactionMembers(player, data, faction.get().getId(),
+                "Your faction is no longer at war with " + target.get().getName() + ".");
+            notifyFactionMembers(player, data, target.get().getId(),
+                "Your faction is no longer at war with " + faction.get().getName() + ".");
+            return 1;
+        }
+
+        Optional<Long> declaredAt = data.getWarDeclaredAt(faction.get().getId(), target.get().getId());
+        Optional<UUID> declarer = data.getWarDeclarer(faction.get().getId(), target.get().getId());
+        long now = System.currentTimeMillis();
+        if (declaredAt.isPresent() && declarer.isPresent() && now - declaredAt.get() < WAR_END_COOLDOWN_MILLIS
+            && !declarer.get().equals(faction.get().getId())) {
+            source.sendFailure(Component.literal("Only the faction that declared this war can request an end for the first 5 minutes."));
+            return 0;
+        }
+
+        if (pending.isPresent() && pending.get().requesterFactionId().equals(faction.get().getId())) {
+            source.sendFailure(Component.literal("War-end request already pending with " + target.get().getName() + "."));
+            return 0;
+        }
+
+        data.requestWarEnd(faction.get().getId(), target.get().getId(), faction.get().getId());
+        source.sendSuccess(() -> Component.literal("War-end request sent to " + target.get().getName() + "."), true);
+        notifyFactionOwner(player, data, target.get().getId(),
+            faction.get().getName() + " wants to end the war. Use /war end " + faction.get().getName()
+                + " to accept or /war deny " + faction.get().getName() + " to decline.");
+        return 1;
+    }
+
+    private static int denyWarEnd(CommandSourceStack source, String targetName) {
+        ServerPlayer player;
+        try {
+            player = source.getPlayerOrException();
+        } catch (CommandSyntaxException e) {
+            source.sendFailure(Component.literal("This command can only be used by a player."));
+            return 0;
+        }
+        FactionData data = FactionData.get(player.serverLevel());
+        Optional<Faction> faction = data.getFactionByPlayer(player.getUUID());
+        if (faction.isEmpty()) {
+            source.sendFailure(Component.literal("You are not in a faction."));
+            return 0;
+        }
+        if (!faction.get().hasPermission(player.getUUID(), FactionPermission.MANAGE_RELATIONS)) {
+            source.sendFailure(Component.literal("You lack permission to manage relations."));
+            return 0;
+        }
+        if (!faction.get().getOwner().equals(player.getUUID())) {
+            source.sendFailure(Component.literal("Only the faction owner can decline war-end requests."));
+            return 0;
+        }
+        String trimmed = targetName == null ? "" : targetName.trim();
+        if (trimmed.isEmpty()) {
+            source.sendFailure(Component.literal("Faction name cannot be blank."));
+            return 0;
+        }
+        Optional<Faction> target = data.findFactionByName(trimmed);
+        if (target.isEmpty()) {
+            source.sendFailure(Component.literal("Faction not found."));
+            return 0;
+        }
+        Optional<FactionData.WarEndRequest> pending = data.getWarEndRequest(faction.get().getId(), target.get().getId());
+        if (pending.isEmpty() || !pending.get().requesterFactionId().equals(target.get().getId())) {
+            source.sendFailure(Component.literal("No pending war-end request from that faction."));
+            return 0;
+        }
+        data.clearWarEndRequest(faction.get().getId(), target.get().getId());
+        source.sendSuccess(() -> Component.literal("Declined war-end request from " + target.get().getName() + "."), true);
+        notifyFactionOwner(player, data, target.get().getId(), faction.get().getName() + " declined your request to end the war.");
         return 1;
     }
 
@@ -568,6 +707,18 @@ public final class FactionRelationCommands {
             faction.get().getName() + " has declared a breakaway war.");
         notifyFactionMembers(player, data, overlord.get().getId(), capitalMessage);
         return 1;
+    }
+
+    private static void notifyFactionOwner(ServerPlayer sender, FactionData data, UUID factionId, String message) {
+        Optional<Faction> faction = data.getFaction(factionId);
+        if (faction.isEmpty()) {
+            return;
+        }
+        UUID ownerId = faction.get().getOwner();
+        ServerPlayer owner = sender.server.getPlayerList().getPlayer(ownerId);
+        if (owner != null) {
+            owner.sendSystemMessage(Component.literal(message));
+        }
     }
 
     private static void notifyFactionMembers(ServerPlayer sender, FactionData data, UUID factionId, String message) {

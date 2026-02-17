@@ -52,6 +52,7 @@ public final class SiegeManager {
             clearAllSieges();
             return;
         }
+        processBreakawayTimers(server);
         startBreakawayCapitalSieges(server);
         long now = System.currentTimeMillis();
         Iterator<SiegeState> iterator = ACTIVE_SIEGES.values().iterator();
@@ -147,6 +148,16 @@ public final class SiegeManager {
                     + defenderFaction.map(Faction::getName).orElse("an unknown faction") + ".");
             notifyFactionMembers(server, data, state.defenderFactionId(),
                 "Your faction lost a claim to " + attackerFaction.get().getName() + ".");
+            if (data.hasActiveBreakaway(state.attackerFactionId())) {
+                boolean brokeFree = data.recordVassalBreakawayCapture(state.attackerFactionId(), state.defenderFactionId());
+                if (brokeFree) {
+                    clearWarRelation(data, state.attackerFactionId(), state.defenderFactionId());
+                    notifyFactionMembers(server, data, state.attackerFactionId(),
+                        "Your faction has captured enough claims to win the breakaway war and is now independent.");
+                    notifyFactionMembers(server, data, state.defenderFactionId(),
+                        "Your vassal captured enough claims to win the breakaway war and is now independent.");
+                }
+            }
             syncClaimMap(level);
             clearBossBars(state);
             iterator.remove();
@@ -179,13 +190,40 @@ public final class SiegeManager {
         }
     }
 
+    private static void processBreakawayTimers(MinecraftServer server) {
+        if (!FactionConfig.SERVER.enableVassals.get() || !FactionConfig.SERVER.enableVassalBreakaways.get()) {
+            return;
+        }
+        long now = System.currentTimeMillis();
+        for (ServerLevel level : server.getAllLevels()) {
+            FactionData data = FactionData.get(level);
+            for (Map.Entry<UUID, FactionData.VassalBreakaway> entry : java.util.List.copyOf(data.getActiveBreakaways().entrySet())) {
+                UUID vassalId = entry.getKey();
+                FactionData.VassalBreakaway breakaway = entry.getValue();
+                if (now - breakaway.startedAt() < BREAKAWAY_DEFENSE_MILLIS) {
+                    continue;
+                }
+                if (data.releaseVassal(breakaway.overlordId(), vassalId)) {
+                    clearWarRelation(data, vassalId, breakaway.overlordId());
+                    notifyFactionMembers(server, data, vassalId,
+                        "Your faction has defended long enough to win its breakaway war and is now independent.");
+                    notifyFactionMembers(server, data, breakaway.overlordId(),
+                        "Your vassal has defended long enough to win their breakaway war and is now independent.");
+                } else {
+                    data.cancelVassalBreakaway(vassalId, breakaway.overlordId());
+                    clearWarRelation(data, vassalId, breakaway.overlordId());
+                }
+            }
+        }
+    }
+
     private static void startBreakawayCapitalSieges(MinecraftServer server) {
         if (!FactionConfig.SERVER.enableVassals.get() || !FactionConfig.SERVER.enableVassalBreakaways.get()) {
             return;
         }
         for (ServerLevel level : server.getAllLevels()) {
             FactionData data = FactionData.get(level);
-            for (Map.Entry<UUID, FactionData.VassalBreakaway> entry : data.getActiveBreakaways().entrySet()) {
+            for (Map.Entry<UUID, FactionData.VassalBreakaway> entry : java.util.List.copyOf(data.getActiveBreakaways().entrySet())) {
                 UUID vassalId = entry.getKey();
                 UUID overlordId = entry.getValue().overlordId();
                 Optional<FactionData.FactionHome> home = data.getFactionHome(vassalId);
@@ -358,7 +396,7 @@ public final class SiegeManager {
         if (data.hasActiveBreakaway(state.defenderFactionId())) {
             data.cancelVassalBreakaway(state.defenderFactionId(), state.attackerFactionId());
         }
-        data.clearRelation(state.attackerFactionId(), state.defenderFactionId());
+        clearWarRelation(data, state.attackerFactionId(), state.defenderFactionId());
         notifyFactionMembers(server, data, state.attackerFactionId(),
             "Your faction has won the breakaway war by holding the enemy capital and kept your vassal.");
         notifyFactionMembers(server, data, state.defenderFactionId(),
@@ -367,12 +405,19 @@ public final class SiegeManager {
 
     private static void handleBreakawayDefenseSuccess(MinecraftServer server, FactionData data, SiegeState state) {
         if (data.releaseVassal(state.attackerFactionId(), state.defenderFactionId())) {
-            data.clearRelation(state.defenderFactionId(), state.attackerFactionId());
+            clearWarRelation(data, state.defenderFactionId(), state.attackerFactionId());
         }
         notifyFactionMembers(server, data, state.defenderFactionId(),
             "Your faction has defended long enough to win its breakaway war and is now independent.");
         notifyFactionMembers(server, data, state.attackerFactionId(),
             "Your vassal has defended long enough to win their breakaway war and is now independent.");
+    }
+
+    private static void clearWarRelation(FactionData data, UUID firstFactionId, UUID secondFactionId) {
+        data.clearRelation(firstFactionId, secondFactionId);
+        if (data.isAtWar(firstFactionId, secondFactionId) || data.isAtWar(secondFactionId, firstFactionId)) {
+            data.clearRelation(secondFactionId, firstFactionId);
+        }
     }
 
     private static boolean isAttackerInChunk(ServerLevel level, FactionData data, UUID attackerFactionId, ChunkPos chunk) {

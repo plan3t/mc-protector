@@ -1,5 +1,6 @@
 package com.mcprotector.client.gui;
 
+import com.mcprotector.client.ClientColorHelper;
 import com.mcprotector.client.FactionMapClientData;
 import com.mcprotector.client.map.MapBackgroundProvider;
 import com.mcprotector.client.map.MapBackgroundProviders;
@@ -18,8 +19,8 @@ public final class FactionMapRenderer {
     public static MapRegion buildMapRegion(int startY, int radius, int width, int height, int panelPadding) {
         int gridSize = radius * 2 + 1;
         int maxWidth = width - panelPadding * 2;
-        int maxHeight = height - startY - 40;
-        int cellSize = Math.max(8, Math.min(22, Math.min(maxWidth / gridSize, maxHeight / gridSize)));
+        int maxHeight = height - startY - 70;
+        int cellSize = Math.max(7, Math.min(18, Math.min(maxWidth / gridSize, maxHeight / gridSize)));
         int mapWidth = cellSize * gridSize;
         int mapHeight = cellSize * gridSize;
         int originX = (width - mapWidth) / 2;
@@ -81,7 +82,7 @@ public final class FactionMapRenderer {
                 int halfCell = Math.max(1, region.cellSize() / 2);
                 guiGraphics.fill(x, y, x + halfCell, y + halfCell, 0x18FFFFFF);
                 guiGraphics.fill(x + halfCell, y + halfCell, x + region.cellSize(), y + region.cellSize(), 0x18000000);
-                int gridColor = shadeColor(color, 0.75f);
+                int gridColor = shadeColor(guiColor, 0.75f);
                 guiGraphics.renderOutline(x, y, region.cellSize(), region.cellSize(), gridColor);
             }
         }

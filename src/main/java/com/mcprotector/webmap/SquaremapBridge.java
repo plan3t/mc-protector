@@ -2,7 +2,6 @@ package com.mcprotector.webmap;
 
 import com.mcprotector.McProtectorMod;
 import com.mcprotector.data.Faction;
-import net.minecraft.ChatFormatting;
 import net.minecraft.world.level.ChunkPos;
 
 import java.awt.Color;
@@ -184,9 +183,8 @@ public final class SquaremapBridge {
         if (safeZone) {
             return SAFE_ZONE_COLOR;
         }
-        ChatFormatting chatColor = faction.getColor();
-        Integer rgb = chatColor.getColor();
-        if (rgb != null) {
+        int rgb = faction.getColorRgb();
+        if (rgb != 0) {
             return rgb;
         }
         int hash = Math.abs(faction.getName().hashCode());

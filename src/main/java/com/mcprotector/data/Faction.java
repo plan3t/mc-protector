@@ -204,8 +204,16 @@ public class Faction {
         return FactionConfig.parseColor(colorName);
     }
 
+    public int getColorRgb() {
+        return FactionConfig.resolveRgbColor(colorName);
+    }
+
+    public String getLegacyColorCode() {
+        return FactionConfig.toLegacyHexCode(colorName);
+    }
+
     public void setColorName(String colorName) {
-        this.colorName = colorName;
+        this.colorName = FactionConfig.normalizeFactionHexColor(colorName);
     }
 
     public String getMotd() {
@@ -259,7 +267,7 @@ public class Faction {
     }
 
     private void applyDefaults() {
-        colorName = FactionConfig.getDefaultColorName();
+        colorName = FactionConfig.normalizeFactionHexColor(FactionConfig.getDefaultColorName());
         motd = FactionConfig.getDefaultMotd();
         description = FactionConfig.getDefaultDescription();
         bannerColor = FactionConfig.getDefaultBannerColor();

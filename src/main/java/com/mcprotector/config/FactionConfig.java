@@ -6,6 +6,7 @@ import net.minecraft.ChatFormatting;
 import net.neoforged.neoforge.common.ModConfigSpec;
 
 import java.util.LinkedHashMap;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -101,14 +102,95 @@ public final class FactionConfig {
     }
 
     public static ChatFormatting parseColor(String colorName) {
-        if (colorName == null || colorName.isBlank()) {
+        String normalized = normalizeColorInput(colorName);
+        if (normalized.isEmpty()) {
             return ChatFormatting.WHITE;
         }
-        ChatFormatting formatting = ChatFormatting.getByName(colorName.toLowerCase(Locale.ROOT));
+        if (isHexColor(normalized)) {
+            return closestVanillaColor(parseHexColor(normalized));
+        }
+        ChatFormatting formatting = ChatFormatting.getByName(normalized);
         if (formatting == null || !formatting.isColor()) {
             return ChatFormatting.WHITE;
         }
         return formatting;
+    }
+
+    public static String normalizeColorInput(String colorName) {
+        if (colorName == null) {
+            return "";
+        }
+        return colorName.trim().toLowerCase(Locale.ROOT);
+    }
+
+    public static boolean isHexColor(String colorName) {
+        String normalized = normalizeColorInput(colorName);
+        if (normalized.startsWith("#")) {
+            normalized = normalized.substring(1);
+        }
+        return normalized.matches("[0-9a-f]{6}");
+    }
+
+    public static int parseHexColor(String colorName) {
+        String normalized = normalizeColorInput(colorName);
+        if (normalized.startsWith("#")) {
+            normalized = normalized.substring(1);
+        }
+        return HexFormat.fromHexDigits(normalized);
+    }
+
+    public static int resolveRgbColor(String colorName) {
+        String normalized = normalizeFactionHexColor(colorName);
+        if (!isHexColor(normalized)) {
+            return 0xFFFFFF;
+        }
+        return parseHexColor(normalized);
+    }
+
+    public static String normalizeFactionHexColor(String colorName) {
+        String normalized = normalizeColorInput(colorName);
+        if (normalized.isEmpty()) {
+            return "#ffffff";
+        }
+        if (isHexColor(normalized)) {
+            String hex = normalized.startsWith("#") ? normalized.substring(1) : normalized;
+            return "#" + hex;
+        }
+        ChatFormatting formatting = ChatFormatting.getByName(normalized);
+        if (formatting != null && formatting.isColor() && formatting.getColor() != null) {
+            return String.format("#%06x", formatting.getColor());
+        }
+        return "#ffffff";
+    }
+
+    public static String toLegacyHexCode(String colorName) {
+        int rgb = resolveRgbColor(colorName);
+        String hex = String.format("%06X", rgb);
+        StringBuilder builder = new StringBuilder("\u00A7x");
+        for (char c : hex.toCharArray()) {
+            builder.append("\u00A7").append(c);
+        }
+        return builder.toString();
+    }
+
+    private static ChatFormatting closestVanillaColor(int rgb) {
+        ChatFormatting best = ChatFormatting.WHITE;
+        int bestDistance = Integer.MAX_VALUE;
+        for (ChatFormatting color : ChatFormatting.values()) {
+            if (!color.isColor() || color.getColor() == null) {
+                continue;
+            }
+            int candidate = color.getColor();
+            int dr = ((candidate >> 16) & 0xFF) - ((rgb >> 16) & 0xFF);
+            int dg = ((candidate >> 8) & 0xFF) - ((rgb >> 8) & 0xFF);
+            int db = (candidate & 0xFF) - (rgb & 0xFF);
+            int distance = dr * dr + dg * dg + db * db;
+            if (distance < bestDistance) {
+                bestDistance = distance;
+                best = color;
+            }
+        }
+        return best;
     }
 
     public static final class Server {
@@ -151,19 +233,29 @@ public final class FactionConfig {
         public final ModConfigSpec.ConfigValue<Boolean> allowDoorUseInClaims;
         public final ModConfigSpec.ConfigValue<Boolean> trustedAllowBuild;
         public final ModConfigSpec.ConfigValue<Boolean> allowFakePlayerActionsInClaims;
+        public final ModConfigSpec.ConfigValue<Boolean> enablePersonalClaims;
+        public final ModConfigSpec.ConfigValue<Boolean> personalClaimsRequireFactionClaim;
+        public final ModConfigSpec.ConfigValue<Boolean> personalClaimsUseFactionLevelLimit;
+        public final ModConfigSpec.ConfigValue<Integer> maxPersonalClaimsPerPlayer;
         public final ModConfigSpec.ConfigValue<Integer> adminBypassPermissionLevel;
         public final ModConfigSpec.ConfigValue<Integer> accessLogSize;
         public final ModConfigSpec.ConfigValue<Boolean> dynmapFullSyncOnStart;
         public final ModConfigSpec.ConfigValue<Integer> claimMapRadiusChunks;
         public final ModConfigSpec.ConfigValue<Boolean> claimMapFullSync;
+        public final ModConfigSpec.ConfigValue<Boolean> squaremapUiBackgroundEnabled;
+        public final ModConfigSpec.ConfigValue<String> squaremapUiTileUrlTemplate;
+        public final ModConfigSpec.ConfigValue<Integer> squaremapUiMinZoom;
+        public final ModConfigSpec.ConfigValue<Integer> squaremapUiMaxZoom;
+        public final ModConfigSpec.ConfigValue<Integer> squaremapUiDefaultZoom;
+        public final ModConfigSpec.ConfigValue<Integer> squaremapUiTileBlockSpan;
         public final ModConfigSpec.ConfigValue<List<? extends String>> safeZoneDimensions;
         public final ModConfigSpec.ConfigValue<List<? extends String>> warZoneDimensions;
 
         private Server(ModConfigSpec.Builder builder) {
             builder.push("factions");
             defaultFactionColor = builder
-                .comment("Default faction chat color name (e.g. red, gold, blue).")
-                .define("defaultFactionColor", "gold");
+                .comment("Default faction color in hex format (#RRGGBB).")
+                .define("defaultFactionColor", "#ffd700");
             defaultMotd = builder
                 .comment("Default message of the day for new factions.")
                 .define("defaultMotd", "Welcome to the faction!");
@@ -261,6 +353,18 @@ public final class FactionConfig {
             allowFakePlayerActionsInClaims = builder
                 .comment("Allow fake players (automation) to interact inside claimed chunks.")
                 .define("allowFakePlayerActionsInClaims", false);
+            enablePersonalClaims = builder
+                .comment("Enable personal claim chunks.")
+                .define("enablePersonalClaims", true);
+            personalClaimsRequireFactionClaim = builder
+                .comment("Require personal claims to be inside your faction's claimed chunks.")
+                .define("personalClaimsRequireFactionClaim", true);
+            personalClaimsUseFactionLevelLimit = builder
+                .comment("Limit each player's personal claim count to their faction level.")
+                .define("personalClaimsUseFactionLevelLimit", true);
+            maxPersonalClaimsPerPlayer = builder
+                .comment("Maximum personal claims per player when level-based limit is disabled.")
+                .defineInRange("maxPersonalClaimsPerPlayer", 3, 0, 1024);
             adminBypassPermissionLevel = builder
                 .comment("Permission level required to bypass claim protections (default 2).")
                 .define("adminBypassPermissionLevel", 2);
@@ -276,6 +380,24 @@ public final class FactionConfig {
             claimMapFullSync = builder
                 .comment("Send all claims to clients instead of only the radius (for larger map views).")
                 .define("claimMapFullSync", false);
+            squaremapUiBackgroundEnabled = builder
+                .comment("Enable Squaremap tile metadata for the in-game faction map background.")
+                .define("squaremapUiBackgroundEnabled", false);
+            squaremapUiTileUrlTemplate = builder
+                .comment("Tile URL template with placeholders {world}, {z}, {x}, {y}.")
+                .define("squaremapUiTileUrlTemplate", "");
+            squaremapUiMinZoom = builder
+                .comment("Minimum zoom level for in-game Squaremap background tiles.")
+                .defineInRange("squaremapUiMinZoom", 0, 0, 8);
+            squaremapUiMaxZoom = builder
+                .comment("Maximum zoom level for in-game Squaremap background tiles.")
+                .defineInRange("squaremapUiMaxZoom", 4, 0, 12);
+            squaremapUiDefaultZoom = builder
+                .comment("Default zoom level for in-game Squaremap background tiles.")
+                .defineInRange("squaremapUiDefaultZoom", 2, 0, 12);
+            squaremapUiTileBlockSpan = builder
+                .comment("Block span represented by a tile at zoom 0 for in-game background rendering.")
+                .defineInRange("squaremapUiTileBlockSpan", 256, 16, 4096);
             safeZoneDimensions = builder
                 .comment("Dimensions treated as safe zones (no PvP, no claim interactions).")
                 .defineListAllowEmpty("safeZoneDimensions", List.of(), value -> value instanceof String);
