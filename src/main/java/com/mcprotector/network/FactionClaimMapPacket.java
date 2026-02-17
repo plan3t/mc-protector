@@ -5,6 +5,7 @@ import com.mcprotector.config.FactionConfig;
 import com.mcprotector.data.Faction;
 import com.mcprotector.data.FactionData;
 import com.mcprotector.data.FactionRelation;
+import net.minecraft.ChatFormatting;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
@@ -29,12 +30,15 @@ public class FactionClaimMapPacket implements CustomPacketPayload {
     private final int centerChunkZ;
     private final int radius;
     private final List<ClaimEntry> claims;
+    private final MapBackgroundMetadata background;
 
-    public FactionClaimMapPacket(int centerChunkX, int centerChunkZ, int radius, List<ClaimEntry> claims) {
+    public FactionClaimMapPacket(int centerChunkX, int centerChunkZ, int radius, List<ClaimEntry> claims,
+                                MapBackgroundMetadata background) {
         this.centerChunkX = centerChunkX;
         this.centerChunkZ = centerChunkZ;
         this.radius = radius;
         this.claims = claims;
+        this.background = background;
     }
 
     public static FactionClaimMapPacket fromPlayer(ServerPlayer player) {
@@ -87,7 +91,8 @@ public class FactionClaimMapPacket implements CustomPacketPayload {
             int color = resolveClaimColor(false, true, relation, Optional.empty());
             entries.add(new ClaimEntry(chunkPos.x, chunkPos.z, ownerName, relation, false, true, color));
         }
-        return new FactionClaimMapPacket(center.x, center.z, radius, entries);
+        MapBackgroundMetadata background = resolveBackgroundMetadata(player.serverLevel());
+        return new FactionClaimMapPacket(center.x, center.z, radius, entries, background);
     }
 
     private void write(RegistryFriendlyByteBuf buffer) {
@@ -104,6 +109,16 @@ public class FactionClaimMapPacket implements CustomPacketPayload {
             buffer.writeBoolean(entry.personal());
             buffer.writeInt(entry.color());
         }
+        buffer.writeBoolean(background != null && background.enabled());
+        if (background != null && background.enabled()) {
+            buffer.writeUtf(background.provider());
+            buffer.writeUtf(background.tileUrlTemplate());
+            buffer.writeUtf(background.worldName());
+            buffer.writeInt(background.minZoom());
+            buffer.writeInt(background.maxZoom());
+            buffer.writeInt(background.defaultZoom());
+            buffer.writeInt(background.tileBlockSpan());
+        }
     }
 
     public static FactionClaimMapPacket decode(RegistryFriendlyByteBuf buffer) {
@@ -116,7 +131,20 @@ public class FactionClaimMapPacket implements CustomPacketPayload {
             claims.add(new ClaimEntry(buffer.readInt(), buffer.readInt(), buffer.readUtf(), buffer.readUtf(),
                 buffer.readBoolean(), buffer.readBoolean(), buffer.readInt()));
         }
-        return new FactionClaimMapPacket(centerChunkX, centerChunkZ, radius, claims);
+        MapBackgroundMetadata background = MapBackgroundMetadata.none();
+        if (buffer.readBoolean()) {
+            background = new MapBackgroundMetadata(
+                true,
+                buffer.readUtf(),
+                buffer.readUtf(),
+                buffer.readUtf(),
+                buffer.readInt(),
+                buffer.readInt(),
+                buffer.readInt(),
+                buffer.readInt()
+            );
+        }
+        return new FactionClaimMapPacket(centerChunkX, centerChunkZ, radius, claims, background);
     }
 
     public static void handle(FactionClaimMapPacket packet, IPayloadContext context) {
@@ -144,6 +172,15 @@ public class FactionClaimMapPacket implements CustomPacketPayload {
         return claims;
     }
 
+    public MapBackgroundMetadata background() {
+        return background;
+    }
+
+
+    private static MapBackgroundMetadata resolveBackgroundMetadata(net.minecraft.server.level.ServerLevel level) {
+        return MapBackgroundMetadata.none();
+    }
+
     private static String resolveName(net.minecraft.server.MinecraftServer server, UUID playerId) {
         if (server == null) {
             return playerId.toString();
@@ -166,12 +203,12 @@ public class FactionClaimMapPacket implements CustomPacketPayload {
         if (personal) {
             return PERSONAL_CLAIM_COLOR;
         }
-        return switch (relation) {
+        return resolveFactionColor(faction).orElseGet(() -> switch (relation) {
             case "OWN" -> 0xFF4CAF50;
             case "ALLY" -> 0xFF4FC3F7;
             case "WAR" -> 0xFFEF5350;
-            default -> resolveFactionColor(faction).orElse(0xFF8D8D8D);
-        };
+            default -> 0xFF8D8D8D;
+        });
     }
 
     private static Optional<Integer> resolveFactionColor(Optional<Faction> faction) {
@@ -180,6 +217,19 @@ public class FactionClaimMapPacket implements CustomPacketPayload {
         }
         int rgb = faction.get().getColorRgb();
         return Optional.of(0xFF000000 | rgb);
+    }
+
+    public record MapBackgroundMetadata(boolean enabled,
+                                        String provider,
+                                        String tileUrlTemplate,
+                                        String worldName,
+                                        int minZoom,
+                                        int maxZoom,
+                                        int defaultZoom,
+                                        int tileBlockSpan) {
+        public static MapBackgroundMetadata none() {
+            return new MapBackgroundMetadata(false, "NONE", "", "", 0, 0, 0, 256);
+        }
     }
 
     public record ClaimEntry(int chunkX, int chunkZ, String factionName, String relation, boolean safeZone,
