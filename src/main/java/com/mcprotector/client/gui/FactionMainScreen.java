@@ -235,7 +235,6 @@ public class FactionMainScreen extends Screen {
         submitClaimsButton = this.addRenderableWidget(Button.builder(Component.literal("✓"), button -> promptClaimConfirm())
             .bounds(panelX(SAFEZONE_FIELD_WIDTH + CLAIM_CONTROL_GAP + 124), controlRowOne - 2, scaledWidth(16), 16)
             .build());
-
         updateVisibility();
         FactionClientData.requestUpdate();
         FactionMapClientData.requestUpdate();
@@ -1227,31 +1226,6 @@ public class FactionMainScreen extends Screen {
             centerY - this.font.lineHeight / 2, color);
     }
 
-
-    private void renderMapBackgroundStatus(GuiGraphics guiGraphics, FactionMapRenderer.MapRegion region,
-                                           FactionMapClientData.MapBackgroundState backgroundState) {
-        if (backgroundState == null || !backgroundState.available()) {
-            guiGraphics.drawString(this.font, "Background: Off", getPanelLeft(), region.originY() - 10, 0x777777);
-            return;
-        }
-        String status = backgroundState.enabled()
-            ? "Background: " + backgroundState.providerType().name() + " z" + backgroundState.zoom()
-            : "Background: Off";
-        guiGraphics.drawString(this.font, status, getPanelLeft(), region.originY() - 10, backgroundState.enabled() ? 0xA5D6A7 : 0x777777);
-    }
-
-    private void updateMapBackgroundControls() {
-        if (mapBackgroundButton == null || mapZoomOutButton == null || mapZoomInButton == null) {
-            return;
-        }
-        FactionMapClientData.MapBackgroundState state = FactionMapClientData.getSnapshot().backgroundState();
-        boolean available = state != null && state.available();
-        boolean enabled = available && state.enabled();
-        mapBackgroundButton.setMessage(Component.literal(enabled ? "Bg: On" : "Bg: Off"));
-        mapBackgroundButton.active = available;
-        mapZoomOutButton.active = enabled && state.zoom() > state.minZoom();
-        mapZoomInButton.active = enabled && state.zoom() < state.maxZoom();
-    }
 
     private int getContentStart(FactionClientData.FactionSnapshot snapshot) {
         boolean hasControls = selectedTab == FactionTab.INVITES

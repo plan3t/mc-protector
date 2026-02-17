@@ -7,11 +7,11 @@ public final class MapBackgroundProviders {
     }
 
     public static MapBackgroundProvider resolve(FactionMapClientData.MapBackgroundState backgroundState) {
-        if (backgroundState == null || !backgroundState.available() || !backgroundState.enabled()) {
+        if (backgroundState == null || !backgroundState.enabled()) {
             return NoopBackgroundProvider.INSTANCE;
         }
         return switch (backgroundState.providerType()) {
-            case SQUAREMAP -> SquaremapTileBackgroundProvider.INSTANCE;
+            case XAERO -> XaeroWorldMapBackgroundProvider.INSTANCE;
             case NONE -> NoopBackgroundProvider.INSTANCE;
         };
     }

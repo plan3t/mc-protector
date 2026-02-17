@@ -78,8 +78,7 @@ public final class FactionMapRenderer {
                 if (mapSnapshot.backgroundState() != null && mapSnapshot.backgroundState().enabled()) {
                     color = withAlpha(color, 0xA0);
                 }
-                int guiColor = ClientColorHelper.toGuiColor(color);
-                guiGraphics.fill(x, y, x + region.cellSize(), y + region.cellSize(), guiColor);
+                guiGraphics.fill(x, y, x + region.cellSize(), y + region.cellSize(), color);
                 int halfCell = Math.max(1, region.cellSize() / 2);
                 guiGraphics.fill(x, y, x + halfCell, y + halfCell, 0x18FFFFFF);
                 guiGraphics.fill(x + halfCell, y + halfCell, x + region.cellSize(), y + region.cellSize(), 0x18000000);
