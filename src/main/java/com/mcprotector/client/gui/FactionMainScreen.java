@@ -27,7 +27,7 @@ import java.util.Set;
 
 public class FactionMainScreen extends Screen {
     private static final int TAB_BUTTON_HEIGHT = 14;
-    private static final int TAB_BUTTON_WIDTH = 62;
+    private static final int TAB_BUTTON_WIDTH = 63;
     private static final int PANEL_PADDING = 16;
     private static final int CONTROL_TOP_OFFSET = 6;
     private static final int CONTROL_ROW_SPACING = 24;
@@ -44,14 +44,14 @@ public class FactionMainScreen extends Screen {
     private static final int MAP_COLOR_PERSONAL = 0xFF9C27B0;
     private static final int SAFEZONE_FIELD_WIDTH = 90;
     private static final int CLAIM_CONTROL_GAP = 6;
-    private static final int MIN_TAB_BUTTON_WIDTH = 42;
+    private static final int MIN_TAB_BUTTON_WIDTH = 43;
     private static final int TAB_BUTTON_GAP = 4;
-    private static final int PANEL_CONTENT_WIDTH = 376;
+    private static final int PANEL_CONTENT_WIDTH = 384;
     private static final int TAB_COMPACT_LABEL_THRESHOLD = 54;
     private static final int MEMBER_SECTION_BUTTON_WIDTH = 72;
     private static final int MEMBER_SECTION_BUTTON_HEIGHT = 16;
     private static final int MEMBER_SECTION_BUTTON_GAP = 4;
-    private static final int MIN_PANEL_CONTENT_WIDTH = 296;
+    private static final int MIN_PANEL_CONTENT_WIDTH = 304;
     private static final DateTimeFormatter INVITE_TIME_FORMAT = DateTimeFormatter.ofPattern("HH:mm")
         .withZone(ZoneId.systemDefault());
 
@@ -99,7 +99,6 @@ public class FactionMainScreen extends Screen {
     private int controlRowSpacing = CONTROL_ROW_SPACING;
     private int contentStartOffset = CONTENT_START_OFFSET;
     private int permissionsScrollOffset;
-    private int mapClaimsScrollOffset;
     private int factionListScrollOffset;
     private int selectedRuleIndex = -1;
     private int rulesScrollOffset;
@@ -221,7 +220,7 @@ public class FactionMainScreen extends Screen {
             FactionClientData.requestUpdate();
             FactionMapClientData.requestUpdate();
         })
-            .bounds(this.width - layoutPadding - 80, bottomRowY, 80, 20)
+            .bounds(0, bottomRowY, 80, 20)
             .build());
         dynmapSyncButton = this.addRenderableWidget(Button.builder(Component.literal("Sync Dynmap"), button -> sendDynmapSync())
             .bounds(panelLeft, bottomRowY, scaledButtonWidth(110), 20)
@@ -249,6 +248,7 @@ public class FactionMainScreen extends Screen {
             updateVisibility();
         }).bounds(panelLeft, panelTop, MEMBER_SECTION_BUTTON_WIDTH, MEMBER_SECTION_BUTTON_HEIGHT).build());
         layoutMemberSectionButtons();
+        updateBottomRowLayout();
 
         updateVisibility();
         FactionClientData.requestUpdate();
@@ -330,7 +330,7 @@ public class FactionMainScreen extends Screen {
             case RULES -> renderRules(guiGraphics, snapshot.rules(), contentStart);
             case RELATIONS -> renderRelations(guiGraphics, snapshot.relations(), snapshot.relationPermissions(), contentStart);
             case FACTION_LIST -> renderFactionList(guiGraphics, snapshot.factionList(), contentStart);
-            case FACTION_MAP -> renderFactionMap(guiGraphics, snapshot, contentStart, mouseX, mouseY);
+            case FACTION_MAP -> renderFactionMap(guiGraphics, contentStart, mouseX, mouseY);
         }
     }
 
@@ -383,24 +383,6 @@ public class FactionMainScreen extends Screen {
                     factionListScrollOffset = Math.min(maxOffset, factionListScrollOffset + 1);
                 } else if (scrollY > 0) {
                     factionListScrollOffset = Math.max(0, factionListScrollOffset - 1);
-                }
-                return true;
-            }
-        }
-        if (selectedTab == FactionTab.FACTION_MAP) {
-            FactionMapClientData.MapSnapshot mapSnapshot = FactionMapClientData.getSnapshot();
-            FactionMapRenderer.MapRegion region = FactionMapRenderer.buildMapRegion(getContentStart(FactionClientData.getSnapshot()), mapSnapshot.radius(),
-                this.width, this.height, layoutPadding);
-            int listStart = FactionMapRenderer.getMapClaimsListStart(region);
-            if (mouseY >= listStart) {
-                int lineHeight = 10;
-                int availableHeight = Math.max(0, getMapClaimsBottomRow() - listStart - 6);
-                int visibleLines = Math.max(1, availableHeight / lineHeight);
-                int maxOffset = Math.max(0, FactionClientData.getSnapshot().claims().size() - visibleLines);
-                if (scrollY < 0) {
-                    mapClaimsScrollOffset = Math.min(maxOffset, mapClaimsScrollOffset + 1);
-                } else if (scrollY > 0) {
-                    mapClaimsScrollOffset = Math.max(0, mapClaimsScrollOffset - 1);
                 }
                 return true;
             }
@@ -516,6 +498,7 @@ public class FactionMainScreen extends Screen {
         setButtonVisible(claimTypeButton, mapTab);
         setButtonVisible(submitClaimsButton, mapTab);
         setEditBoxVisible(safeZoneFactionField, mapTab && selectedClaimType == ClaimType.SAFEZONE && isOperator());
+        updateBottomRowLayout();
         if (!mapTab) {
             selectionActive = false;
             selectionAnchor = null;
@@ -529,7 +512,6 @@ public class FactionMainScreen extends Screen {
             factionListScrollOffset = 0;
         }
         if (selectedTab == FactionTab.FACTION_MAP) {
-            mapClaimsScrollOffset = 0;
             FactionMapClientData.requestUpdate();
         }
     }
@@ -1197,7 +1179,7 @@ public class FactionMainScreen extends Screen {
         }
     }
 
-    private void renderFactionMap(GuiGraphics guiGraphics, FactionClientData.FactionSnapshot snapshot, int startY, int mouseX, int mouseY) {
+    private void renderFactionMap(GuiGraphics guiGraphics, int startY, int mouseX, int mouseY) {
         FactionMapClientData.MapSnapshot mapSnapshot = FactionMapClientData.getSnapshot();
         int radius = mapSnapshot.radius();
         guiGraphics.drawString(this.font, "Faction Map:", getPanelLeft(), startY, 0xFFFFFF);
@@ -1219,37 +1201,10 @@ public class FactionMainScreen extends Screen {
             FactionMapRenderer.renderMapTooltip(guiGraphics, mapSnapshot, hovered, mouseX, mouseY, this.font);
         }
         renderMapLegend(guiGraphics, region);
-        mapClaimsScrollOffset = renderMapClaimsList(guiGraphics, snapshot.claims(), region, mapClaimsScrollOffset);
         if (!selectedChunks.isEmpty()) {
             guiGraphics.drawString(this.font, "Selected " + selectedChunks.size() + " chunk(s)",
                 getPanelLeft(), startY + 14, 0xF9A825);
         }
-    }
-
-    private int renderMapClaimsList(GuiGraphics guiGraphics,
-                                    List<com.mcprotector.network.FactionStatePacket.ClaimEntry> claims,
-                                    FactionMapRenderer.MapRegion region,
-                                    int scrollOffset) {
-        int startY = FactionMapRenderer.getMapClaimsListStart(region);
-        guiGraphics.drawString(this.font, "Claims:", getPanelLeft(), startY, 0xFFFFFF);
-        int y = startY + 12;
-        if (claims.isEmpty()) {
-            guiGraphics.drawString(this.font, "No claims.", getPanelLeft(), y, 0x777777);
-            return 0;
-        }
-        int lineHeight = 10;
-        int availableHeight = Math.max(0, getMapClaimsBottomRow() - y - 6);
-        int visibleLines = Math.max(1, availableHeight / lineHeight);
-        int maxOffset = Math.max(0, claims.size() - visibleLines);
-        int clampedOffset = Math.min(scrollOffset, maxOffset);
-        List<com.mcprotector.network.FactionStatePacket.ClaimEntry> visibleClaims = claims
-            .subList(clampedOffset, Math.min(claims.size(), clampedOffset + visibleLines));
-        for (var claim : visibleClaims) {
-            guiGraphics.drawString(this.font, "Chunk " + claim.chunkX() + ", " + claim.chunkZ(), getPanelLeft(), y, 0xCCCCCC);
-            y += lineHeight;
-        }
-        renderScrollIndicator(guiGraphics, claims.size(), visibleLines, clampedOffset, y - (visibleClaims.size() * lineHeight), getMapClaimsBottomRow() - 2);
-        return clampedOffset;
     }
 
     private void renderMapLegend(GuiGraphics guiGraphics, FactionMapRenderer.MapRegion region) {
@@ -1307,10 +1262,6 @@ public class FactionMainScreen extends Screen {
         return panelTop + (hasControls ? controlOffset : CONTROL_TOP_OFFSET);
     }
 
-    private int getMapClaimsBottomRow() {
-        return this.height - layoutPadding - 20;
-    }
-
     private int getPermissionsBottom() {
         return this.height - layoutPadding - 20;
     }
@@ -1332,8 +1283,22 @@ public class FactionMainScreen extends Screen {
         return this.height - layoutPadding - 20;
     }
 
+    private void updateBottomRowLayout() {
+        if (refreshButton == null) {
+            return;
+        }
+        int refreshWidth = 80;
+        int refreshHeight = 20;
+        int x = getPanelRight() - refreshWidth - 8;
+        int y = this.height - layoutPadding - refreshHeight;
+        refreshButton.setX(x);
+        refreshButton.setY(y);
+        refreshButton.setWidth(refreshWidth);
+        refreshButton.setHeight(refreshHeight);
+    }
+
     private void updateMapControlLayout() {
-        int controlsY = getMapClaimsBottomRow();
+        int controlsY = this.height - layoutPadding - 20;
         boolean showSafeZoneField = safeZoneFactionField.isVisible();
         int safeZoneWidth = scaledWidth(SAFEZONE_FIELD_WIDTH);
         int claimTypeWidth = scaledButtonWidth(120);
