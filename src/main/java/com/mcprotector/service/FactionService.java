@@ -15,7 +15,10 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.ChunkPos;
 
+import java.util.ArrayList;
 import java.util.EnumSet;
+import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -317,17 +320,32 @@ public final class FactionService {
         }
         int claimed = 0;
         int unclaimed = 0;
+        List<ChunkPos> pendingClaims = new ArrayList<>();
         for (ChunkPos chunk : chunks) {
             if (data.unclaimChunk(chunk, faction.get().getId())) {
                 WebmapBridge.updateClaim(chunk, Optional.empty(), player.level().dimension().location().toString());
                 unclaimed++;
                 continue;
             }
-            if (data.claimChunk(chunk, faction.get().getId())) {
+            pendingClaims.add(chunk);
+        }
+
+        boolean progress;
+        do {
+            progress = false;
+            Iterator<ChunkPos> iterator = pendingClaims.iterator();
+            while (iterator.hasNext()) {
+                ChunkPos chunk = iterator.next();
+                if (!data.claimChunk(chunk, faction.get().getId())) {
+                    continue;
+                }
                 WebmapBridge.updateClaim(chunk, faction, player.level().dimension().location().toString());
                 claimed++;
+                progress = true;
+                iterator.remove();
             }
-        }
+        } while (progress && !pendingClaims.isEmpty());
+
         if (claimed == 0 && unclaimed == 0) {
             source.sendFailure(Component.literal("No chunks were updated."));
             return 0;
