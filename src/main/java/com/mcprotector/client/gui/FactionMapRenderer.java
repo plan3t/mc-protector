@@ -1,6 +1,9 @@
 package com.mcprotector.client.gui;
 
+import com.mcprotector.client.ClientColorHelper;
 import com.mcprotector.client.FactionMapClientData;
+import com.mcprotector.client.map.MapBackgroundProvider;
+import com.mcprotector.client.map.MapBackgroundProviders;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
@@ -61,6 +64,8 @@ public final class FactionMapRenderer {
         guiGraphics.fill(mapX - 2, mapY - 2, mapEndX + 2, mapEndY + 2, 0x66000000);
         guiGraphics.renderOutline(mapX - 2, mapY - 2, size + 4, size + 4, 0xFFE6E6E6);
         guiGraphics.renderOutline(mapX, mapY, size, size, 0xFFFFFFFF);
+        MapBackgroundProvider backgroundProvider = MapBackgroundProviders.resolve(mapSnapshot.backgroundState());
+        backgroundProvider.renderBackground(guiGraphics, mapSnapshot, region);
         for (int dz = -radius; dz <= radius; dz++) {
             for (int dx = -radius; dx <= radius; dx++) {
                 int chunkX = mapSnapshot.centerChunkX() + dx;
@@ -70,11 +75,15 @@ public final class FactionMapRenderer {
                 long key = new ChunkPos(chunkX, chunkZ).toLong();
                 com.mcprotector.network.FactionClaimMapPacket.ClaimEntry entry = mapSnapshot.claims().get(key);
                 int color = getMapColor(entry);
-                guiGraphics.fill(x, y, x + region.cellSize(), y + region.cellSize(), color);
+                if (mapSnapshot.backgroundState() != null && mapSnapshot.backgroundState().enabled()) {
+                    color = withAlpha(color, 0xA0);
+                }
+                int guiColor = ClientColorHelper.toGuiColor(color);
+                guiGraphics.fill(x, y, x + region.cellSize(), y + region.cellSize(), guiColor);
                 int halfCell = Math.max(1, region.cellSize() / 2);
                 guiGraphics.fill(x, y, x + halfCell, y + halfCell, 0x18FFFFFF);
                 guiGraphics.fill(x + halfCell, y + halfCell, x + region.cellSize(), y + region.cellSize(), 0x18000000);
-                int gridColor = shadeColor(color, 0.75f);
+                int gridColor = shadeColor(guiColor, 0.75f);
                 guiGraphics.renderOutline(x, y, region.cellSize(), region.cellSize(), gridColor);
             }
         }
@@ -150,6 +159,10 @@ public final class FactionMapRenderer {
             case "WAR" -> 0xFFEF5350;
             default -> 0xFF8D8D8D;
         };
+    }
+
+    private static int withAlpha(int color, int alpha) {
+        return (Math.max(0, Math.min(255, alpha)) << 24) | (color & 0x00FFFFFF);
     }
 
     private static int shadeColor(int color, float factor) {

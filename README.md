@@ -67,6 +67,9 @@ When disabled, the related commands/actions are blocked with a clear config mess
 ## Dynmap integration
 Dynmap markers are enabled automatically when the Dynmap API is available. Claims are mapped to area markers in the `Faction Claims` marker set, and `/faction map sync` can force a resync.
 
+## Xaero WorldMap in-UI background (automatic fallback)
+If `xaeroworldmap` (or Xaero Minimap) is present in the client modpack, the faction map will automatically draw terrain-based background data behind claims. If Xaero is not installed, the UI automatically falls back to the base claim-grid rendering.
+
 ## Project metadata
 
 Update `gradle.properties` to change the mod id, name, version, authors, and description. These values are expanded into `META-INF/neoforge.mods.toml` during the build.

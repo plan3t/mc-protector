@@ -7,6 +7,7 @@ import com.mcprotector.data.FactionPermission;
 import com.mcprotector.network.FactionActionPacket;
 import com.mcprotector.network.FactionClaimSelectionPacket;
 import com.mcprotector.network.FactionStatePacket;
+import com.mcprotector.client.ClientColorHelper;
 import com.mcprotector.client.ClientNetworkSender;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -1150,7 +1151,7 @@ public class FactionMainScreen extends Screen {
                 label += " - " + faction.relation();
             }
             int color = 0xFF000000 | faction.color();
-            guiGraphics.drawString(this.font, label, getPanelLeft(), y, color);
+            guiGraphics.drawString(this.font, label, getPanelLeft(), y, ClientColorHelper.toGuiColor(color));
             y += lineHeight;
         }
         renderScrollIndicator(guiGraphics, factions.size(), visibleLines, factionListScrollOffset, listStart, listBottom);
@@ -1289,6 +1290,7 @@ public class FactionMainScreen extends Screen {
         guiGraphics.drawString(this.font, east, mapEndX - this.font.width(east) - 2,
             centerY - this.font.lineHeight / 2, color);
     }
+
 
     private int getContentStart(FactionClientData.FactionSnapshot snapshot) {
         boolean hasControls = selectedTab == FactionTab.PERMISSIONS
