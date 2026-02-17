@@ -67,10 +67,10 @@ public final class FactionClaimBorderRenderer {
                 continue;
             }
             int color = resolveClaimColor(entry.getValue());
-            float red = ((color >> 16) & 0xFF) / 255.0f;
-            float green = ((color >> 8) & 0xFF) / 255.0f;
-            float blue = (color & 0xFF) / 255.0f;
-            float alpha = (((color >> 24) & 0xFF) / 255.0f) * BORDER_ALPHA;
+            float red = ClientColorHelper.red(color);
+            float green = ClientColorHelper.green(color);
+            float blue = ClientColorHelper.blue(color);
+            float alpha = ClientColorHelper.alpha(color) * BORDER_ALPHA;
             double minX = chunkPos.getMinBlockX();
             double maxX = chunkPos.getMaxBlockX() + 1.0;
             double minZ = chunkPos.getMinBlockZ();
@@ -104,10 +104,10 @@ public final class FactionClaimBorderRenderer {
                 continue;
             }
             int color = resolveClaimColor(entry.getValue());
-            float red = ((color >> 16) & 0xFF) / 255.0f;
-            float green = ((color >> 8) & 0xFF) / 255.0f;
-            float blue = (color & 0xFF) / 255.0f;
-            float alpha = (((color >> 24) & 0xFF) / 255.0f) * BORDER_ALPHA;
+            float red = ClientColorHelper.red(color);
+            float green = ClientColorHelper.green(color);
+            float blue = ClientColorHelper.blue(color);
+            float alpha = ClientColorHelper.alpha(color) * BORDER_ALPHA;
             double minX = chunkPos.getMinBlockX();
             double maxX = chunkPos.getMaxBlockX() + 1.0;
             double minZ = chunkPos.getMinBlockZ();
