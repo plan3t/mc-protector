@@ -19,8 +19,8 @@ public final class FactionMapRenderer {
     public static MapRegion buildMapRegion(int startY, int radius, int width, int height, int panelPadding) {
         int gridSize = radius * 2 + 1;
         int maxWidth = width - panelPadding * 2;
-        int maxHeight = height - startY - 40;
-        int cellSize = Math.max(8, Math.min(22, Math.min(maxWidth / gridSize, maxHeight / gridSize)));
+        int maxHeight = height - startY - 70;
+        int cellSize = Math.max(7, Math.min(18, Math.min(maxWidth / gridSize, maxHeight / gridSize)));
         int mapWidth = cellSize * gridSize;
         int mapHeight = cellSize * gridSize;
         int originX = (width - mapWidth) / 2;

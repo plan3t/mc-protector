@@ -26,8 +26,8 @@ import java.util.List;
 import java.util.Set;
 
 public class FactionMainScreen extends Screen {
-    private static final int TAB_BUTTON_HEIGHT = 18;
-    private static final int TAB_BUTTON_WIDTH = 72;
+    private static final int TAB_BUTTON_HEIGHT = 16;
+    private static final int TAB_BUTTON_WIDTH = 66;
     private static final int PANEL_PADDING = 16;
     private static final int CONTROL_TOP_OFFSET = 6;
     private static final int CONTROL_ROW_SPACING = 24;
@@ -44,9 +44,10 @@ public class FactionMainScreen extends Screen {
     private static final int MAP_COLOR_PERSONAL = 0xFF9C27B0;
     private static final int SAFEZONE_FIELD_WIDTH = 90;
     private static final int CLAIM_CONTROL_GAP = 6;
-    private static final int MIN_TAB_BUTTON_WIDTH = 52;
-    private static final int TAB_BUTTON_GAP = 4;
+    private static final int MIN_TAB_BUTTON_WIDTH = 44;
+    private static final int TAB_BUTTON_GAP = 3;
     private static final int PANEL_CONTENT_WIDTH = 388;
+    private static final int TAB_COMPACT_LABEL_THRESHOLD = 58;
     private static final int MIN_PANEL_CONTENT_WIDTH = 300;
     private static final DateTimeFormatter INVITE_TIME_FORMAT = DateTimeFormatter.ofPattern("HH:mm")
         .withZone(ZoneId.systemDefault());
@@ -118,7 +119,8 @@ public class FactionMainScreen extends Screen {
         int y = 42;
         for (FactionTab tab : FactionTab.values()) {
             int x = startX + tab.ordinal() * (tabButtonWidth + TAB_BUTTON_GAP);
-            this.addRenderableWidget(Button.builder(Component.literal(tab.getLabel()), button -> {
+            String tabLabel = tabButtonWidth < TAB_COMPACT_LABEL_THRESHOLD ? tab.getCompactLabel() : tab.getLabel();
+            this.addRenderableWidget(Button.builder(Component.literal(tabLabel), button -> {
                 selectedTab = tab;
                 updateVisibility();
             }).bounds(x, y, tabButtonWidth, TAB_BUTTON_HEIGHT).build());
@@ -232,24 +234,6 @@ public class FactionMainScreen extends Screen {
             .build());
         submitClaimsButton = this.addRenderableWidget(Button.builder(Component.literal("✓"), button -> promptClaimConfirm())
             .bounds(panelX(SAFEZONE_FIELD_WIDTH + CLAIM_CONTROL_GAP + 124), controlRowOne - 2, scaledWidth(16), 16)
-            .build());
-        mapBackgroundButton = this.addRenderableWidget(Button.builder(Component.literal("Bg: Off"), button -> {
-                FactionMapClientData.cycleBackgroundMode();
-                updateMapBackgroundControls();
-            })
-            .bounds(panelLeft, controlRowOne + 20, 86, 16)
-            .build());
-        mapZoomOutButton = this.addRenderableWidget(Button.builder(Component.literal("-"), button -> {
-                FactionMapClientData.adjustZoom(-1);
-                updateMapBackgroundControls();
-            })
-            .bounds(panelLeft + 90, controlRowOne + 20, 16, 16)
-            .build());
-        mapZoomInButton = this.addRenderableWidget(Button.builder(Component.literal("+"), button -> {
-                FactionMapClientData.adjustZoom(1);
-                updateMapBackgroundControls();
-            })
-            .bounds(panelLeft + 110, controlRowOne + 20, 16, 16)
             .build());
 
         updateVisibility();
