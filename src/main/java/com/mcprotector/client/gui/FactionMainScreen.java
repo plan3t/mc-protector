@@ -27,7 +27,7 @@ import java.util.Set;
 
 public class FactionMainScreen extends Screen {
     private static final int TAB_BUTTON_HEIGHT = 14;
-    private static final int TAB_BUTTON_WIDTH = 60;
+    private static final int TAB_BUTTON_WIDTH = 62;
     private static final int PANEL_PADDING = 16;
     private static final int CONTROL_TOP_OFFSET = 6;
     private static final int CONTROL_ROW_SPACING = 24;
@@ -44,14 +44,14 @@ public class FactionMainScreen extends Screen {
     private static final int MAP_COLOR_PERSONAL = 0xFF9C27B0;
     private static final int SAFEZONE_FIELD_WIDTH = 90;
     private static final int CLAIM_CONTROL_GAP = 6;
-    private static final int MIN_TAB_BUTTON_WIDTH = 40;
-    private static final int TAB_BUTTON_GAP = 3;
-    private static final int PANEL_CONTENT_WIDTH = 360;
+    private static final int MIN_TAB_BUTTON_WIDTH = 42;
+    private static final int TAB_BUTTON_GAP = 4;
+    private static final int PANEL_CONTENT_WIDTH = 376;
     private static final int TAB_COMPACT_LABEL_THRESHOLD = 54;
     private static final int MEMBER_SECTION_BUTTON_WIDTH = 72;
     private static final int MEMBER_SECTION_BUTTON_HEIGHT = 16;
     private static final int MEMBER_SECTION_BUTTON_GAP = 4;
-    private static final int MIN_PANEL_CONTENT_WIDTH = 280;
+    private static final int MIN_PANEL_CONTENT_WIDTH = 296;
     private static final DateTimeFormatter INVITE_TIME_FORMAT = DateTimeFormatter.ofPattern("HH:mm")
         .withZone(ZoneId.systemDefault());
 
