@@ -242,12 +242,6 @@ public final class FactionConfig {
         public final ModConfigSpec.ConfigValue<Boolean> dynmapFullSyncOnStart;
         public final ModConfigSpec.ConfigValue<Integer> claimMapRadiusChunks;
         public final ModConfigSpec.ConfigValue<Boolean> claimMapFullSync;
-        public final ModConfigSpec.ConfigValue<Boolean> squaremapUiBackgroundEnabled;
-        public final ModConfigSpec.ConfigValue<String> squaremapUiTileUrlTemplate;
-        public final ModConfigSpec.ConfigValue<Integer> squaremapUiMinZoom;
-        public final ModConfigSpec.ConfigValue<Integer> squaremapUiMaxZoom;
-        public final ModConfigSpec.ConfigValue<Integer> squaremapUiDefaultZoom;
-        public final ModConfigSpec.ConfigValue<Integer> squaremapUiTileBlockSpan;
         public final ModConfigSpec.ConfigValue<List<? extends String>> safeZoneDimensions;
         public final ModConfigSpec.ConfigValue<List<? extends String>> warZoneDimensions;
 
@@ -380,24 +374,6 @@ public final class FactionConfig {
             claimMapFullSync = builder
                 .comment("Send all claims to clients instead of only the radius (for larger map views).")
                 .define("claimMapFullSync", false);
-            squaremapUiBackgroundEnabled = builder
-                .comment("Enable Squaremap tile metadata for the in-game faction map background.")
-                .define("squaremapUiBackgroundEnabled", false);
-            squaremapUiTileUrlTemplate = builder
-                .comment("Tile URL template with placeholders {world}, {z}, {x}, {y}.")
-                .define("squaremapUiTileUrlTemplate", "");
-            squaremapUiMinZoom = builder
-                .comment("Minimum zoom level for in-game Squaremap background tiles.")
-                .defineInRange("squaremapUiMinZoom", 0, 0, 8);
-            squaremapUiMaxZoom = builder
-                .comment("Maximum zoom level for in-game Squaremap background tiles.")
-                .defineInRange("squaremapUiMaxZoom", 4, 0, 12);
-            squaremapUiDefaultZoom = builder
-                .comment("Default zoom level for in-game Squaremap background tiles.")
-                .defineInRange("squaremapUiDefaultZoom", 2, 0, 12);
-            squaremapUiTileBlockSpan = builder
-                .comment("Block span represented by a tile at zoom 0 for in-game background rendering.")
-                .defineInRange("squaremapUiTileBlockSpan", 256, 16, 4096);
             safeZoneDimensions = builder
                 .comment("Dimensions treated as safe zones (no PvP, no claim interactions).")
                 .defineListAllowEmpty("safeZoneDimensions", List.of(), value -> value instanceof String);

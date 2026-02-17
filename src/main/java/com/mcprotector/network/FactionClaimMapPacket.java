@@ -5,7 +5,6 @@ import com.mcprotector.config.FactionConfig;
 import com.mcprotector.data.Faction;
 import com.mcprotector.data.FactionData;
 import com.mcprotector.data.FactionRelation;
-import com.mcprotector.webmap.SquaremapBridge;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
@@ -179,25 +178,7 @@ public class FactionClaimMapPacket implements CustomPacketPayload {
 
 
     private static MapBackgroundMetadata resolveBackgroundMetadata(net.minecraft.server.level.ServerLevel level) {
-        if (!FactionConfig.SERVER.squaremapUiBackgroundEnabled.get()) {
-            return MapBackgroundMetadata.none();
-        }
-        if (!SquaremapBridge.isAvailable()) {
-            return MapBackgroundMetadata.none();
-        }
-        String template = FactionConfig.SERVER.squaremapUiTileUrlTemplate.get();
-        if (template == null || template.isBlank()) {
-            return MapBackgroundMetadata.none();
-        }
-        int minZoom = FactionConfig.SERVER.squaremapUiMinZoom.get();
-        int maxZoom = FactionConfig.SERVER.squaremapUiMaxZoom.get();
-        int defaultZoom = FactionConfig.SERVER.squaremapUiDefaultZoom.get();
-        int tileBlockSpan = FactionConfig.SERVER.squaremapUiTileBlockSpan.get();
-        int clampedMin = Math.max(0, Math.min(minZoom, maxZoom));
-        int clampedMax = Math.max(clampedMin, maxZoom);
-        int clampedDefault = Math.max(clampedMin, Math.min(clampedMax, defaultZoom));
-        String worldName = level.dimension().location().toString();
-        return new MapBackgroundMetadata(true, "SQUAREMAP", template, worldName, clampedMin, clampedMax, clampedDefault, tileBlockSpan);
+        return MapBackgroundMetadata.none();
     }
 
     private static String resolveName(net.minecraft.server.MinecraftServer server, UUID playerId) {

@@ -81,9 +81,6 @@ public class FactionMainScreen extends Screen {
     private EditBox safeZoneFactionField;
     private Button claimTypeButton;
     private Button submitClaimsButton;
-    private Button mapBackgroundButton;
-    private Button mapZoomOutButton;
-    private Button mapZoomInButton;
     private int roleIndex;
     private int permissionIndex;
     private int memberRoleIndex;
@@ -852,7 +849,6 @@ public class FactionMainScreen extends Screen {
             selectedClaimType = options.get(0);
         }
         updateClaimTypeButtonLabel(snapshot);
-        updateMapBackgroundControls();
     }
 
     private void updateClaimTypeButtonLabel() {
@@ -1162,7 +1158,6 @@ public class FactionMainScreen extends Screen {
             FactionMapRenderer.renderMapTooltip(guiGraphics, mapSnapshot, hovered, mouseX, mouseY, this.font);
         }
         renderMapLegend(guiGraphics, region);
-        renderMapBackgroundStatus(guiGraphics, region, mapSnapshot.backgroundState());
         mapClaimsScrollOffset = renderMapClaimsList(guiGraphics, snapshot.claims(), region, mapClaimsScrollOffset);
         if (!selectedChunks.isEmpty()) {
             guiGraphics.drawString(this.font, "Selected " + selectedChunks.size() + " chunk(s)",
@@ -1296,16 +1291,8 @@ public class FactionMainScreen extends Screen {
         claimTypeButton.setY(controlsY);
         submitClaimsButton.setX(claimTypeButton.getX() + claimTypeWidth + claimGap);
         submitClaimsButton.setY(controlsY);
-        int backgroundControlsY = Math.max(panelTop + CONTROL_TOP_OFFSET, controlsY - 18);
-        int bgX = getPanelLeft();
-        mapBackgroundButton.setX(bgX);
-        mapBackgroundButton.setY(backgroundControlsY);
-        mapZoomOutButton.setX(bgX + mapBackgroundButton.getWidth() + 4);
-        mapZoomOutButton.setY(backgroundControlsY);
-        mapZoomInButton.setX(bgX + mapBackgroundButton.getWidth() + 24);
-        mapZoomInButton.setY(backgroundControlsY);
-        updateMapBackgroundControls();
     }
+
 
     private enum ClaimType {
         FACTION("Faction"),
