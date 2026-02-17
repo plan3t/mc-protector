@@ -226,7 +226,6 @@ public class FactionMainScreen extends Screen {
         submitClaimsButton = this.addRenderableWidget(Button.builder(Component.literal("✓"), button -> promptClaimConfirm())
             .bounds(panelLeft + SAFEZONE_FIELD_WIDTH + CLAIM_CONTROL_GAP + 124, controlRowOne - 2, 16, 16)
             .build());
-
         updateVisibility();
         FactionClientData.requestUpdate();
         FactionMapClientData.requestUpdate();
@@ -1201,6 +1200,7 @@ public class FactionMainScreen extends Screen {
         guiGraphics.drawString(this.font, east, mapEndX - this.font.width(east) - 2,
             centerY - this.font.lineHeight / 2, color);
     }
+
 
     private int getContentStart(FactionClientData.FactionSnapshot snapshot) {
         boolean hasControls = selectedTab == FactionTab.INVITES

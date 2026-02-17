@@ -57,6 +57,7 @@ public final class SquaremapBridge {
         }
     }
 
+
     public static void updateClaim(ChunkPos chunkPos, Optional<Faction> faction, String dimension) {
         if (!available || squaremap == null) {
             return;
