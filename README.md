@@ -67,6 +67,17 @@ When disabled, the related commands/actions are blocked with a clear config mess
 ## Dynmap integration
 Dynmap markers are enabled automatically when the Dynmap API is available. Claims are mapped to area markers in the `Faction Claims` marker set, and `/faction map sync` can force a resync.
 
+## Squaremap in-UI map background (optional)
+You can optionally enable Squaremap tile backgrounds behind the in-game faction claim map.
+
+Server config keys:
+- `squaremapUiBackgroundEnabled = true`
+- `squaremapUiTileUrlTemplate = "https://your-squaremap-host/tiles/{world}/{z}/{x}/{y}.png"`
+- `squaremapUiMinZoom`, `squaremapUiMaxZoom`, `squaremapUiDefaultZoom`
+- `squaremapUiTileBlockSpan` (blocks covered by a tile at zoom 0)
+
+When this is disabled, unavailable, or the tile endpoint fails, the UI falls back to the current claim-grid rendering.
+
 ## Project metadata
 
 Update `gradle.properties` to change the mod id, name, version, authors, and description. These values are expanded into `META-INF/neoforge.mods.toml` during the build.
