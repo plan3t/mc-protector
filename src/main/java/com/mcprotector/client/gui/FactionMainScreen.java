@@ -7,6 +7,7 @@ import com.mcprotector.data.FactionPermission;
 import com.mcprotector.network.FactionActionPacket;
 import com.mcprotector.network.FactionClaimSelectionPacket;
 import com.mcprotector.network.FactionStatePacket;
+import com.mcprotector.client.ClientColorHelper;
 import com.mcprotector.client.ClientNetworkSender;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -80,6 +81,9 @@ public class FactionMainScreen extends Screen {
     private EditBox safeZoneFactionField;
     private Button claimTypeButton;
     private Button submitClaimsButton;
+    private Button mapBackgroundButton;
+    private Button mapZoomOutButton;
+    private Button mapZoomInButton;
     private int roleIndex;
     private int permissionIndex;
     private int memberRoleIndex;
@@ -231,7 +235,6 @@ public class FactionMainScreen extends Screen {
         submitClaimsButton = this.addRenderableWidget(Button.builder(Component.literal("✓"), button -> promptClaimConfirm())
             .bounds(panelX(SAFEZONE_FIELD_WIDTH + CLAIM_CONTROL_GAP + 124), controlRowOne - 2, scaledWidth(16), 16)
             .build());
-
         updateVisibility();
         FactionClientData.requestUpdate();
         FactionMapClientData.requestUpdate();
@@ -849,6 +852,7 @@ public class FactionMainScreen extends Screen {
             selectedClaimType = options.get(0);
         }
         updateClaimTypeButtonLabel(snapshot);
+        updateMapBackgroundControls();
     }
 
     private void updateClaimTypeButtonLabel() {
@@ -1090,7 +1094,7 @@ public class FactionMainScreen extends Screen {
                 label += " - " + faction.relation();
             }
             int color = 0xFF000000 | faction.color();
-            guiGraphics.drawString(this.font, label, getPanelLeft(), y, color);
+            guiGraphics.drawString(this.font, label, getPanelLeft(), y, ClientColorHelper.toGuiColor(color));
             y += lineHeight;
         }
         renderScrollIndicator(guiGraphics, factions.size(), visibleLines, factionListScrollOffset, listStart, listBottom);
@@ -1158,6 +1162,7 @@ public class FactionMainScreen extends Screen {
             FactionMapRenderer.renderMapTooltip(guiGraphics, mapSnapshot, hovered, mouseX, mouseY, this.font);
         }
         renderMapLegend(guiGraphics, region);
+        renderMapBackgroundStatus(guiGraphics, region, mapSnapshot.backgroundState());
         mapClaimsScrollOffset = renderMapClaimsList(guiGraphics, snapshot.claims(), region, mapClaimsScrollOffset);
         if (!selectedChunks.isEmpty()) {
             guiGraphics.drawString(this.font, "Selected " + selectedChunks.size() + " chunk(s)",
@@ -1230,6 +1235,7 @@ public class FactionMainScreen extends Screen {
             centerY - this.font.lineHeight / 2, color);
     }
 
+
     private int getContentStart(FactionClientData.FactionSnapshot snapshot) {
         boolean hasControls = selectedTab == FactionTab.INVITES
             || selectedTab == FactionTab.PERMISSIONS
@@ -1290,6 +1296,15 @@ public class FactionMainScreen extends Screen {
         claimTypeButton.setY(controlsY);
         submitClaimsButton.setX(claimTypeButton.getX() + claimTypeWidth + claimGap);
         submitClaimsButton.setY(controlsY);
+        int backgroundControlsY = Math.max(panelTop + CONTROL_TOP_OFFSET, controlsY - 18);
+        int bgX = getPanelLeft();
+        mapBackgroundButton.setX(bgX);
+        mapBackgroundButton.setY(backgroundControlsY);
+        mapZoomOutButton.setX(bgX + mapBackgroundButton.getWidth() + 4);
+        mapZoomOutButton.setY(backgroundControlsY);
+        mapZoomInButton.setX(bgX + mapBackgroundButton.getWidth() + 24);
+        mapZoomInButton.setY(backgroundControlsY);
+        updateMapBackgroundControls();
     }
 
     private enum ClaimType {

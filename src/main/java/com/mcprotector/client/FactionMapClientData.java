@@ -3,13 +3,15 @@ package com.mcprotector.client;
 import com.mcprotector.network.FactionClaimMapPacket;
 import net.minecraft.client.Minecraft;
 import net.minecraft.world.level.ChunkPos;
-import com.mcprotector.client.ClientNetworkSender;
+import net.neoforged.fml.ModList;
 
 import java.util.HashMap;
 import java.util.Map;
 
 public final class FactionMapClientData {
     private static MapSnapshot snapshot = MapSnapshot.empty();
+    private static boolean backgroundEnabledPreference = true;
+    private static int zoomPreference = Integer.MIN_VALUE;
 
     private FactionMapClientData() {
     }
@@ -20,7 +22,7 @@ public final class FactionMapClientData {
             claims.put(new ChunkPos(entry.chunkX(), entry.chunkZ()).toLong(), entry);
         }
         int radius = Math.max(0, packet.radius());
-        snapshot = new MapSnapshot(packet.centerChunkX(), packet.centerChunkZ(), radius, claims);
+        snapshot = new MapSnapshot(packet.centerChunkX(), packet.centerChunkZ(), radius, claims, MapBackgroundState.auto());
     }
 
     public static MapSnapshot getSnapshot() {
@@ -34,10 +36,46 @@ public final class FactionMapClientData {
         }
     }
 
+    public static void cycleBackgroundMode() {
+        MapBackgroundState state = snapshot.backgroundState();
+        boolean enabled = !(state != null && state.enabled());
+        backgroundEnabledPreference = enabled;
+        snapshot = snapshot.withBackgroundState(state.withEnabled(enabled));
+    }
+
+    public static void adjustZoom(int delta) {
+        MapBackgroundState state = snapshot.backgroundState();
+        if (state == null || state.providerType() == MapBackgroundProviderType.NONE) {
+            return;
+        }
+        int zoom = Math.max(state.minZoom(), Math.min(state.maxZoom(), state.zoom() + delta));
+        zoomPreference = zoom;
+        snapshot = snapshot.withBackgroundState(state.withZoom(zoom));
+    }
+
     public record MapSnapshot(int centerChunkX, int centerChunkZ, int radius,
-                              Map<Long, FactionClaimMapPacket.ClaimEntry> claims) {
+                              Map<Long, FactionClaimMapPacket.ClaimEntry> claims,
+                              MapBackgroundState backgroundState) {
         public static MapSnapshot empty() {
-            return new MapSnapshot(0, 0, 0, new HashMap<>());
+            return new MapSnapshot(0, 0, 0, new HashMap<>(), MapBackgroundState.none());
+        }
+    }
+
+    public enum MapBackgroundProviderType {
+        NONE,
+        XAERO
+    }
+
+    public record MapBackgroundState(MapBackgroundProviderType providerType, boolean enabled) {
+        public static MapBackgroundState none() {
+            return new MapBackgroundState(MapBackgroundProviderType.NONE, false);
+        }
+
+        public static MapBackgroundState auto() {
+            boolean xaeroInstalled = ModList.get().isLoaded("xaeroworldmap") || ModList.get().isLoaded("xaerominimap");
+            return xaeroInstalled
+                ? new MapBackgroundState(MapBackgroundProviderType.XAERO, true)
+                : none();
         }
     }
 }

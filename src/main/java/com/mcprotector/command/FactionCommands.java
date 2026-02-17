@@ -1034,16 +1034,14 @@ public final class FactionCommands {
             return 0;
         }
         String normalized = FactionConfig.normalizeColorInput(colorName);
-        ChatFormatting named = ChatFormatting.getByName(normalized);
-        boolean validNamed = named != null && named.isColor();
         boolean validHex = FactionConfig.isHexColor(normalized);
-        if (!validNamed && !validHex) {
-            source.sendFailure(Component.literal("Unknown color. Use a vanilla color name or hex format (#RRGGBB)."));
+        if (!validHex) {
+            source.sendFailure(Component.literal("Unknown color. Use hex format only (#RRGGBB)."));
             return 0;
         }
-        faction.get().setColorName(normalized);
+        faction.get().setColorName("#" + (normalized.startsWith("#") ? normalized.substring(1) : normalized));
         FactionData.get(source.getLevel()).setDirty();
-        source.sendSuccess(() -> Component.literal("Faction color updated to " + normalized), true);
+        source.sendSuccess(() -> Component.literal("Faction color updated to " + faction.get().getColorName()), true);
         return 1;
     }
 
