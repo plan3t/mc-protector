@@ -78,11 +78,12 @@ public final class FactionMapRenderer {
                 if (mapSnapshot.backgroundState() != null && mapSnapshot.backgroundState().enabled()) {
                     color = withAlpha(color, 0xA0);
                 }
-                guiGraphics.fill(x, y, x + region.cellSize(), y + region.cellSize(), color);
+                int guiColor = ClientColorHelper.toGuiColor(color);
+                guiGraphics.fill(x, y, x + region.cellSize(), y + region.cellSize(), guiColor);
                 int halfCell = Math.max(1, region.cellSize() / 2);
                 guiGraphics.fill(x, y, x + halfCell, y + halfCell, 0x18FFFFFF);
                 guiGraphics.fill(x + halfCell, y + halfCell, x + region.cellSize(), y + region.cellSize(), 0x18000000);
-                int gridColor = shadeColor(color, 0.75f);
+                int gridColor = shadeColor(guiColor, 0.75f);
                 guiGraphics.renderOutline(x, y, region.cellSize(), region.cellSize(), gridColor);
             }
         }
