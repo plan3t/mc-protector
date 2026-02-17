@@ -470,37 +470,34 @@ public class FactionMainScreen extends Screen {
         boolean members = selectedTab == FactionTab.MEMBERS;
         boolean rules = selectedTab == FactionTab.RULES;
         boolean relations = selectedTab == FactionTab.RELATIONS;
-        inviteNameField.setVisible(invites);
-        inviteButton.visible = invites;
-        joinInviteButton.visible = invites;
-        declineInviteButton.visible = invites;
-        dynmapSyncButton.visible = selectedTab == FactionTab.FACTION_MAP;
-        roleButton.visible = permissions;
-        permissionButton.visible = permissions;
-        grantButton.visible = permissions;
-        revokeButton.visible = permissions;
-        roleNameField.setVisible(permissions);
-        createRoleButton.visible = permissions;
-        deleteRoleButton.visible = permissions;
-        memberNameField.setVisible(members);
-        kickMemberButton.visible = members;
-        memberRoleButton.visible = members;
-        setRoleButton.visible = members;
-        ruleField.setVisible(rules);
-        addRuleButton.visible = rules;
-        removeRuleButton.visible = rules;
-        relationTypeButton.visible = relations;
-        relationPermissionButton.visible = relations;
-        relationGrantButton.visible = relations;
-        relationRevokeButton.visible = relations;
-        leaveFactionButton.visible = members;
+        setEditBoxVisible(inviteNameField, invites);
+        setButtonVisible(inviteButton, invites);
+        setButtonVisible(joinInviteButton, invites);
+        setButtonVisible(declineInviteButton, invites);
+        setButtonVisible(dynmapSyncButton, selectedTab == FactionTab.FACTION_MAP);
+        setButtonVisible(roleButton, permissions);
+        setButtonVisible(permissionButton, permissions);
+        setButtonVisible(grantButton, permissions);
+        setButtonVisible(revokeButton, permissions);
+        setEditBoxVisible(roleNameField, permissions);
+        setButtonVisible(createRoleButton, permissions);
+        setButtonVisible(deleteRoleButton, permissions);
+        setEditBoxVisible(memberNameField, members);
+        setButtonVisible(kickMemberButton, members);
+        setButtonVisible(memberRoleButton, members);
+        setButtonVisible(setRoleButton, members);
+        setEditBoxVisible(ruleField, rules);
+        setButtonVisible(addRuleButton, rules);
+        setButtonVisible(removeRuleButton, rules);
+        setButtonVisible(relationTypeButton, relations);
+        setButtonVisible(relationPermissionButton, relations);
+        setButtonVisible(relationGrantButton, relations);
+        setButtonVisible(relationRevokeButton, relations);
+        setButtonVisible(leaveFactionButton, members);
         boolean mapTab = selectedTab == FactionTab.FACTION_MAP;
-        claimTypeButton.visible = mapTab;
-        submitClaimsButton.visible = mapTab;
-        mapBackgroundButton.visible = mapTab;
-        mapZoomOutButton.visible = mapTab;
-        mapZoomInButton.visible = mapTab;
-        safeZoneFactionField.setVisible(mapTab && selectedClaimType == ClaimType.SAFEZONE && isOperator());
+        setButtonVisible(claimTypeButton, mapTab);
+        setButtonVisible(submitClaimsButton, mapTab);
+        setEditBoxVisible(safeZoneFactionField, mapTab && selectedClaimType == ClaimType.SAFEZONE && isOperator());
         if (!mapTab) {
             selectionActive = false;
             selectionAnchor = null;
@@ -523,41 +520,53 @@ public class FactionMainScreen extends Screen {
         boolean invites = selectedTab == FactionTab.INVITES;
         boolean inFaction = snapshot.inFaction();
         updateRoleIndices(snapshot);
-        inviteNameField.setVisible(invites && inFaction);
-        inviteButton.visible = invites && inFaction;
+        setEditBoxVisible(inviteNameField, invites && inFaction);
+        setButtonVisible(inviteButton, invites && inFaction);
         boolean hasInvite = invites && !snapshot.pendingInviteFaction().isEmpty() && !snapshot.inFaction();
-        joinInviteButton.visible = hasInvite;
-        declineInviteButton.visible = hasInvite;
+        setButtonVisible(joinInviteButton, hasInvite);
+        setButtonVisible(declineInviteButton, hasInvite);
         boolean permissions = selectedTab == FactionTab.PERMISSIONS;
-        roleButton.visible = permissions && inFaction;
-        permissionButton.visible = permissions && inFaction;
-        grantButton.visible = permissions && inFaction;
-        revokeButton.visible = permissions && inFaction;
-        roleNameField.setVisible(permissions && inFaction);
-        createRoleButton.visible = permissions && inFaction;
-        deleteRoleButton.visible = permissions && inFaction;
+        setButtonVisible(roleButton, permissions && inFaction);
+        setButtonVisible(permissionButton, permissions && inFaction);
+        setButtonVisible(grantButton, permissions && inFaction);
+        setButtonVisible(revokeButton, permissions && inFaction);
+        setEditBoxVisible(roleNameField, permissions && inFaction);
+        setButtonVisible(createRoleButton, permissions && inFaction);
+        setButtonVisible(deleteRoleButton, permissions && inFaction);
         if (permissions && inFaction) {
             roleButton.setMessage(Component.literal("Role: " + currentRoleDisplay()));
             permissionButton.setMessage(Component.literal("Perm: " + currentPermission().name()));
         }
         boolean members = selectedTab == FactionTab.MEMBERS;
-        memberNameField.setVisible(members && inFaction);
-        kickMemberButton.visible = members && inFaction;
-        memberRoleButton.visible = members && inFaction;
-        setRoleButton.visible = members && inFaction;
+        setEditBoxVisible(memberNameField, members && inFaction);
+        setButtonVisible(kickMemberButton, members && inFaction);
+        setButtonVisible(memberRoleButton, members && inFaction);
+        setButtonVisible(setRoleButton, members && inFaction);
         if (members && inFaction) {
             memberRoleButton.setMessage(Component.literal("Role: " + currentMemberRoleDisplay()));
         }
-        leaveFactionButton.visible = members && inFaction;
+        setButtonVisible(leaveFactionButton, members && inFaction);
         boolean rules = selectedTab == FactionTab.RULES;
-        ruleField.setVisible(rules && inFaction);
-        addRuleButton.visible = rules && inFaction;
-        removeRuleButton.visible = rules && inFaction && selectedRuleIndex >= 0;
+        setEditBoxVisible(ruleField, rules && inFaction);
+        setButtonVisible(addRuleButton, rules && inFaction);
+        setButtonVisible(removeRuleButton, rules && inFaction && selectedRuleIndex >= 0);
         boolean relations = selectedTab == FactionTab.RELATIONS;
-        relationTypeButton.visible = relations && inFaction;
-        relationPermissionButton.visible = relations && inFaction;
-        relationGrantButton.visible = relations && inFaction;
-        relationRevokeButton.visible = relations && inFaction;
+        setButtonVisible(relationTypeButton, relations && inFaction);
+        setButtonVisible(relationPermissionButton, relations && inFaction);
+        setButtonVisible(relationGrantButton, relations && inFaction);
+        setButtonVisible(relationRevokeButton, relations && inFaction);
+    }
+
+    private void setButtonVisible(Button button, boolean visible) {
+        if (button != null) {
+            button.visible = visible;
+        }
+    }
+
+    private void setEditBoxVisible(EditBox field, boolean visible) {
+        if (field != null) {
+            field.setVisible(visible);
+        }
     }
 
     private void updatePermissionLabels() {
