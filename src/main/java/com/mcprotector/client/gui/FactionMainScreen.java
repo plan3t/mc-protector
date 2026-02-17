@@ -27,7 +27,7 @@ import java.util.Set;
 
 public class FactionMainScreen extends Screen {
     private static final int TAB_BUTTON_HEIGHT = 14;
-    private static final int TAB_BUTTON_WIDTH = 58;
+    private static final int TAB_BUTTON_WIDTH = 60;
     private static final int PANEL_PADDING = 16;
     private static final int CONTROL_TOP_OFFSET = 6;
     private static final int CONTROL_ROW_SPACING = 24;
@@ -44,8 +44,8 @@ public class FactionMainScreen extends Screen {
     private static final int MAP_COLOR_PERSONAL = 0xFF9C27B0;
     private static final int SAFEZONE_FIELD_WIDTH = 90;
     private static final int CLAIM_CONTROL_GAP = 6;
-    private static final int MIN_TAB_BUTTON_WIDTH = 38;
-    private static final int TAB_BUTTON_GAP = 2;
+    private static final int MIN_TAB_BUTTON_WIDTH = 40;
+    private static final int TAB_BUTTON_GAP = 3;
     private static final int PANEL_CONTENT_WIDTH = 360;
     private static final int TAB_COMPACT_LABEL_THRESHOLD = 54;
     private static final int MEMBER_SECTION_BUTTON_WIDTH = 72;
@@ -138,13 +138,13 @@ public class FactionMainScreen extends Screen {
         inviteNameField.setMaxLength(32);
         this.addRenderableWidget(inviteNameField);
         inviteButton = this.addRenderableWidget(Button.builder(Component.literal("Send Invite"), button -> sendInvite())
-            .bounds(panelX(150), controlRowOne, scaledWidth(100), 20)
+            .bounds(panelX(150), controlRowOne, scaledButtonWidth(100), 20)
             .build());
         joinInviteButton = this.addRenderableWidget(Button.builder(Component.literal("Join Faction"), button -> acceptInvite())
-            .bounds(panelLeft, controlRowTwo, scaledWidth(110), 20)
+            .bounds(panelLeft, controlRowTwo, scaledButtonWidth(110), 20)
             .build());
         declineInviteButton = this.addRenderableWidget(Button.builder(Component.literal("Decline"), button -> declineInvite())
-            .bounds(panelX(120), controlRowTwo, scaledWidth(80), 20)
+            .bounds(panelX(120), controlRowTwo, scaledButtonWidth(80), 20)
             .build());
 
         roleButton = this.addRenderableWidget(Button.builder(Component.literal("Role: " + currentRoleDisplay()), button -> {
@@ -153,32 +153,32 @@ public class FactionMainScreen extends Screen {
                 roleIndex = (roleIndex + 1) % roleCount;
                 updatePermissionLabels();
             }
-        }).bounds(panelLeft, controlRowOne, scaledWidth(140), 20).build());
+        }).bounds(panelLeft, controlRowOne, scaledButtonWidth(140), 20).build());
         permissionButton = this.addRenderableWidget(Button.builder(Component.literal("Perm: " + currentPermission().name()), button -> {
             permissionIndex = (permissionIndex + 1) % FactionPermission.values().length;
             updatePermissionLabels();
-        }).bounds(panelX(150), controlRowOne, scaledWidth(140), 20).build());
+        }).bounds(panelX(150), controlRowOne, scaledButtonWidth(140), 20).build());
         grantButton = this.addRenderableWidget(Button.builder(Component.literal("Grant"), button -> sendPermission(true))
-            .bounds(panelLeft, controlRowTwo, scaledWidth(70), 20)
+            .bounds(panelLeft, controlRowTwo, scaledButtonWidth(70), 20)
             .build());
         revokeButton = this.addRenderableWidget(Button.builder(Component.literal("Revoke"), button -> sendPermission(false))
-            .bounds(panelX(80), controlRowTwo, scaledWidth(70), 20)
+            .bounds(panelX(80), controlRowTwo, scaledButtonWidth(70), 20)
             .build());
         roleNameField = new EditBox(this.font, panelLeft, controlRowThree, scaledWidth(140), 18, Component.literal("Role name"));
         roleNameField.setMaxLength(32);
         this.addRenderableWidget(roleNameField);
         createRoleButton = this.addRenderableWidget(Button.builder(Component.literal("Create Role"), button -> sendCreateRole())
-            .bounds(panelX(150), controlRowThree, scaledWidth(100), 20)
+            .bounds(panelX(150), controlRowThree, scaledButtonWidth(100), 20)
             .build());
         deleteRoleButton = this.addRenderableWidget(Button.builder(Component.literal("Delete Role"), button -> sendDeleteRole())
-            .bounds(panelX(260), controlRowThree, scaledWidth(100), 20)
+            .bounds(panelX(260), controlRowThree, scaledButtonWidth(100), 20)
             .build());
 
         memberNameField = new EditBox(this.font, panelLeft, controlRowOne, scaledWidth(140), 18, Component.literal("Member name"));
         memberNameField.setMaxLength(32);
         this.addRenderableWidget(memberNameField);
         kickMemberButton = this.addRenderableWidget(Button.builder(Component.literal("Kick"), button -> sendMemberAction())
-            .bounds(panelX(150), controlRowOne, scaledWidth(60), 20)
+            .bounds(panelX(150), controlRowOne, scaledButtonWidth(60), 20)
             .build());
         memberRoleButton = this.addRenderableWidget(Button.builder(Component.literal("Role: " + currentMemberRoleDisplay()), button -> {
             int roleCount = getRoleOptions().size();
@@ -186,34 +186,34 @@ public class FactionMainScreen extends Screen {
                 memberRoleIndex = (memberRoleIndex + 1) % roleCount;
                 updateMemberRoleLabel();
             }
-        }).bounds(panelX(215), controlRowOne, scaledWidth(90), 20).build());
+        }).bounds(panelX(215), controlRowOne, scaledButtonWidth(90), 20).build());
         setRoleButton = this.addRenderableWidget(Button.builder(Component.literal("Set Role"), button -> sendMemberRole())
-            .bounds(panelX(310), controlRowOne, scaledWidth(70), 20)
+            .bounds(panelX(310), controlRowOne, scaledButtonWidth(70), 20)
             .build());
 
         ruleField = new EditBox(this.font, panelLeft, controlRowOne, scaledWidth(200), 18, Component.literal("New rule"));
         ruleField.setMaxLength(120);
         this.addRenderableWidget(ruleField);
         addRuleButton = this.addRenderableWidget(Button.builder(Component.literal("Add"), button -> sendAddRule())
-            .bounds(panelX(210), controlRowOne, scaledWidth(60), 20)
+            .bounds(panelX(210), controlRowOne, scaledButtonWidth(60), 20)
             .build());
         removeRuleButton = this.addRenderableWidget(Button.builder(Component.literal("Remove selected"), button -> sendRemoveSelectedRule())
-            .bounds(panelLeft, controlRowOne, scaledWidth(130), 20)
+            .bounds(panelLeft, controlRowOne, scaledButtonWidth(130), 20)
             .build());
 
         relationTypeButton = this.addRenderableWidget(Button.builder(Component.literal("Relation: " + currentRelation().name()), button -> {
             relationTypeIndex = (relationTypeIndex + 1) % relationOptions().size();
             updateRelationLabels();
-        }).bounds(panelLeft, controlRowOne, scaledWidth(140), 20).build());
+        }).bounds(panelLeft, controlRowOne, scaledButtonWidth(140), 20).build());
         relationPermissionButton = this.addRenderableWidget(Button.builder(Component.literal("Perm: " + currentRelationPermission().name()), button -> {
             relationPermissionIndex = (relationPermissionIndex + 1) % FactionPermission.values().length;
             updateRelationLabels();
-        }).bounds(panelX(150), controlRowOne, scaledWidth(140), 20).build());
+        }).bounds(panelX(150), controlRowOne, scaledButtonWidth(140), 20).build());
         relationGrantButton = this.addRenderableWidget(Button.builder(Component.literal("Grant"), button -> sendRelationPermission(true))
-            .bounds(panelLeft, controlRowTwo, scaledWidth(70), 20)
+            .bounds(panelLeft, controlRowTwo, scaledButtonWidth(70), 20)
             .build());
         relationRevokeButton = this.addRenderableWidget(Button.builder(Component.literal("Revoke"), button -> sendRelationPermission(false))
-            .bounds(panelX(80), controlRowTwo, scaledWidth(70), 20)
+            .bounds(panelX(80), controlRowTwo, scaledButtonWidth(70), 20)
             .build());
 
         int bottomRowY = this.height - layoutPadding - 20;
@@ -224,10 +224,10 @@ public class FactionMainScreen extends Screen {
             .bounds(this.width - layoutPadding - 80, bottomRowY, 80, 20)
             .build());
         dynmapSyncButton = this.addRenderableWidget(Button.builder(Component.literal("Sync Dynmap"), button -> sendDynmapSync())
-            .bounds(panelLeft, bottomRowY, scaledWidth(110), 20)
+            .bounds(panelLeft, bottomRowY, scaledButtonWidth(110), 20)
             .build());
         leaveFactionButton = this.addRenderableWidget(Button.builder(Component.literal("Leave Faction"), button -> leaveFaction())
-            .bounds(panelLeft, bottomRowY, scaledWidth(110), 20)
+            .bounds(panelLeft, bottomRowY, scaledButtonWidth(110), 20)
             .build());
         safeZoneFactionField = new EditBox(this.font, panelLeft, controlRowOne, scaledWidth(SAFEZONE_FIELD_WIDTH), 16,
             Component.literal("Safe zone faction"));
@@ -235,10 +235,10 @@ public class FactionMainScreen extends Screen {
         this.addRenderableWidget(safeZoneFactionField);
         claimTypeButton = this.addRenderableWidget(Button.builder(Component.literal("Claim: " + selectedClaimType.getLabel()),
                 button -> cycleClaimType())
-            .bounds(panelX(SAFEZONE_FIELD_WIDTH + CLAIM_CONTROL_GAP), controlRowOne - 2, scaledWidth(120), 16)
+            .bounds(panelX(SAFEZONE_FIELD_WIDTH + CLAIM_CONTROL_GAP), controlRowOne - 2, scaledButtonWidth(120), 16)
             .build());
         submitClaimsButton = this.addRenderableWidget(Button.builder(Component.literal("✓"), button -> promptClaimConfirm())
-            .bounds(panelX(SAFEZONE_FIELD_WIDTH + CLAIM_CONTROL_GAP + 124), controlRowOne - 2, scaledWidth(16), 16)
+            .bounds(panelX(SAFEZONE_FIELD_WIDTH + CLAIM_CONTROL_GAP + 124), controlRowOne - 2, scaledButtonWidth(16), 16)
             .build());
         membersSectionButton = this.addRenderableWidget(Button.builder(Component.literal("Members"), button -> {
             selectedMemberSection = MemberSection.MEMBERS;
@@ -579,7 +579,7 @@ public class FactionMainScreen extends Screen {
         if (membersSectionButton == null || invitesSectionButton == null) {
             return;
         }
-        int buttonWidth = scaledWidth(MEMBER_SECTION_BUTTON_WIDTH);
+        int buttonWidth = scaledButtonWidth(MEMBER_SECTION_BUTTON_WIDTH);
         int buttonHeight = MEMBER_SECTION_BUTTON_HEIGHT;
         int gap = scaledWidth(MEMBER_SECTION_BUTTON_GAP);
         int startX = getPanelLeft();
@@ -964,6 +964,10 @@ public class FactionMainScreen extends Screen {
         return Math.max(14, Math.round(baseWidth * horizontalScale));
     }
 
+    private int scaledButtonWidth(int baseWidth) {
+        return Math.max(14, Math.round(baseWidth * horizontalScale * 0.9F));
+    }
+
     private int getPanelRight() {
         return this.width - getPanelLeft();
     }
@@ -1332,8 +1336,8 @@ public class FactionMainScreen extends Screen {
         int controlsY = getMapClaimsBottomRow();
         boolean showSafeZoneField = safeZoneFactionField.isVisible();
         int safeZoneWidth = scaledWidth(SAFEZONE_FIELD_WIDTH);
-        int claimTypeWidth = scaledWidth(120);
-        int submitWidth = scaledWidth(16);
+        int claimTypeWidth = scaledButtonWidth(120);
+        int submitWidth = scaledButtonWidth(16);
         int claimGap = scaledWidth(CLAIM_CONTROL_GAP);
         int claimBlockWidth = (showSafeZoneField ? safeZoneWidth + claimGap : 0) + claimTypeWidth + claimGap + submitWidth;
         int leftLimit = getPanelLeft() + 120;
