@@ -2,7 +2,6 @@ package com.mcprotector.client.gui;
 
 public enum FactionTab {
     MEMBERS("Members", "Members"),
-    INVITES("Invites", "Invites"),
     PERMISSIONS("Permissions", "Perms"),
     RULES("Rules", "Rules"),
     RELATIONS("Relations", "Relations"),

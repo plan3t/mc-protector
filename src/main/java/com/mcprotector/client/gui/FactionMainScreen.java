@@ -48,6 +48,9 @@ public class FactionMainScreen extends Screen {
     private static final int TAB_BUTTON_GAP = 3;
     private static final int PANEL_CONTENT_WIDTH = 388;
     private static final int TAB_COMPACT_LABEL_THRESHOLD = 58;
+    private static final int MEMBER_SECTION_BUTTON_WIDTH = 72;
+    private static final int MEMBER_SECTION_BUTTON_HEIGHT = 16;
+    private static final int MEMBER_SECTION_BUTTON_GAP = 4;
     private static final int MIN_PANEL_CONTENT_WIDTH = 300;
     private static final DateTimeFormatter INVITE_TIME_FORMAT = DateTimeFormatter.ofPattern("HH:mm")
         .withZone(ZoneId.systemDefault());
@@ -81,6 +84,8 @@ public class FactionMainScreen extends Screen {
     private EditBox safeZoneFactionField;
     private Button claimTypeButton;
     private Button submitClaimsButton;
+    private Button membersSectionButton;
+    private Button invitesSectionButton;
     private int roleIndex;
     private int permissionIndex;
     private int memberRoleIndex;
@@ -102,6 +107,7 @@ public class FactionMainScreen extends Screen {
     private boolean selectionActive;
     private ChunkPos selectionAnchor;
     private final Set<ChunkPos> selectedChunks = new LinkedHashSet<>();
+    private MemberSection selectedMemberSection = MemberSection.MEMBERS;
 
     public FactionMainScreen() {
         super(Component.literal("Faction"));
@@ -232,6 +238,16 @@ public class FactionMainScreen extends Screen {
         submitClaimsButton = this.addRenderableWidget(Button.builder(Component.literal("✓"), button -> promptClaimConfirm())
             .bounds(panelX(SAFEZONE_FIELD_WIDTH + CLAIM_CONTROL_GAP + 124), controlRowOne - 2, scaledWidth(16), 16)
             .build());
+        membersSectionButton = this.addRenderableWidget(Button.builder(Component.literal("Members"), button -> {
+            selectedMemberSection = MemberSection.MEMBERS;
+            updateVisibility();
+        }).bounds(panelLeft, panelTop, MEMBER_SECTION_BUTTON_WIDTH, MEMBER_SECTION_BUTTON_HEIGHT).build());
+        invitesSectionButton = this.addRenderableWidget(Button.builder(Component.literal("Invites"), button -> {
+            selectedMemberSection = MemberSection.INVITES;
+            updateVisibility();
+        }).bounds(panelLeft, panelTop, MEMBER_SECTION_BUTTON_WIDTH, MEMBER_SECTION_BUTTON_HEIGHT).build());
+        layoutMemberSectionButtons();
+
         updateVisibility();
         FactionClientData.requestUpdate();
         FactionMapClientData.requestUpdate();
@@ -307,8 +323,7 @@ public class FactionMainScreen extends Screen {
         }
         int contentStart = getContentStart(snapshot);
         switch (selectedTab) {
-            case MEMBERS -> renderMembers(guiGraphics, snapshot.members(), contentStart);
-            case INVITES -> renderInvites(guiGraphics, snapshot, contentStart);
+            case MEMBERS -> renderMembers(guiGraphics, snapshot, contentStart);
             case PERMISSIONS -> renderPermissions(guiGraphics, snapshot.permissions(), contentStart);
             case RULES -> renderRules(guiGraphics, snapshot.rules(), contentStart);
             case RELATIONS -> renderRelations(guiGraphics, snapshot.relations(), snapshot.relationPermissions(), contentStart);
@@ -462,9 +477,10 @@ public class FactionMainScreen extends Screen {
     }
 
     private void updateVisibility() {
-        boolean invites = selectedTab == FactionTab.INVITES;
+        boolean membersTab = selectedTab == FactionTab.MEMBERS;
+        boolean invites = membersTab && selectedMemberSection == MemberSection.INVITES;
         boolean permissions = selectedTab == FactionTab.PERMISSIONS;
-        boolean members = selectedTab == FactionTab.MEMBERS;
+        boolean members = membersTab && selectedMemberSection == MemberSection.MEMBERS;
         boolean rules = selectedTab == FactionTab.RULES;
         boolean relations = selectedTab == FactionTab.RELATIONS;
         setEditBoxVisible(inviteNameField, invites);
@@ -490,7 +506,10 @@ public class FactionMainScreen extends Screen {
         setButtonVisible(relationPermissionButton, relations);
         setButtonVisible(relationGrantButton, relations);
         setButtonVisible(relationRevokeButton, relations);
-        setButtonVisible(leaveFactionButton, members);
+        setButtonVisible(leaveFactionButton, membersTab);
+        setButtonVisible(membersSectionButton, membersTab);
+        setButtonVisible(invitesSectionButton, membersTab);
+        updateMemberSectionButtonState();
         boolean mapTab = selectedTab == FactionTab.FACTION_MAP;
         setButtonVisible(claimTypeButton, mapTab);
         setButtonVisible(submitClaimsButton, mapTab);
@@ -514,7 +533,7 @@ public class FactionMainScreen extends Screen {
     }
 
     private void updateDynamicVisibility(FactionClientData.FactionSnapshot snapshot) {
-        boolean invites = selectedTab == FactionTab.INVITES;
+        boolean invites = selectedTab == FactionTab.MEMBERS && selectedMemberSection == MemberSection.INVITES;
         boolean inFaction = snapshot.inFaction();
         updateRoleIndices(snapshot);
         setEditBoxVisible(inviteNameField, invites && inFaction);
@@ -534,7 +553,7 @@ public class FactionMainScreen extends Screen {
             roleButton.setMessage(Component.literal("Role: " + currentRoleDisplay()));
             permissionButton.setMessage(Component.literal("Perm: " + currentPermission().name()));
         }
-        boolean members = selectedTab == FactionTab.MEMBERS;
+        boolean members = selectedTab == FactionTab.MEMBERS && selectedMemberSection == MemberSection.MEMBERS;
         setEditBoxVisible(memberNameField, members && inFaction);
         setButtonVisible(kickMemberButton, members && inFaction);
         setButtonVisible(memberRoleButton, members && inFaction);
@@ -552,6 +571,33 @@ public class FactionMainScreen extends Screen {
         setButtonVisible(relationPermissionButton, relations && inFaction);
         setButtonVisible(relationGrantButton, relations && inFaction);
         setButtonVisible(relationRevokeButton, relations && inFaction);
+    }
+
+    private void layoutMemberSectionButtons() {
+        if (membersSectionButton == null || invitesSectionButton == null) {
+            return;
+        }
+        int buttonWidth = scaledWidth(MEMBER_SECTION_BUTTON_WIDTH);
+        int buttonHeight = MEMBER_SECTION_BUTTON_HEIGHT;
+        int gap = scaledWidth(MEMBER_SECTION_BUTTON_GAP);
+        int right = getPanelRight();
+        invitesSectionButton.setWidth(buttonWidth);
+        invitesSectionButton.setHeight(buttonHeight);
+        invitesSectionButton.setX(right - buttonWidth);
+        invitesSectionButton.setY(panelTop + CONTROL_TOP_OFFSET + controlRowSpacing + 2);
+        membersSectionButton.setWidth(buttonWidth);
+        membersSectionButton.setHeight(buttonHeight);
+        membersSectionButton.setX(invitesSectionButton.getX() - gap - buttonWidth);
+        membersSectionButton.setY(invitesSectionButton.getY());
+    }
+
+    private void updateMemberSectionButtonState() {
+        if (membersSectionButton != null) {
+            membersSectionButton.active = selectedMemberSection != MemberSection.MEMBERS;
+        }
+        if (invitesSectionButton != null) {
+            invitesSectionButton.active = selectedMemberSection != MemberSection.INVITES;
+        }
     }
 
     private void setButtonVisible(Button button, boolean visible) {
@@ -961,11 +1007,17 @@ public class FactionMainScreen extends Screen {
         return Minecraft.getInstance().player.hasPermissions(FactionConfig.SERVER.adminBypassPermissionLevel.get());
     }
 
-    private void renderMembers(GuiGraphics guiGraphics, List<com.mcprotector.network.FactionStatePacket.MemberEntry> members, int startY) {
-        guiGraphics.drawString(this.font, "Members:", getPanelLeft(), startY, 0xFFFFFF);
-        int y = startY + 12;
-        for (var member : members) {
-            String roleLabel = getRoleDisplayName(FactionClientData.getSnapshot(), member.role());
+    private void renderMembers(GuiGraphics guiGraphics, FactionClientData.FactionSnapshot snapshot, int startY) {
+        layoutMemberSectionButtons();
+        int contentY = startY + MEMBER_SECTION_BUTTON_HEIGHT + 8;
+        if (selectedMemberSection == MemberSection.INVITES) {
+            renderInvites(guiGraphics, snapshot, contentY);
+            return;
+        }
+        guiGraphics.drawString(this.font, "Members:", getPanelLeft(), contentY, 0xFFFFFF);
+        int y = contentY + 12;
+        for (var member : snapshot.members()) {
+            String roleLabel = getRoleDisplayName(snapshot, member.role());
             guiGraphics.drawString(this.font, member.name() + " - " + roleLabel, getPanelLeft(), y, 0xCCCCCC);
             y += 10;
         }
@@ -1232,14 +1284,16 @@ public class FactionMainScreen extends Screen {
 
 
     private int getContentStart(FactionClientData.FactionSnapshot snapshot) {
-        boolean hasControls = selectedTab == FactionTab.INVITES
-            || selectedTab == FactionTab.PERMISSIONS
+        boolean hasControls = selectedTab == FactionTab.PERMISSIONS
             || (selectedTab == FactionTab.RELATIONS && snapshot.inFaction())
             || (selectedTab == FactionTab.MEMBERS && snapshot.inFaction())
             || (selectedTab == FactionTab.RULES && snapshot.inFaction());
         int controlOffset = contentStartOffset;
         if (selectedTab == FactionTab.PERMISSIONS) {
             controlOffset += controlRowSpacing;
+        }
+        if (selectedTab == FactionTab.MEMBERS) {
+            controlOffset += MEMBER_SECTION_BUTTON_HEIGHT + 8;
         }
         return panelTop + (hasControls ? controlOffset : CONTROL_TOP_OFFSET);
     }
@@ -1293,6 +1347,10 @@ public class FactionMainScreen extends Screen {
         submitClaimsButton.setY(controlsY);
     }
 
+    private enum MemberSection {
+        MEMBERS,
+        INVITES
+    }
 
     private enum ClaimType {
         FACTION("Faction"),
