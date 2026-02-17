@@ -140,13 +140,27 @@ public final class FactionConfig {
     }
 
     public static int resolveRgbColor(String colorName) {
-        String normalized = normalizeColorInput(colorName);
-        if (isHexColor(normalized)) {
-            return parseHexColor(normalized);
+        String normalized = normalizeFactionHexColor(colorName);
+        if (!isHexColor(normalized)) {
+            return 0xFFFFFF;
         }
-        ChatFormatting formatting = parseColor(normalized);
-        Integer rgb = formatting.getColor();
-        return rgb == null ? 0xFFFFFF : rgb;
+        return parseHexColor(normalized);
+    }
+
+    public static String normalizeFactionHexColor(String colorName) {
+        String normalized = normalizeColorInput(colorName);
+        if (normalized.isEmpty()) {
+            return "#ffffff";
+        }
+        if (isHexColor(normalized)) {
+            String hex = normalized.startsWith("#") ? normalized.substring(1) : normalized;
+            return "#" + hex;
+        }
+        ChatFormatting formatting = ChatFormatting.getByName(normalized);
+        if (formatting != null && formatting.isColor() && formatting.getColor() != null) {
+            return String.format("#%06x", formatting.getColor());
+        }
+        return "#ffffff";
     }
 
     public static String toLegacyHexCode(String colorName) {
@@ -234,8 +248,8 @@ public final class FactionConfig {
         private Server(ModConfigSpec.Builder builder) {
             builder.push("factions");
             defaultFactionColor = builder
-                .comment("Default faction chat color name (e.g. red, gold, blue).")
-                .define("defaultFactionColor", "gold");
+                .comment("Default faction color in hex format (#RRGGBB).")
+                .define("defaultFactionColor", "#ffd700");
             defaultMotd = builder
                 .comment("Default message of the day for new factions.")
                 .define("defaultMotd", "Welcome to the faction!");
