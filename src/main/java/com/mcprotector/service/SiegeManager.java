@@ -25,10 +25,11 @@ import java.util.concurrent.ConcurrentHashMap;
 public final class SiegeManager {
     private static final long REQUIRED_MILLIS = Duration.ofMinutes(5).toMillis();
     private static final long BREAKAWAY_ATTACK_MILLIS = Duration.ofMinutes(5).toMillis();
-    private static final long BREAKAWAY_DEFENSE_MILLIS = Duration.ofMinutes(10).toMillis();
+    private static final long BREAKAWAY_DEFENSE_MILLIS = Duration.ofMinutes(15).toMillis();
     private static final long DEFENSE_BREAK_MILLIS = Duration.ofMinutes(2).toMillis();
     private static final long STATUS_BROADCAST_INTERVAL_MILLIS = 1000L;
     private static final Map<UUID, SiegeState> ACTIVE_SIEGES = new ConcurrentHashMap<>();
+    private static final Map<UUID, Long> BREAKAWAY_STATUS_BROADCASTS = new ConcurrentHashMap<>();
 
     private SiegeManager() {
     }
@@ -120,7 +121,8 @@ public final class SiegeManager {
                 continue;
             }
             long requiredMillis = breakawayAttack ? BREAKAWAY_ATTACK_MILLIS : REQUIRED_MILLIS;
-            updateBossBars(server, data, state, now, attackerInChunk, breakawayAttack, requiredMillis);
+            updateBossBars(server, data, state, now, attackerInChunk,
+                breakawayAttack || breakawayDefense, requiredMillis);
             if (state.elapsedMillis() < requiredMillis) {
                 continue;
             }
@@ -200,9 +202,11 @@ public final class SiegeManager {
             for (Map.Entry<UUID, FactionData.VassalBreakaway> entry : java.util.List.copyOf(data.getActiveBreakaways().entrySet())) {
                 UUID vassalId = entry.getKey();
                 FactionData.VassalBreakaway breakaway = entry.getValue();
+                maybeSendBreakawayStatus(server, data, vassalId, breakaway, now);
                 if (now - breakaway.startedAt() < BREAKAWAY_DEFENSE_MILLIS) {
                     continue;
                 }
+                BREAKAWAY_STATUS_BROADCASTS.remove(vassalId);
                 if (data.releaseVassal(breakaway.overlordId(), vassalId)) {
                     clearWarRelation(data, vassalId, breakaway.overlordId());
                     notifyFactionMembers(server, data, vassalId,
@@ -215,6 +219,19 @@ public final class SiegeManager {
                 }
             }
         }
+    }
+
+    private static void maybeSendBreakawayStatus(MinecraftServer server, FactionData data, UUID vassalId,
+                                                 FactionData.VassalBreakaway breakaway, long now) {
+        long lastBroadcast = BREAKAWAY_STATUS_BROADCASTS.getOrDefault(vassalId, 0L);
+        if (now - lastBroadcast < STATUS_BROADCAST_INTERVAL_MILLIS) {
+            return;
+        }
+        long remaining = Math.max(0L, BREAKAWAY_DEFENSE_MILLIS - (now - breakaway.startedAt()));
+        String message = "Breakaway war active: " + formatDuration(remaining) + " until independence.";
+        sendFactionActionBar(server, data, vassalId, message);
+        sendFactionActionBar(server, data, breakaway.overlordId(), message);
+        BREAKAWAY_STATUS_BROADCASTS.put(vassalId, now);
     }
 
     private static void startBreakawayCapitalSieges(MinecraftServer server) {
@@ -256,6 +273,7 @@ public final class SiegeManager {
 
 
     private static void clearAllSieges() {
+        BREAKAWAY_STATUS_BROADCASTS.clear();
         Iterator<SiegeState> iterator = ACTIVE_SIEGES.values().iterator();
         while (iterator.hasNext()) {
             SiegeState state = iterator.next();
@@ -282,10 +300,12 @@ public final class SiegeManager {
     }
 
     private static void updateBossBars(MinecraftServer server, FactionData data, SiegeState state, long now,
-                                       boolean attackerInChunk, boolean breakawayAttack, long requiredMillis) {
+                                       boolean attackerInChunk, boolean breakawayWar, long requiredMillis) {
         float siegeProgress = progressFor(requiredMillis - state.elapsedMillis(), requiredMillis);
         ServerBossEvent siegeBar = state.ensureSiegeBossBar();
-        siegeBar.setName(Component.literal("Siege Timer: " + formatDuration(Math.max(0L, requiredMillis - state.elapsedMillis()))));
+        String siegePrefix = breakawayWar ? "Siege Timer - Breakaway War: " : "Siege Timer: ";
+        siegeBar.setName(Component.literal(siegePrefix
+            + formatDuration(Math.max(0L, requiredMillis - state.elapsedMillis()))));
         siegeBar.setProgress(siegeProgress);
         siegeBar.setVisible(true);
         syncBossBarPlayers(server, data, state, siegeBar);
@@ -301,16 +321,6 @@ public final class SiegeManager {
             syncBossBarPlayers(server, data, state, defenseBar);
         }
 
-        ServerBossEvent breakawayBar = state.ensureBreakawayBossBar();
-        if (breakawayAttack) {
-            long remainingBreakaway = Math.max(0L, BREAKAWAY_ATTACK_MILLIS - state.elapsedMillis());
-            breakawayBar.setName(Component.literal("Breakaway Attack: " + formatDuration(remainingBreakaway)));
-            breakawayBar.setProgress(progressFor(remainingBreakaway, BREAKAWAY_ATTACK_MILLIS));
-            breakawayBar.setVisible(true);
-            syncBossBarPlayers(server, data, state, breakawayBar);
-        } else {
-            breakawayBar.setVisible(false);
-        }
     }
 
     private static void syncBossBarPlayers(MinecraftServer server, FactionData data, SiegeState state, ServerBossEvent bar) {
@@ -461,7 +471,6 @@ public final class SiegeManager {
         private long defenseElapsedMillis;
         private ServerBossEvent siegeBossBar;
         private ServerBossEvent defenseBossBar;
-        private ServerBossEvent breakawayBossBar;
 
         private SiegeState(UUID attackerFactionId, UUID defenderFactionId, UUID attackerPlayerId, ChunkPos chunk,
                            String dimension, long startedAtMillis, long lastTickMillis, long elapsedMillis,
@@ -569,23 +578,12 @@ public final class SiegeManager {
             return defenseBossBar;
         }
 
-        public ServerBossEvent ensureBreakawayBossBar() {
-            if (breakawayBossBar == null) {
-                breakawayBossBar = new ServerBossEvent(Component.literal("Breakaway Defense"),
-                    BossEvent.BossBarColor.GREEN, BossEvent.BossBarOverlay.PROGRESS);
-            }
-            return breakawayBossBar;
-        }
-
         public void clearBossBars() {
             if (siegeBossBar != null) {
                 siegeBossBar.removeAllPlayers();
             }
             if (defenseBossBar != null) {
                 defenseBossBar.removeAllPlayers();
-            }
-            if (breakawayBossBar != null) {
-                breakawayBossBar.removeAllPlayers();
             }
         }
     }

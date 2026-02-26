@@ -692,7 +692,7 @@ public final class FactionRelationCommands {
         }
         data.startVassalBreakaway(faction.get().getId(), overlord.get().getId(), requiredClaims);
         data.setRelation(faction.get().getId(), overlord.get().getId(), FactionRelation.WAR);
-        source.sendSuccess(() -> Component.literal("Breakaway war declared. Defend your claimed chunks for 10 minutes "
+        source.sendSuccess(() -> Component.literal("Breakaway war declared. Defend your claimed chunks for 15 minutes "
             + "to gain independence."), true);
         Optional<FactionData.FactionHome> vassalHome = data.getFactionHome(faction.get().getId());
         String capitalMessage = vassalHome
