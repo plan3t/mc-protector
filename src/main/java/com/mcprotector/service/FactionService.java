@@ -11,6 +11,7 @@ import com.mcprotector.network.NetworkHandler;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.network.chat.Component;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.ChunkPos;
@@ -585,6 +586,26 @@ public final class FactionService {
     }
 
     public static int kickMember(CommandSourceStack source, ServerPlayer target) throws CommandSyntaxException {
+        return kickMember(source, target.getUUID(), target.getName().getString());
+    }
+
+    public static int kickMember(CommandSourceStack source, String targetName) throws CommandSyntaxException {
+        ServerPlayer player = source.getPlayerOrException();
+        FactionData data = FactionData.get(player.serverLevel());
+        Optional<Faction> faction = data.getFactionByPlayer(player.getUUID());
+        if (faction.isEmpty()) {
+            source.sendFailure(Component.literal("You are not in a faction."));
+            return 0;
+        }
+        Optional<UUID> targetId = resolveFactionMemberByName(source.getServer(), faction.get(), targetName);
+        if (targetId.isEmpty()) {
+            source.sendFailure(Component.literal("That player is not in your faction."));
+            return 0;
+        }
+        return kickMember(source, targetId.get(), resolveMemberName(source.getServer(), targetId.get()));
+    }
+
+    private static int kickMember(CommandSourceStack source, UUID targetId, String targetName) throws CommandSyntaxException {
         ServerPlayer player = source.getPlayerOrException();
         FactionData data = FactionData.get(player.serverLevel());
         Optional<Faction> faction = data.getFactionByPlayer(player.getUUID());
@@ -596,22 +617,56 @@ public final class FactionService {
             source.sendFailure(Component.literal("You lack permission to manage members."));
             return 0;
         }
-        Optional<UUID> targetFactionId = data.getFactionIdByPlayer(target.getUUID());
+        Optional<UUID> targetFactionId = data.getFactionIdByPlayer(targetId);
         if (targetFactionId.isEmpty() || !targetFactionId.get().equals(faction.get().getId())) {
             source.sendFailure(Component.literal("That player is not in your faction."));
             return 0;
         }
-        if (faction.get().getOwner().equals(target.getUUID())) {
+        if (faction.get().getOwner().equals(targetId)) {
             source.sendFailure(Component.literal("You cannot kick the owner."));
             return 0;
         }
-        if (!data.removeMember(target.getUUID())) {
+        if (!data.removeMember(targetId)) {
             source.sendFailure(Component.literal("Failed to remove member."));
             return 0;
         }
-        source.sendSuccess(() -> Component.literal("Removed " + target.getName().getString() + " from the faction."), true);
-        target.sendSystemMessage(Component.literal("You were removed from " + faction.get().getName() + "."));
+        source.sendSuccess(() -> Component.literal("Removed " + targetName + " from the faction."), true);
+        ServerPlayer onlineTarget = source.getServer().getPlayerList().getPlayer(targetId);
+        if (onlineTarget != null) {
+            onlineTarget.sendSystemMessage(Component.literal("You were removed from " + faction.get().getName() + "."));
+        }
         return 1;
+    }
+
+    private static Optional<UUID> resolveFactionMemberByName(MinecraftServer server, Faction faction, String targetName) {
+        if (targetName == null) {
+            return Optional.empty();
+        }
+        String trimmed = targetName.trim();
+        if (trimmed.isEmpty()) {
+            return Optional.empty();
+        }
+        for (UUID memberId : faction.getMembers().keySet()) {
+            String memberName = resolveMemberName(server, memberId);
+            if (trimmed.equalsIgnoreCase(memberName)) {
+                return Optional.of(memberId);
+            }
+        }
+        return Optional.empty();
+    }
+
+    private static String resolveMemberName(MinecraftServer server, UUID playerId) {
+        if (server == null) {
+            return playerId.toString();
+        }
+        ServerPlayer player = server.getPlayerList().getPlayer(playerId);
+        if (player != null) {
+            return player.getGameProfile().getName();
+        }
+        return server.getProfileCache()
+            .get(playerId)
+            .map(profile -> profile.getName())
+            .orElse(playerId.toString());
     }
 
     public static int setRole(CommandSourceStack source, ServerPlayer target, String roleName) throws CommandSyntaxException {
