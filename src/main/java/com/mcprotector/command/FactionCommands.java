@@ -110,8 +110,8 @@ public final class FactionCommands {
                 .then(Commands.literal("leave")
                     .executes(context -> leaveFaction(context.getSource())))
                 .then(Commands.literal("kick")
-                    .then(Commands.argument("player", EntityArgument.player())
-                        .executes(context -> kickMember(context.getSource(), EntityArgument.getPlayer(context, "player")))))
+                    .then(Commands.argument("player", StringArgumentType.word())
+                        .executes(context -> kickMember(context.getSource(), StringArgumentType.getString(context, "player")))))
                 .then(Commands.literal("promote")
                     .then(Commands.argument("player", EntityArgument.player())
                         .executes(context -> setRole(context.getSource(), EntityArgument.getPlayer(context, "player"), Faction.ROLE_OFFICER))))
@@ -706,34 +706,8 @@ public final class FactionCommands {
         return 1;
     }
 
-    private static int kickMember(CommandSourceStack source, ServerPlayer target) throws CommandSyntaxException {
-        ServerPlayer player = source.getPlayerOrException();
-        FactionData data = FactionData.get(player.serverLevel());
-        Optional<Faction> faction = data.getFactionByPlayer(player.getUUID());
-        if (faction.isEmpty()) {
-            source.sendFailure(Component.literal("You are not in a faction."));
-            return 0;
-        }
-        if (!faction.get().hasPermission(player.getUUID(), FactionPermission.MANAGE_MEMBERS)) {
-            source.sendFailure(Component.literal("You lack permission to manage members."));
-            return 0;
-        }
-        Optional<UUID> targetFactionId = data.getFactionIdByPlayer(target.getUUID());
-        if (targetFactionId.isEmpty() || !targetFactionId.get().equals(faction.get().getId())) {
-            source.sendFailure(Component.literal("That player is not in your faction."));
-            return 0;
-        }
-        if (faction.get().getOwner().equals(target.getUUID())) {
-            source.sendFailure(Component.literal("You cannot kick the owner."));
-            return 0;
-        }
-        if (!data.removeMember(target.getUUID())) {
-            source.sendFailure(Component.literal("Failed to remove member."));
-            return 0;
-        }
-        source.sendSuccess(() -> Component.literal("Removed " + target.getName().getString() + " from the faction."), true);
-        target.sendSystemMessage(Component.literal("You were removed from " + faction.get().getName() + "."));
-        return 1;
+    private static int kickMember(CommandSourceStack source, String targetName) throws CommandSyntaxException {
+        return FactionService.kickMember(source, targetName);
     }
 
     private static int setRole(CommandSourceStack source, ServerPlayer target, String role) throws CommandSyntaxException {

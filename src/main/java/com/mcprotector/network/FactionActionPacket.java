@@ -174,13 +174,8 @@ public class FactionActionPacket implements CustomPacketPayload {
                     }
                 }
                 case KICK_MEMBER -> {
-                    ServerPlayer target = player.getServer().getPlayerList().getPlayerByName(packet.targetName);
-                    if (target == null) {
-                        player.sendSystemMessage(Component.literal("Player not found."));
-                        return;
-                    }
                     try {
-                        FactionService.kickMember(player.createCommandSourceStack(), target);
+                        FactionService.kickMember(player.createCommandSourceStack(), packet.targetName);
                     } catch (Exception ex) {
                         player.sendSystemMessage(Component.literal("Failed to kick member: " + ex.getMessage()));
                     }
