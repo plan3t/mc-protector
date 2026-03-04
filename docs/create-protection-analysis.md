@@ -75,3 +75,15 @@ Config gate to deny all non-player world mutations inside claims unless explicit
 - Machine in unclaimed chunk cannot affect claimed target chunk.
 - Own-faction/trusted behavior still matches configured permissions.
 - Fake-player toggle behaves as expected for mods that do use fake players.
+
+## Implementation status (current)
+- ✅ Step 1 complete: existing player event handlers are preserved.
+- ✅ Step 2 complete: non-player mutation layer covers pistons, living destroys, mob griefing, fluid spread, explosion filtering, and tool-based block transforms.
+- ✅ Step 3 complete: Create-specific heuristics gate likely machine breaks and machine-driven placement allowances for same-owner claims, with configurable enable/disable, owner-allow, and radius controls.
+- ✅ Step 4 complete: minimal reconciliation fallback is in place with configurable enable/disable and a max-restores-per-tick safety limit.
+
+
+- 🟡 New hardening increment: tool-based block transformations (`BlockToolModificationEvent`) now go through mutation checks, and strict non-player mutation behavior is configurable (`strictNonPlayerMutationChecks`).
+
+### Practical current stage
+The original 4-step strategy is now implemented. The remaining future hardening item is deeper low-level mutation interception (mixin/core-level) to reduce dependence on event and heuristic coverage.

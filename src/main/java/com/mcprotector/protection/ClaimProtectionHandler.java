@@ -35,15 +35,25 @@ import net.neoforged.neoforge.event.entity.living.LivingDestroyBlockEvent;
 import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
 import net.neoforged.neoforge.event.entity.living.LivingIncomingDamageEvent;
 import net.neoforged.neoforge.event.entity.player.AttackEntityEvent;
+import net.neoforged.neoforge.event.tick.ServerTickEvent;
 import net.neoforged.neoforge.common.util.FakePlayer;
 import net.neoforged.bus.api.EventPriority;
 import net.neoforged.bus.api.SubscribeEvent;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
 public class ClaimProtectionHandler {
     private static final String CREATE_MOD_ID = "create";
+    private final Map<ServerLevel, Map<BlockPos, BlockState>> pendingRestores = new HashMap<>();
+
+    private enum MutationAction {
+        BLOCK_BREAK,
+        BLOCK_PLACE,
+        FLUID_PLACE
+    }
 
     @SubscribeEvent(priority = EventPriority.HIGHEST)
     public void onBlockBreak(BlockEvent.BreakEvent event) {
@@ -58,17 +68,14 @@ public class ClaimProtectionHandler {
     public void onBlockPlace(BlockEvent.EntityPlaceEvent event) {
         Entity entity = event.getEntity();
         BlockPos pos = event.getPos();
-        if (!(entity instanceof Player player)) {
-            if (isClaimed(event.getLevel(), pos)) {
+        if (!isMutationAllowed(event.getLevel(), entity, null, pos, MutationAction.BLOCK_PLACE)) {
+            if (!canCreateMachineMutateTarget(event.getLevel(), pos)) {
                 event.setCanceled(true);
+                return;
             }
-            return;
         }
-        if (!isAllowed(player, pos, FactionPermission.BLOCK_PLACE)) {
-            event.setCanceled(true);
-            return;
-        }
-        if (isCreateBlock(event.getPlacedBlock().getBlock())
+        if (entity instanceof Player player
+            && isCreateBlock(event.getPlacedBlock().getBlock())
             && !isAllowed(player, pos, FactionPermission.CREATE_MACHINE_INTERACT)) {
             event.setCanceled(true);
         }
@@ -78,17 +85,14 @@ public class ClaimProtectionHandler {
     public void onBlockMultiPlace(BlockEvent.EntityMultiPlaceEvent event) {
         Entity entity = event.getEntity();
         BlockPos pos = event.getPos();
-        if (!(entity instanceof Player player)) {
-            if (isClaimed(event.getLevel(), pos)) {
+        if (!isMutationAllowed(event.getLevel(), entity, null, pos, MutationAction.BLOCK_PLACE)) {
+            if (!canCreateMachineMutateTarget(event.getLevel(), pos)) {
                 event.setCanceled(true);
+                return;
             }
-            return;
         }
-        if (!isAllowed(player, pos, FactionPermission.BLOCK_PLACE)) {
-            event.setCanceled(true);
-            return;
-        }
-        if (isCreateBlock(event.getPlacedBlock().getBlock())
+        if (entity instanceof Player player
+            && isCreateBlock(event.getPlacedBlock().getBlock())
             && !isAllowed(player, pos, FactionPermission.CREATE_MACHINE_INTERACT)) {
             event.setCanceled(true);
         }
@@ -96,23 +100,23 @@ public class ClaimProtectionHandler {
 
     @SubscribeEvent
     public void onFluidPlace(BlockEvent.FluidPlaceBlockEvent event) {
-        BlockPos pos = event.getPos();
-        if (!isClaimed(event.getLevel(), pos) || event.getLiquidPos() == null) {
-            return;
-        }
+        BlockPos targetPos = event.getPos();
         BlockPos sourcePos = event.getLiquidPos();
-        if (event.getLevel().isClientSide()) {
+        if (sourcePos == null || sourcePos.equals(targetPos)) {
             return;
         }
-        if (sourcePos.equals(pos)) {
-            return;
+        if (!isMutationAllowed(event.getLevel(), null, sourcePos, targetPos, MutationAction.FLUID_PLACE)) {
+            event.setCanceled(true);
         }
-        Optional<UUID> targetOwner = getClaimOwner(event.getLevel(), pos);
-        Optional<UUID> sourceOwner = getClaimOwner(event.getLevel(), sourcePos);
-        if (targetOwner.isPresent() && sourceOwner.isPresent() && targetOwner.get().equals(sourceOwner.get())) {
-            return;
+    }
+
+    @SubscribeEvent(priority = EventPriority.HIGHEST)
+    public void onToolModification(BlockEvent.BlockToolModificationEvent event) {
+        Player player = event.getPlayer();
+        BlockPos pos = event.getPos();
+        if (!isMutationAllowed(event.getLevel(), player, null, pos, MutationAction.BLOCK_PLACE)) {
+            event.setCanceled(true);
         }
-        event.setCanceled(true);
     }
 
     @SubscribeEvent(priority = EventPriority.HIGHEST)
@@ -121,6 +125,113 @@ public class ClaimProtectionHandler {
             return;
         }
         event.getAffectedBlocks().removeIf(pos -> FactionData.get(serverLevel).isClaimed(pos));
+    }
+
+    @SubscribeEvent(priority = EventPriority.HIGHEST)
+    public void onPistonPre(PistonEvent.Pre event) {
+        if (!(event.getLevel() instanceof ServerLevel)) {
+            return;
+        }
+        var helper = event.getStructureHelper();
+        if (helper == null || !helper.resolve()) {
+            return;
+        }
+        for (BlockPos moved : helper.getToPush()) {
+            BlockPos target = moved.relative(event.getDirection());
+            if (!isMutationAllowed(event.getLevel(), null, event.getPos(), target, MutationAction.BLOCK_PLACE)) {
+                event.setCanceled(true);
+                return;
+            }
+        }
+        for (BlockPos broken : helper.getToDestroy()) {
+            if (!isMutationAllowed(event.getLevel(), null, event.getPos(), broken, MutationAction.BLOCK_BREAK)) {
+                event.setCanceled(true);
+                return;
+            }
+        }
+    }
+
+    @SubscribeEvent(priority = EventPriority.HIGHEST)
+    public void onLivingDestroyBlock(LivingDestroyBlockEvent event) {
+        if (!isMutationAllowed(event.getEntity().level(), event.getEntity(), null, event.getPos(), MutationAction.BLOCK_BREAK)) {
+            event.setCanceled(true);
+        }
+    }
+
+    @SubscribeEvent(priority = EventPriority.HIGHEST)
+    public void onMobGriefing(EntityMobGriefingEvent event) {
+        if (isClaimed(event.getEntity().level(), event.getEntity().blockPosition())) {
+            event.setCanGrief(false);
+        }
+    }
+
+    @SubscribeEvent(priority = EventPriority.HIGHEST)
+    public void onFarmlandTrample(BlockEvent.FarmlandTrampleEvent event) {
+        if (!isClaimed(event.getLevel(), event.getPos())) {
+            return;
+        }
+        if (event.getEntity() instanceof Player player && isAllowed(player, event.getPos(), FactionPermission.BLOCK_BREAK)) {
+            return;
+        }
+        event.setCanceled(true);
+    }
+
+    @SubscribeEvent(priority = EventPriority.HIGHEST)
+    public void onBlockDrops(BlockDropsEvent event) {
+        ServerLevel level = event.getLevel();
+        BlockPos pos = event.getPos();
+        FactionData data = FactionData.get(level);
+        if (!data.isClaimed(pos)) {
+            return;
+        }
+        Entity breaker = event.getBreaker();
+        if (breaker instanceof Player player) {
+            if (isAllowed(player, pos, FactionPermission.BLOCK_BREAK)) {
+                return;
+            }
+            event.setCanceled(true);
+            queueRestore(level, pos, event.getState());
+            return;
+        }
+        if (breaker != null) {
+            if (isMutationAllowed(level, breaker, null, pos, MutationAction.BLOCK_BREAK)) {
+                return;
+            }
+            event.setCanceled(true);
+            queueRestore(level, pos, event.getState());
+            return;
+        }
+        if (!isLikelyCreateMachineBreak(level, pos)) {
+            return;
+        }
+        if (canCreateMachineMutateTarget(level, pos)) {
+            return;
+        }
+        event.setCanceled(true);
+        queueRestore(level, pos, event.getState());
+    }
+
+    @SubscribeEvent
+    public void onServerTick(ServerTickEvent.Post event) {
+        int maxPerTick = Math.max(1, FactionConfig.SERVER.mutationRestoreMaxPerTick.get());
+        for (ServerLevel level : event.getServer().getAllLevels()) {
+            Map<BlockPos, BlockState> restores = pendingRestores.get(level);
+            if (restores == null || restores.isEmpty()) {
+                pendingRestores.remove(level);
+                continue;
+            }
+            int applied = 0;
+            java.util.Iterator<Map.Entry<BlockPos, BlockState>> iterator = restores.entrySet().iterator();
+            while (iterator.hasNext() && applied < maxPerTick) {
+                Map.Entry<BlockPos, BlockState> entry = iterator.next();
+                level.setBlockAndUpdate(entry.getKey(), entry.getValue());
+                iterator.remove();
+                applied++;
+            }
+            if (restores.isEmpty()) {
+                pendingRestores.remove(level);
+            }
+        }
     }
 
     @SubscribeEvent(priority = EventPriority.HIGHEST)
@@ -387,6 +498,45 @@ public class ClaimProtectionHandler {
         return FactionData.get(serverPlayer.serverLevel()).hasPermission(serverPlayer, pos, permission);
     }
 
+
+    private boolean isMutationAllowed(LevelAccessor level, Entity actor, BlockPos sourcePos, BlockPos targetPos, MutationAction action) {
+        if (!(level instanceof ServerLevel serverLevel)) {
+            return true;
+        }
+        FactionPermission permission = switch (action) {
+            case BLOCK_BREAK -> FactionPermission.BLOCK_BREAK;
+            case BLOCK_PLACE -> FactionPermission.BLOCK_PLACE;
+            case FLUID_PLACE -> FactionPermission.FLUID_PLACE;
+        };
+        if (actor instanceof Player player) {
+            return isAllowed(player, targetPos, permission);
+        }
+        if (!FactionData.get(serverLevel).isClaimed(targetPos)) {
+            return true;
+        }
+        if (!FactionConfig.SERVER.strictNonPlayerMutationChecks.get()) {
+            return canCreateMachineMutateTarget(serverLevel, targetPos);
+        }
+        if (sourcePos == null) {
+            return false;
+        }
+        return hasSameClaimOwner(serverLevel, sourcePos, targetPos);
+    }
+
+    private boolean hasSameClaimOwner(ServerLevel level, BlockPos sourcePos, BlockPos targetPos) {
+        FactionData data = FactionData.get(level);
+        Optional<UUID> sourceOwner = data.getClaimOwner(sourcePos);
+        Optional<UUID> targetOwner = data.getClaimOwner(targetPos);
+        return sourceOwner.isPresent() && targetOwner.isPresent() && sourceOwner.get().equals(targetOwner.get());
+    }
+
+    private void queueRestore(ServerLevel level, BlockPos pos, BlockState state) {
+        if (!FactionConfig.SERVER.enableMutationRestoreFallback.get()) {
+            return;
+        }
+        pendingRestores.computeIfAbsent(level, key -> new HashMap<>()).put(pos.immutable(), state);
+    }
+
     private boolean isClaimed(LevelAccessor level, BlockPos pos) {
         if (!(level instanceof ServerLevel serverLevel)) {
             return false;
@@ -475,13 +625,73 @@ public class ClaimProtectionHandler {
         return isCreateBlock(block) || isCreateBlockEntity(blockEntity);
     }
 
-    private boolean isCrossClaimMutation(FactionData data, Optional<UUID> sourceOwner, BlockPos targetPos) {
-        Optional<UUID> targetOwner = data.getClaimOwner(targetPos);
-        if (targetOwner.isEmpty()) {
+    private boolean canCreateMachineMutateTarget(LevelAccessor level, BlockPos targetPos) {
+        if (!(level instanceof ServerLevel serverLevel)) {
+            return true;
+        }
+        if (!FactionConfig.SERVER.enableCreateMachineClaimHeuristics.get()) {
             return false;
         }
-        return sourceOwner.isEmpty() || !sourceOwner.get().equals(targetOwner.get());
+        if (!FactionConfig.SERVER.allowOwnCreateMachineMutations.get()) {
+            return false;
+        }
+        FactionData data = FactionData.get(serverLevel);
+        Optional<UUID> targetOwner = data.getClaimOwner(targetPos);
+        if (targetOwner.isEmpty()) {
+            return true;
+        }
+        return hasNearbyCreateMachineOwnedBy(serverLevel, targetPos, targetOwner.get(), getCreateMachineDetectionRadius());
     }
+
+    private boolean isLikelyCreateMachineBreak(ServerLevel level, BlockPos targetPos) {
+        if (!FactionConfig.SERVER.enableCreateMachineClaimHeuristics.get()) {
+            return false;
+        }
+        return hasNearbyCreateMachine(level, targetPos, getCreateMachineDetectionRadius());
+    }
+
+    private boolean hasNearbyCreateMachineOwnedBy(ServerLevel level, BlockPos targetPos, UUID owner, int radius) {
+        FactionData data = FactionData.get(level);
+        for (int x = -radius; x <= radius; x++) {
+            for (int y = -radius; y <= radius; y++) {
+                for (int z = -radius; z <= radius; z++) {
+                    BlockPos scanPos = targetPos.offset(x, y, z);
+                    if (!hasCreateMachineAt(level, scanPos)) {
+                        continue;
+                    }
+                    Optional<UUID> sourceOwner = data.getClaimOwner(scanPos);
+                    if (sourceOwner.isPresent() && sourceOwner.get().equals(owner)) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
+    private boolean hasNearbyCreateMachine(ServerLevel level, BlockPos targetPos, int radius) {
+        for (int x = -radius; x <= radius; x++) {
+            for (int y = -radius; y <= radius; y++) {
+                for (int z = -radius; z <= radius; z++) {
+                    if (hasCreateMachineAt(level, targetPos.offset(x, y, z))) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
+    private boolean hasCreateMachineAt(ServerLevel level, BlockPos pos) {
+        BlockState state = level.getBlockState(pos);
+        BlockEntity blockEntity = state.hasBlockEntity() ? level.getBlockEntity(pos) : null;
+        return isCreateMachine(state.getBlock(), blockEntity);
+    }
+
+    private int getCreateMachineDetectionRadius() {
+        return Math.max(1, FactionConfig.SERVER.createMachineDetectionRadius.get());
+    }
+
 
     private boolean isCreateBlock(Block block) {
         return CREATE_MOD_ID.equals(BuiltInRegistries.BLOCK.getKey(block).getNamespace());
