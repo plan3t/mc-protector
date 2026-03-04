@@ -233,6 +233,12 @@ public final class FactionConfig {
         public final ModConfigSpec.ConfigValue<Boolean> allowDoorUseInClaims;
         public final ModConfigSpec.ConfigValue<Boolean> trustedAllowBuild;
         public final ModConfigSpec.ConfigValue<Boolean> allowFakePlayerActionsInClaims;
+        public final ModConfigSpec.ConfigValue<Boolean> enableCreateMachineClaimHeuristics;
+        public final ModConfigSpec.ConfigValue<Boolean> allowOwnCreateMachineMutations;
+        public final ModConfigSpec.ConfigValue<Integer> createMachineDetectionRadius;
+        public final ModConfigSpec.ConfigValue<Boolean> strictNonPlayerMutationChecks;
+        public final ModConfigSpec.ConfigValue<Boolean> enableMutationRestoreFallback;
+        public final ModConfigSpec.ConfigValue<Integer> mutationRestoreMaxPerTick;
         public final ModConfigSpec.ConfigValue<Boolean> enablePersonalClaims;
         public final ModConfigSpec.ConfigValue<Boolean> personalClaimsRequireFactionClaim;
         public final ModConfigSpec.ConfigValue<Boolean> personalClaimsUseFactionLevelLimit;
@@ -347,6 +353,24 @@ public final class FactionConfig {
             allowFakePlayerActionsInClaims = builder
                 .comment("Allow fake players (automation) to interact inside claimed chunks.")
                 .define("allowFakePlayerActionsInClaims", false);
+            enableCreateMachineClaimHeuristics = builder
+                .comment("Enable Create-machine proximity heuristics for non-player claim mutation checks.")
+                .define("enableCreateMachineClaimHeuristics", true);
+            allowOwnCreateMachineMutations = builder
+                .comment("Allow Create machine mutations in claimed chunks when machine and target claim share the same owner.")
+                .define("allowOwnCreateMachineMutations", true);
+            createMachineDetectionRadius = builder
+                .comment("Radius in blocks to search for nearby Create machines for ownership heuristics.")
+                .defineInRange("createMachineDetectionRadius", 2, 1, 8);
+            strictNonPlayerMutationChecks = builder
+                .comment("Deny non-player block mutations in claimed chunks unless source and target claims share the same owner.")
+                .define("strictNonPlayerMutationChecks", true);
+            enableMutationRestoreFallback = builder
+                .comment("Enable deferred restoration fallback for denied non-player block mutations.")
+                .define("enableMutationRestoreFallback", true);
+            mutationRestoreMaxPerTick = builder
+                .comment("Maximum number of deferred block restorations applied per level each tick.")
+                .defineInRange("mutationRestoreMaxPerTick", 256, 1, 4096);
             enablePersonalClaims = builder
                 .comment("Enable personal claim chunks.")
                 .define("enablePersonalClaims", true);
