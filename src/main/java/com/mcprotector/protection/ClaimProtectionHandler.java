@@ -26,8 +26,12 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
 import net.neoforged.neoforge.event.level.BlockEvent;
+import net.neoforged.neoforge.event.level.BlockDropsEvent;
 import net.neoforged.neoforge.event.level.ExplosionEvent;
+import net.neoforged.neoforge.event.level.PistonEvent;
+import net.neoforged.neoforge.event.entity.EntityMobGriefingEvent;
 import net.neoforged.neoforge.event.entity.living.FinalizeSpawnEvent;
+import net.neoforged.neoforge.event.entity.living.LivingDestroyBlockEvent;
 import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
 import net.neoforged.neoforge.event.entity.living.LivingIncomingDamageEvent;
 import net.neoforged.neoforge.event.entity.player.AttackEntityEvent;
@@ -117,6 +121,81 @@ public class ClaimProtectionHandler {
             return;
         }
         event.getAffectedBlocks().removeIf(pos -> FactionData.get(serverLevel).isClaimed(pos));
+    }
+
+    @SubscribeEvent(priority = EventPriority.HIGHEST)
+    public void onPistonPre(PistonEvent.Pre event) {
+        if (!(event.getLevel() instanceof ServerLevel serverLevel)) {
+            return;
+        }
+        var helper = event.getStructureHelper();
+        if (helper == null || !helper.resolve()) {
+            return;
+        }
+        FactionData data = FactionData.get(serverLevel);
+        Optional<UUID> pistonOwner = data.getClaimOwner(event.getPos());
+        for (BlockPos moved : helper.getToPush()) {
+            BlockPos target = moved.relative(event.getDirection());
+            if (isCrossClaimMutation(data, pistonOwner, target)) {
+                event.setCanceled(true);
+                return;
+            }
+        }
+        for (BlockPos broken : helper.getToDestroy()) {
+            if (isCrossClaimMutation(data, pistonOwner, broken)) {
+                event.setCanceled(true);
+                return;
+            }
+        }
+    }
+
+    @SubscribeEvent(priority = EventPriority.HIGHEST)
+    public void onLivingDestroyBlock(LivingDestroyBlockEvent event) {
+        if (isClaimed(event.getEntity().level(), event.getPos())) {
+            event.setCanceled(true);
+        }
+    }
+
+    @SubscribeEvent(priority = EventPriority.HIGHEST)
+    public void onMobGriefing(EntityMobGriefingEvent event) {
+        if (isClaimed(event.getEntity().level(), event.getEntity().blockPosition())) {
+            event.setCanGrief(false);
+        }
+    }
+
+    @SubscribeEvent(priority = EventPriority.HIGHEST)
+    public void onFarmlandTrample(BlockEvent.FarmlandTrampleEvent event) {
+        if (!isClaimed(event.getLevel(), event.getPos())) {
+            return;
+        }
+        if (event.getEntity() instanceof Player player && isAllowed(player, event.getPos(), FactionPermission.BLOCK_BREAK)) {
+            return;
+        }
+        event.setCanceled(true);
+    }
+
+    @SubscribeEvent(priority = EventPriority.HIGHEST)
+    public void onBlockDrops(BlockDropsEvent event) {
+        ServerLevel level = event.getLevel();
+        BlockPos pos = event.getPos();
+        FactionData data = FactionData.get(level);
+        if (!data.isClaimed(pos)) {
+            return;
+        }
+        Entity breaker = event.getBreaker();
+        if (breaker instanceof Player player && isAllowed(player, pos, FactionPermission.BLOCK_BREAK)) {
+            return;
+        }
+        if (breaker != null) {
+            var key = BuiltInRegistries.ENTITY_TYPE.getKey(breaker.getType());
+            if (key != null && CREATE_MOD_ID.equals(key.getNamespace())) {
+                event.setCanceled(true);
+                level.setBlockAndUpdate(pos, event.getState());
+                return;
+            }
+        }
+        event.setCanceled(true);
+        level.setBlockAndUpdate(pos, event.getState());
     }
 
     @SubscribeEvent
@@ -394,6 +473,14 @@ public class ClaimProtectionHandler {
 
     private boolean isCreateMachine(Block block, BlockEntity blockEntity) {
         return isCreateBlock(block) || isCreateBlockEntity(blockEntity);
+    }
+
+    private boolean isCrossClaimMutation(FactionData data, Optional<UUID> sourceOwner, BlockPos targetPos) {
+        Optional<UUID> targetOwner = data.getClaimOwner(targetPos);
+        if (targetOwner.isEmpty()) {
+            return false;
+        }
+        return sourceOwner.isEmpty() || !sourceOwner.get().equals(targetOwner.get());
     }
 
     private boolean isCreateBlock(Block block) {
