@@ -1654,7 +1654,7 @@ public class FactionMainScreen extends Screen {
             rankingAscending = !rankingAscending;
         } else {
             rankingSort = target;
-            rankingAscending = target == RankingSort.NAME_ASC;
+            rankingAscending = target == RankingSort.NAME_ASC || target == RankingSort.RELATION_ASC;
         }
         factionListScrollOffset = 0;
     }
