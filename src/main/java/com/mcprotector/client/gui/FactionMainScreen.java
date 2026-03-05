@@ -25,6 +25,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 
 public class FactionMainScreen extends Screen {
@@ -1545,24 +1546,29 @@ public class FactionMainScreen extends Screen {
             int rank = factionListScrollOffset + i + 1;
             String label = rank + ". " + faction.factionName();
             int color = 0xFF000000 | faction.color();
+            String relation = normalizeRelationLabel(faction.relation());
             int nameColor = ClientColorHelper.toGuiColor(color);
-            if ("OWN".equalsIgnoreCase(faction.relation())) {
+            if ("OWN".equalsIgnoreCase(relation)) {
                 nameColor = 0xFFF9A825;
             }
             guiGraphics.drawString(this.font, label, nameX, y, nameColor);
             guiGraphics.drawString(this.font, String.valueOf(faction.factionLevel()), levelX, y, 0xCCCCCC);
             guiGraphics.drawString(this.font, String.valueOf(faction.memberCount()), membersX, y, 0xCCCCCC);
-            guiGraphics.drawString(this.font, faction.relation(), relationX, y, relationColor(faction.relation()));
+            guiGraphics.drawString(this.font, relation, relationX, y, relationColor(relation));
             y += lineHeight;
         }
         renderScrollIndicator(guiGraphics, sorted.size(), visibleLines, factionListScrollOffset, rowsStart, listBottom);
     }
 
-    private int relationColor(String relation) {
-        if (relation == null) {
-            return 0xAAAAAA;
+    private String normalizeRelationLabel(String relation) {
+        if (relation == null || relation.isBlank()) {
+            return "NEUTRAL";
         }
-        return switch (relation.toUpperCase()) {
+        return relation.toUpperCase(Locale.ROOT);
+    }
+
+    private int relationColor(String relation) {
+        return switch (normalizeRelationLabel(relation)) {
             case "OWN" -> 0xFFF9A825;
             case "ALLY" -> MAP_COLOR_ALLY;
             case "WAR" -> MAP_COLOR_WAR;
