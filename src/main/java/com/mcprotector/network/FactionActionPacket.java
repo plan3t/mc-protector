@@ -89,6 +89,43 @@ public class FactionActionPacket implements CustomPacketPayload {
         return new FactionActionPacket(ActionType.REMOVE_RULE, rule, "", "", false);
     }
 
+
+    public static FactionActionPacket renameFaction(String name) {
+        return new FactionActionPacket(ActionType.RENAME_FACTION, name, "", "", false);
+    }
+
+    public static FactionActionPacket setMotd(String motd) {
+        return new FactionActionPacket(ActionType.SET_MOTD, motd, "", "", false);
+    }
+
+    public static FactionActionPacket clearMotd() {
+        return new FactionActionPacket(ActionType.CLEAR_MOTD, "", "", "", false);
+    }
+
+    public static FactionActionPacket setDescription(String description) {
+        return new FactionActionPacket(ActionType.SET_DESCRIPTION, description, "", "", false);
+    }
+
+    public static FactionActionPacket clearDescription() {
+        return new FactionActionPacket(ActionType.CLEAR_DESCRIPTION, "", "", "", false);
+    }
+
+    public static FactionActionPacket setColor(String color) {
+        return new FactionActionPacket(ActionType.SET_COLOR, color, "", "", false);
+    }
+
+    public static FactionActionPacket setBanner(String color) {
+        return new FactionActionPacket(ActionType.SET_BANNER, color, "", "", false);
+    }
+
+    public static FactionActionPacket clearBanner() {
+        return new FactionActionPacket(ActionType.CLEAR_BANNER, "", "", "", false);
+    }
+
+    public static FactionActionPacket setProtectionTier(String tier) {
+        return new FactionActionPacket(ActionType.SET_PROTECTION_TIER, tier, "", "", false);
+    }
+
     private void write(RegistryFriendlyByteBuf buffer) {
         buffer.writeEnum(action);
         buffer.writeUtf(targetName);
@@ -227,11 +264,75 @@ public class FactionActionPacket implements CustomPacketPayload {
                         player.sendSystemMessage(Component.literal("Failed to remove rule: " + ex.getMessage()));
                     }
                 }
+                case RENAME_FACTION -> {
+                    try {
+                        FactionService.renameFaction(player.createCommandSourceStack(), packet.targetName);
+                    } catch (Exception ex) {
+                        player.sendSystemMessage(Component.literal("Failed to rename faction: " + ex.getMessage()));
+                    }
+                }
+                case SET_MOTD -> {
+                    try {
+                        FactionService.setMotd(player.createCommandSourceStack(), packet.targetName);
+                    } catch (Exception ex) {
+                        player.sendSystemMessage(Component.literal("Failed to set MOTD: " + ex.getMessage()));
+                    }
+                }
+                case CLEAR_MOTD -> {
+                    try {
+                        FactionService.clearMotd(player.createCommandSourceStack());
+                    } catch (Exception ex) {
+                        player.sendSystemMessage(Component.literal("Failed to clear MOTD: " + ex.getMessage()));
+                    }
+                }
+                case SET_DESCRIPTION -> {
+                    try {
+                        FactionService.setDescription(player.createCommandSourceStack(), packet.targetName);
+                    } catch (Exception ex) {
+                        player.sendSystemMessage(Component.literal("Failed to set description: " + ex.getMessage()));
+                    }
+                }
+                case CLEAR_DESCRIPTION -> {
+                    try {
+                        FactionService.clearDescription(player.createCommandSourceStack());
+                    } catch (Exception ex) {
+                        player.sendSystemMessage(Component.literal("Failed to clear description: " + ex.getMessage()));
+                    }
+                }
+                case SET_COLOR -> {
+                    try {
+                        FactionService.setColor(player.createCommandSourceStack(), packet.targetName);
+                    } catch (Exception ex) {
+                        player.sendSystemMessage(Component.literal("Failed to set color: " + ex.getMessage()));
+                    }
+                }
+                case SET_BANNER -> {
+                    try {
+                        FactionService.setBanner(player.createCommandSourceStack(), packet.targetName);
+                    } catch (Exception ex) {
+                        player.sendSystemMessage(Component.literal("Failed to set banner color: " + ex.getMessage()));
+                    }
+                }
+                case CLEAR_BANNER -> {
+                    try {
+                        FactionService.clearBanner(player.createCommandSourceStack());
+                    } catch (Exception ex) {
+                        player.sendSystemMessage(Component.literal("Failed to clear banner color: " + ex.getMessage()));
+                    }
+                }
+                case SET_PROTECTION_TIER -> {
+                    try {
+                        FactionService.setProtectionTier(player.createCommandSourceStack(), packet.targetName);
+                    } catch (Exception ex) {
+                        player.sendSystemMessage(Component.literal("Failed to set protection tier: " + ex.getMessage()));
+                    }
+                }
             }
             NetworkHandler.sendToPlayer(player, FactionStatePacket.fromPlayer(player));
             NetworkHandler.sendToPlayer(player, FactionClaimMapPacket.fromPlayer(player));
         });
     }
+
 
     @Override
     public Type<? extends CustomPacketPayload> type() {
@@ -253,6 +354,15 @@ public class FactionActionPacket implements CustomPacketPayload {
         DELETE_ROLE,
         SET_RELATION_PERMISSION,
         ADD_RULE,
-        REMOVE_RULE
+        REMOVE_RULE,
+        RENAME_FACTION,
+        SET_MOTD,
+        CLEAR_MOTD,
+        SET_DESCRIPTION,
+        CLEAR_DESCRIPTION,
+        SET_COLOR,
+        SET_BANNER,
+        CLEAR_BANNER,
+        SET_PROTECTION_TIER
     }
 }
