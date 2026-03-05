@@ -27,11 +27,16 @@ public final class FactionClientData {
             packet.factionList(),
             packet.rules(),
             packet.claims(),
+            packet.activityLogs(),
             packet.pendingInviteFaction(),
             packet.claimCount(),
             packet.maxClaims(),
             packet.protectionTier(),
             packet.factionLevel(),
+            packet.motd(),
+            packet.description(),
+            packet.factionColor(),
+            packet.bannerColor(),
             packet.borderEnabled()
         );
     }
@@ -57,16 +62,21 @@ public final class FactionClientData {
                                  List<FactionStatePacket.FactionListEntry> factionList,
                                  List<String> rules,
                                  List<FactionStatePacket.ClaimEntry> claims,
+                                 List<FactionStatePacket.ActivityLogEntry> activityLogs,
                                  String pendingInviteFaction,
                                  int claimCount,
                                  int maxClaims,
                                  String protectionTier,
                                  int factionLevel,
+                                 String motd,
+                                 String description,
+                                 String factionColor,
+                                 String bannerColor,
                                  boolean borderEnabled) {
         public static FactionSnapshot empty() {
             return new FactionSnapshot(false, "", "", new ArrayList<>(), new ArrayList<>(), new ArrayList<>(),
                 new ArrayList<>(), new ArrayList<>(), new ArrayList<>(), new ArrayList<>(), new ArrayList<>(),
-                new ArrayList<>(), "", 0, 0, "", 0, false);
+                new ArrayList<>(), new ArrayList<>(), "", 0, 0, "", 0, "", "", "", "", false);
         }
     }
 }
