@@ -32,6 +32,10 @@ public final class FactionClientData {
             packet.maxClaims(),
             packet.protectionTier(),
             packet.factionLevel(),
+            packet.motd(),
+            packet.description(),
+            packet.factionColor(),
+            packet.bannerColor(),
             packet.borderEnabled()
         );
     }
@@ -62,11 +66,15 @@ public final class FactionClientData {
                                  int maxClaims,
                                  String protectionTier,
                                  int factionLevel,
+                                 String motd,
+                                 String description,
+                                 String factionColor,
+                                 String bannerColor,
                                  boolean borderEnabled) {
         public static FactionSnapshot empty() {
             return new FactionSnapshot(false, "", "", new ArrayList<>(), new ArrayList<>(), new ArrayList<>(),
                 new ArrayList<>(), new ArrayList<>(), new ArrayList<>(), new ArrayList<>(), new ArrayList<>(),
-                new ArrayList<>(), "", 0, 0, "", 0, false);
+                new ArrayList<>(), "", 0, 0, "", 0, "", "", "", "", false);
         }
     }
 }
