@@ -4,6 +4,7 @@ import com.mcprotector.client.FactionClientData;
 import com.mcprotector.client.FactionMapClientData;
 import com.mcprotector.config.FactionConfig;
 import com.mcprotector.data.FactionPermission;
+import com.mcprotector.data.FactionProtectionTier;
 import com.mcprotector.network.FactionActionPacket;
 import com.mcprotector.network.FactionClaimSelectionPacket;
 import com.mcprotector.network.FactionStatePacket;
@@ -92,11 +93,27 @@ public class FactionMainScreen extends Screen {
     private Button relationsSectionButton;
     private Button rulesSectionButton;
     private Button activitySectionButton;
+    private EditBox settingsRenameField;
+    private Button settingsRenameButton;
+    private EditBox settingsMotdField;
+    private Button settingsMotdSetButton;
+    private Button settingsMotdClearButton;
+    private EditBox settingsDescriptionField;
+    private Button settingsDescriptionSetButton;
+    private Button settingsDescriptionClearButton;
+    private EditBox settingsColorField;
+    private Button settingsColorButton;
+    private EditBox settingsBannerField;
+    private Button settingsBannerSetButton;
+    private Button settingsBannerClearButton;
+    private Button settingsProtectionButton;
+    private Button settingsProtectionApplyButton;
     private int roleIndex;
     private int permissionIndex;
     private int memberRoleIndex;
     private int relationTypeIndex;
     private int relationPermissionIndex;
+    private int protectionTierIndex;
     private int panelTop;
     private int panelContentWidth = PANEL_CONTENT_WIDTH;
     private float horizontalScale = 1.0F;
@@ -275,6 +292,49 @@ public class FactionMainScreen extends Screen {
             selectedFactionSection = FactionSection.ACTIVITY;
             updateVisibility();
         }).bounds(panelLeft, panelTop, MEMBER_SECTION_BUTTON_WIDTH, MEMBER_SECTION_BUTTON_HEIGHT).build());
+
+        settingsRenameField = new EditBox(this.font, panelLeft, controlRowOne, scaledWidth(170), 18, Component.literal("Faction name"));
+        settingsRenameField.setMaxLength(32);
+        this.addRenderableWidget(settingsRenameField);
+        settingsRenameButton = this.addRenderableWidget(Button.builder(Component.literal("Rename"), button -> sendRenameFaction())
+            .bounds(panelX(180), controlRowOne, scaledButtonWidth(80), 20).build());
+
+        settingsMotdField = new EditBox(this.font, panelLeft, controlRowTwo, scaledWidth(220), 18, Component.literal("MOTD"));
+        settingsMotdField.setMaxLength(120);
+        this.addRenderableWidget(settingsMotdField);
+        settingsMotdSetButton = this.addRenderableWidget(Button.builder(Component.literal("Set MOTD"), button -> sendSetMotd())
+            .bounds(panelX(230), controlRowTwo, scaledButtonWidth(80), 20).build());
+        settingsMotdClearButton = this.addRenderableWidget(Button.builder(Component.literal("Clear"), button -> sendClearMotd())
+            .bounds(panelX(315), controlRowTwo, scaledButtonWidth(60), 20).build());
+
+        settingsDescriptionField = new EditBox(this.font, panelLeft, controlRowThree, scaledWidth(220), 18, Component.literal("Description"));
+        settingsDescriptionField.setMaxLength(180);
+        this.addRenderableWidget(settingsDescriptionField);
+        settingsDescriptionSetButton = this.addRenderableWidget(Button.builder(Component.literal("Set Desc"), button -> sendSetDescription())
+            .bounds(panelX(230), controlRowThree, scaledButtonWidth(80), 20).build());
+        settingsDescriptionClearButton = this.addRenderableWidget(Button.builder(Component.literal("Clear"), button -> sendClearDescription())
+            .bounds(panelX(315), controlRowThree, scaledButtonWidth(60), 20).build());
+
+        int settingsRowFour = controlRowThree + controlRowSpacing;
+        settingsColorField = new EditBox(this.font, panelLeft, settingsRowFour, scaledWidth(110), 18, Component.literal("#RRGGBB"));
+        settingsColorField.setMaxLength(16);
+        this.addRenderableWidget(settingsColorField);
+        settingsColorButton = this.addRenderableWidget(Button.builder(Component.literal("Set Color"), button -> sendSetColor())
+            .bounds(panelX(120), settingsRowFour, scaledButtonWidth(80), 20).build());
+        settingsBannerField = new EditBox(this.font, panelX(205), settingsRowFour, scaledWidth(90), 18, Component.literal("Banner"));
+        settingsBannerField.setMaxLength(16);
+        this.addRenderableWidget(settingsBannerField);
+        settingsBannerSetButton = this.addRenderableWidget(Button.builder(Component.literal("Set Banner"), button -> sendSetBanner())
+            .bounds(panelX(300), settingsRowFour, scaledButtonWidth(90), 20).build());
+        settingsBannerClearButton = this.addRenderableWidget(Button.builder(Component.literal("Clear"), button -> sendClearBanner())
+            .bounds(panelX(395), settingsRowFour, scaledButtonWidth(55), 20).build());
+
+        int settingsRowFive = settingsRowFour + controlRowSpacing;
+        settingsProtectionButton = this.addRenderableWidget(Button.builder(Component.literal("Tier: " + currentProtectionTierName()), button -> cycleProtectionTier())
+            .bounds(panelLeft, settingsRowFive, scaledButtonWidth(150), 20).build());
+        settingsProtectionApplyButton = this.addRenderableWidget(Button.builder(Component.literal("Apply Tier"), button -> sendSetProtectionTier())
+            .bounds(panelX(160), settingsRowFive, scaledButtonWidth(90), 20).build());
+
         layoutFactionSectionButtons();
         updateBottomRowLayout();
 
@@ -311,6 +371,21 @@ public class FactionMainScreen extends Screen {
         if (roleNameField != null && roleNameField.isFocused()) {
             return roleNameField.keyPressed(keyCode, scanCode, modifiers);
         }
+        if (settingsRenameField != null && settingsRenameField.isFocused()) {
+            return settingsRenameField.keyPressed(keyCode, scanCode, modifiers);
+        }
+        if (settingsMotdField != null && settingsMotdField.isFocused()) {
+            return settingsMotdField.keyPressed(keyCode, scanCode, modifiers);
+        }
+        if (settingsDescriptionField != null && settingsDescriptionField.isFocused()) {
+            return settingsDescriptionField.keyPressed(keyCode, scanCode, modifiers);
+        }
+        if (settingsColorField != null && settingsColorField.isFocused()) {
+            return settingsColorField.keyPressed(keyCode, scanCode, modifiers);
+        }
+        if (settingsBannerField != null && settingsBannerField.isFocused()) {
+            return settingsBannerField.keyPressed(keyCode, scanCode, modifiers);
+        }
         return super.keyPressed(keyCode, scanCode, modifiers);
     }
 
@@ -330,6 +405,21 @@ public class FactionMainScreen extends Screen {
         }
         if (roleNameField != null && roleNameField.isFocused()) {
             return roleNameField.charTyped(codePoint, modifiers);
+        }
+        if (settingsRenameField != null && settingsRenameField.isFocused()) {
+            return settingsRenameField.charTyped(codePoint, modifiers);
+        }
+        if (settingsMotdField != null && settingsMotdField.isFocused()) {
+            return settingsMotdField.charTyped(codePoint, modifiers);
+        }
+        if (settingsDescriptionField != null && settingsDescriptionField.isFocused()) {
+            return settingsDescriptionField.charTyped(codePoint, modifiers);
+        }
+        if (settingsColorField != null && settingsColorField.isFocused()) {
+            return settingsColorField.charTyped(codePoint, modifiers);
+        }
+        if (settingsBannerField != null && settingsBannerField.isFocused()) {
+            return settingsBannerField.charTyped(codePoint, modifiers);
         }
         return super.charTyped(codePoint, modifiers);
     }
@@ -510,6 +600,7 @@ public class FactionMainScreen extends Screen {
         boolean members = factionTab && selectedFactionSection == FactionSection.MEMBERS;
         boolean rules = factionTab && selectedFactionSection == FactionSection.RULES;
         boolean relations = factionTab && selectedFactionSection == FactionSection.RELATIONS;
+        boolean settings = selectedTab == FactionTab.SETTINGS;
         setEditBoxVisible(inviteNameField, invites);
         setButtonVisible(inviteButton, invites);
         setButtonVisible(joinInviteButton, invites);
@@ -534,6 +625,22 @@ public class FactionMainScreen extends Screen {
         setButtonVisible(relationGrantButton, relations);
         setButtonVisible(relationRevokeButton, relations);
         setButtonVisible(leaveFactionButton, members);
+
+        setEditBoxVisible(settingsRenameField, settings);
+        setButtonVisible(settingsRenameButton, settings);
+        setEditBoxVisible(settingsMotdField, settings);
+        setButtonVisible(settingsMotdSetButton, settings);
+        setButtonVisible(settingsMotdClearButton, settings);
+        setEditBoxVisible(settingsDescriptionField, settings);
+        setButtonVisible(settingsDescriptionSetButton, settings);
+        setButtonVisible(settingsDescriptionClearButton, settings);
+        setEditBoxVisible(settingsColorField, settings);
+        setButtonVisible(settingsColorButton, settings);
+        setEditBoxVisible(settingsBannerField, settings);
+        setButtonVisible(settingsBannerSetButton, settings);
+        setButtonVisible(settingsBannerClearButton, settings);
+        setButtonVisible(settingsProtectionButton, settings);
+        setButtonVisible(settingsProtectionApplyButton, settings);
 
         setButtonVisible(overviewSectionButton, factionTab);
         setButtonVisible(membersSectionButton, factionTab);
@@ -605,6 +712,27 @@ public class FactionMainScreen extends Screen {
         setButtonVisible(relationPermissionButton, relations && inFaction);
         setButtonVisible(relationGrantButton, relations && inFaction);
         setButtonVisible(relationRevokeButton, relations && inFaction);
+
+        boolean settings = selectedTab == FactionTab.SETTINGS;
+        setEditBoxVisible(settingsRenameField, settings && inFaction);
+        setButtonVisible(settingsRenameButton, settings && inFaction);
+        setEditBoxVisible(settingsMotdField, settings && inFaction);
+        setButtonVisible(settingsMotdSetButton, settings && inFaction);
+        setButtonVisible(settingsMotdClearButton, settings && inFaction);
+        setEditBoxVisible(settingsDescriptionField, settings && inFaction);
+        setButtonVisible(settingsDescriptionSetButton, settings && inFaction);
+        setButtonVisible(settingsDescriptionClearButton, settings && inFaction);
+        setEditBoxVisible(settingsColorField, settings && inFaction);
+        setButtonVisible(settingsColorButton, settings && inFaction);
+        setEditBoxVisible(settingsBannerField, settings && inFaction);
+        setButtonVisible(settingsBannerSetButton, settings && inFaction);
+        setButtonVisible(settingsBannerClearButton, settings && inFaction);
+        setButtonVisible(settingsProtectionButton, settings && inFaction);
+        setButtonVisible(settingsProtectionApplyButton, settings && inFaction);
+        if (settings && inFaction) {
+            syncSettingsFields(snapshot);
+            settingsProtectionButton.setMessage(Component.literal("Tier: " + currentProtectionTierName()));
+        }
     }
 
     private void layoutFactionSectionButtons() {
@@ -775,6 +903,48 @@ public class FactionMainScreen extends Screen {
         return FactionPermission.values()[relationPermissionIndex % FactionPermission.values().length];
     }
 
+
+    private String currentProtectionTierName() {
+        FactionProtectionTier[] tiers = FactionProtectionTier.values();
+        if (tiers.length == 0) {
+            return "-";
+        }
+        return tiers[Math.floorMod(protectionTierIndex, tiers.length)].name();
+    }
+
+    private void cycleProtectionTier() {
+        FactionProtectionTier[] tiers = FactionProtectionTier.values();
+        if (tiers.length == 0) {
+            return;
+        }
+        protectionTierIndex = (protectionTierIndex + 1) % tiers.length;
+        if (settingsProtectionButton != null) {
+            settingsProtectionButton.setMessage(Component.literal("Tier: " + currentProtectionTierName()));
+        }
+    }
+
+    private void syncSettingsFields(FactionClientData.FactionSnapshot snapshot) {
+        if (settingsMotdField != null && !settingsMotdField.isFocused() && !snapshot.motd().equals(settingsMotdField.getValue())) {
+            settingsMotdField.setValue(snapshot.motd());
+        }
+        if (settingsDescriptionField != null && !settingsDescriptionField.isFocused() && !snapshot.description().equals(settingsDescriptionField.getValue())) {
+            settingsDescriptionField.setValue(snapshot.description());
+        }
+        if (settingsColorField != null && !settingsColorField.isFocused() && !snapshot.factionColor().equals(settingsColorField.getValue())) {
+            settingsColorField.setValue(snapshot.factionColor());
+        }
+        if (settingsBannerField != null && !settingsBannerField.isFocused() && !snapshot.bannerColor().equals(settingsBannerField.getValue())) {
+            settingsBannerField.setValue(snapshot.bannerColor());
+        }
+        FactionProtectionTier[] tiers = FactionProtectionTier.values();
+        for (int i = 0; i < tiers.length; i++) {
+            if (tiers[i].name().equalsIgnoreCase(snapshot.protectionTier())) {
+                protectionTierIndex = i;
+                break;
+            }
+        }
+    }
+
     private void sendInvite() {
         String name = inviteNameField.getValue().trim();
         if (!name.isEmpty()) {
@@ -874,6 +1044,64 @@ public class FactionMainScreen extends Screen {
         String rule = snapshot.rules().get(selectedRuleIndex);
         ClientNetworkSender.sendToServer(FactionActionPacket.removeRule(rule));
         selectedRuleIndex = -1;
+    }
+
+
+    private void sendRenameFaction() {
+        String name = settingsRenameField.getValue().trim();
+        if (name.isEmpty()) {
+            return;
+        }
+        ClientNetworkSender.sendToServer(FactionActionPacket.renameFaction(name));
+        settingsRenameField.setValue("");
+    }
+
+    private void sendSetMotd() {
+        String motd = settingsMotdField.getValue().trim();
+        if (motd.isEmpty()) {
+            return;
+        }
+        ClientNetworkSender.sendToServer(FactionActionPacket.setMotd(motd));
+    }
+
+    private void sendClearMotd() {
+        ClientNetworkSender.sendToServer(FactionActionPacket.clearMotd());
+    }
+
+    private void sendSetDescription() {
+        String description = settingsDescriptionField.getValue().trim();
+        if (description.isEmpty()) {
+            return;
+        }
+        ClientNetworkSender.sendToServer(FactionActionPacket.setDescription(description));
+    }
+
+    private void sendClearDescription() {
+        ClientNetworkSender.sendToServer(FactionActionPacket.clearDescription());
+    }
+
+    private void sendSetColor() {
+        String color = settingsColorField.getValue().trim();
+        if (color.isEmpty()) {
+            return;
+        }
+        ClientNetworkSender.sendToServer(FactionActionPacket.setColor(color));
+    }
+
+    private void sendSetBanner() {
+        String color = settingsBannerField.getValue().trim();
+        if (color.isEmpty()) {
+            return;
+        }
+        ClientNetworkSender.sendToServer(FactionActionPacket.setBanner(color));
+    }
+
+    private void sendClearBanner() {
+        ClientNetworkSender.sendToServer(FactionActionPacket.clearBanner());
+    }
+
+    private void sendSetProtectionTier() {
+        ClientNetworkSender.sendToServer(FactionActionPacket.setProtectionTier(currentProtectionTierName()));
     }
 
     private void leaveFaction() {
@@ -1108,14 +1336,20 @@ public class FactionMainScreen extends Screen {
     }
 
     private void renderSettings(GuiGraphics guiGraphics, FactionClientData.FactionSnapshot snapshot, int startY) {
-        guiGraphics.drawString(this.font, "Settings:", getPanelLeft(), startY, 0xFFFFFF);
+        guiGraphics.drawString(this.font, "Faction Settings:", getPanelLeft(), startY, 0xFFFFFF);
         int y = startY + 12;
         if (!snapshot.inFaction()) {
             guiGraphics.drawString(this.font, "Join or create a faction to configure settings.", getPanelLeft(), y, 0xAAAAAA);
             return;
         }
-        guiGraphics.drawString(this.font, "Faction settings moved here by design.", getPanelLeft(), y, 0xCCCCCC);
-        guiGraphics.drawString(this.font, "(MOTD/description/color/protection controls can be added next.)", getPanelLeft(), y + 10, 0xAAAAAA);
+        guiGraphics.drawString(this.font, "Current protection: " + snapshot.protectionTier(), getPanelLeft(), y, 0xCCCCCC);
+        y += 10;
+        guiGraphics.drawString(this.font, "Current color: " + snapshot.factionColor(), getPanelLeft(), y, 0xCCCCCC);
+        y += 10;
+        guiGraphics.drawString(this.font, "Current banner: " + snapshot.bannerColor(), getPanelLeft(), y, 0xCCCCCC);
+        y += 10;
+        guiGraphics.drawString(this.font, "Use controls above to rename, update MOTD/description, color, banner, and protection tier.",
+            getPanelLeft(), y, 0xAAAAAA);
     }
 
     private void renderMembers(GuiGraphics guiGraphics, FactionClientData.FactionSnapshot snapshot, int startY) {
