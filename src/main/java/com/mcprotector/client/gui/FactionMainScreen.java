@@ -541,6 +541,10 @@ public class FactionMainScreen extends Screen {
                     cycleRankingSort(RankingSort.MEMBERS_DESC);
                     return true;
                 }
+                if (mouseX >= panelX(295) && mouseX <= panelX(365)) {
+                    cycleRankingSort(RankingSort.RELATION_ASC);
+                    return true;
+                }
             }
         }
         if (isFactionSection(FactionSection.RULES) && button == 0) {
@@ -1524,7 +1528,7 @@ public class FactionMainScreen extends Screen {
         guiGraphics.drawString(this.font, rankingHeader("Faction", RankingSort.NAME_ASC), nameX, listStart, 0xE0E0E0);
         guiGraphics.drawString(this.font, rankingHeader("Level", RankingSort.LEVEL_DESC), levelX, listStart, 0xE0E0E0);
         guiGraphics.drawString(this.font, rankingHeader("Members", RankingSort.MEMBERS_DESC), membersX, listStart, 0xE0E0E0);
-        guiGraphics.drawString(this.font, "Relation", relationX, listStart, 0xE0E0E0);
+        guiGraphics.drawString(this.font, rankingHeader("Relation", RankingSort.RELATION_ASC), relationX, listStart, 0xE0E0E0);
 
         List<com.mcprotector.network.FactionStatePacket.FactionListEntry> sorted = getSortedFactionList(factions);
         int rowsStart = listStart + 12;
@@ -1625,6 +1629,21 @@ public class FactionMainScreen extends Screen {
                     yield level;
                 }
                 yield Integer.compare(left.memberCount(), right.memberCount());
+            }
+            case RELATION_ASC -> {
+                int relation = normalizeRelationLabel(left.relation()).compareToIgnoreCase(normalizeRelationLabel(right.relation()));
+                if (relation != 0) {
+                    yield relation;
+                }
+                int level = Integer.compare(left.factionLevel(), right.factionLevel());
+                if (level != 0) {
+                    yield level;
+                }
+                int members = Integer.compare(left.memberCount(), right.memberCount());
+                if (members != 0) {
+                    yield members;
+                }
+                yield left.factionName().compareToIgnoreCase(right.factionName());
             }
         };
         return rankingAscending ? result : -result;
@@ -1835,7 +1854,8 @@ public class FactionMainScreen extends Screen {
     private enum RankingSort {
         LEVEL_DESC,
         MEMBERS_DESC,
-        NAME_ASC
+        NAME_ASC,
+        RELATION_ASC
     }
 
     private enum ClaimType {
