@@ -841,7 +841,7 @@ public final class FactionService {
             source.sendFailure(Component.literal("You lack permission to manage faction settings."));
             return 0;
         }
-        String normalized = FactionConfig.normalizeColorInput(colorName);
+        String normalized = FactionConfig.normalizeColorInput(colorName == null ? "" : colorName.trim());
         if (!FactionConfig.isHexColor(normalized)) {
             source.sendFailure(Component.literal("Unknown color. Use hex format only (#RRGGBB)."));
             return 0;
@@ -864,8 +864,13 @@ public final class FactionService {
             source.sendFailure(Component.literal("You lack permission to manage faction settings."));
             return 0;
         }
-        ChatFormatting color = FactionConfig.parseColor(colorName);
-        if (color == ChatFormatting.WHITE && !"white".equalsIgnoreCase(colorName)) {
+        String normalized = colorName == null ? "" : colorName.trim();
+        if (normalized.isEmpty()) {
+            source.sendFailure(Component.literal("Banner color cannot be blank."));
+            return 0;
+        }
+        ChatFormatting color = FactionConfig.parseColor(normalized);
+        if (color == ChatFormatting.WHITE && !"white".equalsIgnoreCase(normalized)) {
             source.sendFailure(Component.literal("Unknown banner color name."));
             return 0;
         }
@@ -907,7 +912,7 @@ public final class FactionService {
         }
         FactionProtectionTier tier;
         try {
-            tier = FactionProtectionTier.valueOf(tierName.toUpperCase());
+            tier = FactionProtectionTier.valueOf((tierName == null ? "" : tierName.trim()).toUpperCase());
         } catch (IllegalArgumentException ex) {
             source.sendFailure(Component.literal("Unknown protection tier."));
             return 0;
