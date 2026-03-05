@@ -264,21 +264,29 @@ public class FactionActionPacket implements CustomPacketPayload {
                         player.sendSystemMessage(Component.literal("Failed to remove rule: " + ex.getMessage()));
                     }
                 }
-                case RENAME_FACTION -> runFactionCommand(player, "faction rename " + packet.targetName);
-                case SET_MOTD -> runFactionCommand(player, "faction motd set " + packet.targetName);
+                case RENAME_FACTION -> runFactionCommand(player, "faction rename " + quoteArg(packet.targetName));
+                case SET_MOTD -> runFactionCommand(player, "faction motd set " + quoteArg(packet.targetName));
                 case CLEAR_MOTD -> runFactionCommand(player, "faction motd clear");
-                case SET_DESCRIPTION -> runFactionCommand(player, "faction description set " + packet.targetName);
+                case SET_DESCRIPTION -> runFactionCommand(player, "faction description set " + quoteArg(packet.targetName));
                 case CLEAR_DESCRIPTION -> runFactionCommand(player, "faction description clear");
-                case SET_COLOR -> runFactionCommand(player, "faction color " + packet.targetName);
-                case SET_BANNER -> runFactionCommand(player, "faction banner set " + packet.targetName);
+                case SET_COLOR -> runFactionCommand(player, "faction color " + quoteArg(packet.targetName));
+                case SET_BANNER -> runFactionCommand(player, "faction banner set " + quoteArg(packet.targetName));
                 case CLEAR_BANNER -> runFactionCommand(player, "faction banner clear");
-                case SET_PROTECTION_TIER -> runFactionCommand(player, "faction protection set " + packet.targetName);
+                case SET_PROTECTION_TIER -> runFactionCommand(player, "faction protection set " + quoteArg(packet.targetName));
             }
             NetworkHandler.sendToPlayer(player, FactionStatePacket.fromPlayer(player));
             NetworkHandler.sendToPlayer(player, FactionClaimMapPacket.fromPlayer(player));
         });
     }
 
+
+
+    private static String quoteArg(String value) {
+        String escaped = value == null ? "" : value
+            .replace("\\", "\\\\")
+            .replace("\"", "\\\"");
+        return "\"" + escaped + "\"";
+    }
 
     private static void runFactionCommand(ServerPlayer player, String command) {
         if (command == null || command.isBlank()) {
