@@ -38,19 +38,25 @@ public class FactionStatePacket implements CustomPacketPayload {
     private final List<FactionListEntry> factionList;
     private final List<String> rules;
     private final List<ClaimEntry> claims;
+    private final List<ActivityLogEntry> activityLogs;
     private final String pendingInviteFaction;
     private final int claimCount;
     private final int maxClaims;
     private final String protectionTier;
     private final int factionLevel;
+    private final String motd;
+    private final String description;
+    private final String factionColor;
+    private final String bannerColor;
     private final boolean borderEnabled;
 
     public FactionStatePacket(boolean inFaction, String factionName, String roleName, List<RoleEntry> roles,
                               List<MemberEntry> members, List<InviteEntry> invites, List<PermissionEntry> permissions,
                               List<RelationPermissionEntry> relationPermissions, List<RelationEntry> relations,
                               List<FactionListEntry> factionList, List<String> rules, List<ClaimEntry> claims,
-                              String pendingInviteFaction, int claimCount, int maxClaims, String protectionTier,
-                              int factionLevel, boolean borderEnabled) {
+                              List<ActivityLogEntry> activityLogs, String pendingInviteFaction, int claimCount, int maxClaims, String protectionTier,
+                              int factionLevel, String motd, String description, String factionColor, String bannerColor,
+                              boolean borderEnabled) {
         this.inFaction = inFaction;
         this.factionName = factionName;
         this.roleName = roleName;
@@ -63,11 +69,16 @@ public class FactionStatePacket implements CustomPacketPayload {
         this.factionList = factionList;
         this.rules = rules;
         this.claims = claims;
+        this.activityLogs = activityLogs;
         this.pendingInviteFaction = pendingInviteFaction;
         this.claimCount = claimCount;
         this.maxClaims = maxClaims;
         this.protectionTier = protectionTier;
         this.factionLevel = factionLevel;
+        this.motd = motd;
+        this.description = description;
+        this.factionColor = factionColor;
+        this.bannerColor = bannerColor;
         this.borderEnabled = borderEnabled;
     }
 
@@ -82,7 +93,7 @@ public class FactionStatePacket implements CustomPacketPayload {
                 .orElse("");
             boolean borderEnabled = data.isBorderEnabled(player.getUUID());
             return new FactionStatePacket(false, "", "", List.of(), List.of(), List.of(), List.of(), List.of(), List.of(),
-                factionList, List.of(), List.of(), inviteFactionName, 0, 0, "", 0, borderEnabled);
+                factionList, List.of(), List.of(), List.of(), inviteFactionName, 0, 0, "", 0, "", "", "", "", borderEnabled);
         }
         Faction factionData = faction.get();
         MinecraftServer server = player.getServer();
@@ -140,6 +151,14 @@ public class FactionStatePacket implements CustomPacketPayload {
             int z = (int) (key >> 32);
             claims.add(new ClaimEntry(x, z));
         }
+        List<ActivityLogEntry> activityLogs = new ArrayList<>();
+        boolean canViewLogs = factionData.hasPermission(player.getUUID(), FactionPermission.MANAGE_SETTINGS)
+            || player.hasPermissions(com.mcprotector.config.FactionConfig.SERVER.adminBypassPermissionLevel.get());
+        if (canViewLogs) {
+            for (FactionData.FactionAccessLog log : data.getAccessLogs(player.blockPosition())) {
+                activityLogs.add(new ActivityLogEntry(log.timestamp(), log.playerName(), log.action(), log.allowed(), log.blockName()));
+            }
+        }
         String roleName = Optional.ofNullable(factionData.getRole(player.getUUID())).orElse("");
         int claimCount = data.getClaimCount(factionData.getId());
         int maxClaims = data.getMaxClaims(factionData.getId());
@@ -147,8 +166,9 @@ public class FactionStatePacket implements CustomPacketPayload {
         String protectionTier = factionData.getProtectionTier().name();
         boolean borderEnabled = data.isBorderEnabled(player.getUUID());
         return new FactionStatePacket(true, factionData.getName(), roleName, roles, members, invites, permissions, relationPermissions,
-            relations, factionList, factionData.getRules(), claims, "", claimCount, maxClaims, protectionTier,
-            factionLevel, borderEnabled);
+            relations, factionList, factionData.getRules(), claims, activityLogs, "", claimCount, maxClaims, protectionTier,
+            factionLevel, factionData.getMotd(), factionData.getDescription(), factionData.getColorName(), factionData.getBannerColor(),
+            borderEnabled);
     }
 
     private static String resolveName(MinecraftServer server, UUID playerId) {
@@ -176,7 +196,7 @@ public class FactionStatePacket implements CustomPacketPayload {
                 }
             }
             int color = faction.getColorRgb();
-            entries.add(new FactionListEntry(entry.getKey(), faction.getName(), faction.getMemberCount(), relation, color));
+            entries.add(new FactionListEntry(entry.getKey(), faction.getName(), data.getFactionLevel(entry.getKey()), faction.getMemberCount(), relation, color));
         }
         entries.sort(Comparator.comparing(FactionListEntry::factionName, String.CASE_INSENSITIVE_ORDER));
         return entries;
@@ -230,6 +250,7 @@ public class FactionStatePacket implements CustomPacketPayload {
         for (FactionListEntry entry : factionList) {
             buffer.writeUUID(entry.factionId());
             buffer.writeUtf(entry.factionName());
+            buffer.writeVarInt(entry.factionLevel());
             buffer.writeVarInt(entry.memberCount());
             buffer.writeUtf(entry.relation());
             buffer.writeInt(entry.color());
@@ -243,10 +264,22 @@ public class FactionStatePacket implements CustomPacketPayload {
             buffer.writeInt(entry.chunkX());
             buffer.writeInt(entry.chunkZ());
         }
+        buffer.writeVarInt(activityLogs.size());
+        for (ActivityLogEntry entry : activityLogs) {
+            buffer.writeLong(entry.timestamp());
+            buffer.writeUtf(entry.playerName());
+            buffer.writeUtf(entry.action());
+            buffer.writeBoolean(entry.allowed());
+            buffer.writeUtf(entry.blockName());
+        }
         buffer.writeVarInt(claimCount);
         buffer.writeVarInt(maxClaims);
         buffer.writeUtf(protectionTier);
         buffer.writeVarInt(factionLevel);
+        buffer.writeUtf(motd);
+        buffer.writeUtf(description);
+        buffer.writeUtf(factionColor);
+        buffer.writeUtf(bannerColor);
         buffer.writeBoolean(borderEnabled);
     }
 
@@ -300,7 +333,7 @@ public class FactionStatePacket implements CustomPacketPayload {
         int factionCount = buffer.readVarInt();
         List<FactionListEntry> factionList = new ArrayList<>();
         for (int i = 0; i < factionCount; i++) {
-            factionList.add(new FactionListEntry(buffer.readUUID(), buffer.readUtf(), buffer.readVarInt(), buffer.readUtf(), buffer.readInt()));
+            factionList.add(new FactionListEntry(buffer.readUUID(), buffer.readUtf(), buffer.readVarInt(), buffer.readVarInt(), buffer.readUtf(), buffer.readInt()));
         }
         int ruleCount = buffer.readVarInt();
         List<String> rules = new ArrayList<>();
@@ -312,14 +345,23 @@ public class FactionStatePacket implements CustomPacketPayload {
         for (int i = 0; i < claimCount; i++) {
             claims.add(new ClaimEntry(buffer.readInt(), buffer.readInt()));
         }
+        int activityCount = buffer.readVarInt();
+        List<ActivityLogEntry> activityLogs = new ArrayList<>();
+        for (int i = 0; i < activityCount; i++) {
+            activityLogs.add(new ActivityLogEntry(buffer.readLong(), buffer.readUtf(), buffer.readUtf(), buffer.readBoolean(), buffer.readUtf()));
+        }
         int factionClaimCount = buffer.readVarInt();
         int maxClaims = buffer.readVarInt();
         String protectionTier = buffer.readUtf();
         int factionLevel = buffer.readVarInt();
+        String motd = buffer.readUtf();
+        String description = buffer.readUtf();
+        String factionColor = buffer.readUtf();
+        String bannerColor = buffer.readUtf();
         boolean borderEnabled = buffer.readBoolean();
         return new FactionStatePacket(inFaction, factionName, roleName, roles, members, invites, permissions, relationPermissions,
-            relations, factionList, rules, claims, pendingInviteFaction, factionClaimCount, maxClaims, protectionTier,
-            factionLevel, borderEnabled);
+            relations, factionList, rules, claims, activityLogs, pendingInviteFaction, factionClaimCount, maxClaims, protectionTier,
+            factionLevel, motd, description, factionColor, bannerColor, borderEnabled);
     }
 
     public static void handle(FactionStatePacket packet, IPayloadContext context) {
@@ -379,6 +421,10 @@ public class FactionStatePacket implements CustomPacketPayload {
         return claims;
     }
 
+    public List<ActivityLogEntry> activityLogs() {
+        return activityLogs;
+    }
+
     public String pendingInviteFaction() {
         return pendingInviteFaction;
     }
@@ -397,6 +443,22 @@ public class FactionStatePacket implements CustomPacketPayload {
 
     public int factionLevel() {
         return factionLevel;
+    }
+
+    public String motd() {
+        return motd;
+    }
+
+    public String description() {
+        return description;
+    }
+
+    public String factionColor() {
+        return factionColor;
+    }
+
+    public String bannerColor() {
+        return bannerColor;
     }
 
     public boolean borderEnabled() {
@@ -421,9 +483,12 @@ public class FactionStatePacket implements CustomPacketPayload {
     public record RelationEntry(UUID factionId, String factionName, String relation) {
     }
 
-    public record FactionListEntry(UUID factionId, String factionName, int memberCount, String relation, int color) {
+    public record FactionListEntry(UUID factionId, String factionName, int factionLevel, int memberCount, String relation, int color) {
     }
 
     public record ClaimEntry(int chunkX, int chunkZ) {
+    }
+
+    public record ActivityLogEntry(long timestamp, String playerName, String action, boolean allowed, String blockName) {
     }
 }
