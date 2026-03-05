@@ -176,7 +176,7 @@ public class FactionStatePacket implements CustomPacketPayload {
                 }
             }
             int color = faction.getColorRgb();
-            entries.add(new FactionListEntry(entry.getKey(), faction.getName(), faction.getMemberCount(), relation, color));
+            entries.add(new FactionListEntry(entry.getKey(), faction.getName(), data.getFactionLevel(entry.getKey()), faction.getMemberCount(), relation, color));
         }
         entries.sort(Comparator.comparing(FactionListEntry::factionName, String.CASE_INSENSITIVE_ORDER));
         return entries;
@@ -230,6 +230,7 @@ public class FactionStatePacket implements CustomPacketPayload {
         for (FactionListEntry entry : factionList) {
             buffer.writeUUID(entry.factionId());
             buffer.writeUtf(entry.factionName());
+            buffer.writeVarInt(entry.factionLevel());
             buffer.writeVarInt(entry.memberCount());
             buffer.writeUtf(entry.relation());
             buffer.writeInt(entry.color());
@@ -300,7 +301,7 @@ public class FactionStatePacket implements CustomPacketPayload {
         int factionCount = buffer.readVarInt();
         List<FactionListEntry> factionList = new ArrayList<>();
         for (int i = 0; i < factionCount; i++) {
-            factionList.add(new FactionListEntry(buffer.readUUID(), buffer.readUtf(), buffer.readVarInt(), buffer.readUtf(), buffer.readInt()));
+            factionList.add(new FactionListEntry(buffer.readUUID(), buffer.readUtf(), buffer.readVarInt(), buffer.readVarInt(), buffer.readUtf(), buffer.readInt()));
         }
         int ruleCount = buffer.readVarInt();
         List<String> rules = new ArrayList<>();
@@ -421,7 +422,7 @@ public class FactionStatePacket implements CustomPacketPayload {
     public record RelationEntry(UUID factionId, String factionName, String relation) {
     }
 
-    public record FactionListEntry(UUID factionId, String factionName, int memberCount, String relation, int color) {
+    public record FactionListEntry(UUID factionId, String factionName, int factionLevel, int memberCount, String relation, int color) {
     }
 
     public record ClaimEntry(int chunkX, int chunkZ) {
