@@ -1226,9 +1226,9 @@ public class FactionMainScreen extends Screen {
         }
     }
 
-        private void renderFactionList(GuiGraphics guiGraphics,
-                                   List<com.mcprotector.network.FactionStatePacket.FactionListEntry> factions,
-                                   int startY) {
+    private void renderFactionList(GuiGraphics guiGraphics,
+                                  List<com.mcprotector.network.FactionStatePacket.FactionListEntry> factions,
+                                  int startY) {
         guiGraphics.drawString(this.font, "Server Ranking:", getPanelLeft(), startY, 0xFFFFFF);
         int listStart = getFactionListStart(startY);
         int nameX = getPanelLeft();
@@ -1266,7 +1266,6 @@ public class FactionMainScreen extends Screen {
         renderScrollIndicator(guiGraphics, sorted.size(), visibleLines, factionListScrollOffset, rowsStart, listBottom);
     }
 
-
     private String rankingHeader(String label, RankingSort sort) {
         if (sort != rankingSort) {
             return label;
@@ -1277,24 +1276,48 @@ public class FactionMainScreen extends Screen {
     private List<com.mcprotector.network.FactionStatePacket.FactionListEntry> getSortedFactionList(
         List<com.mcprotector.network.FactionStatePacket.FactionListEntry> factions) {
         List<com.mcprotector.network.FactionStatePacket.FactionListEntry> sorted = new ArrayList<>(factions);
-        Comparator<com.mcprotector.network.FactionStatePacket.FactionListEntry> byName =
-            Comparator.comparing(com.mcprotector.network.FactionStatePacket.FactionListEntry::factionName, String.CASE_INSENSITIVE_ORDER);
-        Comparator<com.mcprotector.network.FactionStatePacket.FactionListEntry> byMembers =
-            Comparator.comparingInt(com.mcprotector.network.FactionStatePacket.FactionListEntry::memberCount)
-                .thenComparing(byName);
-        Comparator<com.mcprotector.network.FactionStatePacket.FactionListEntry> byLevel =
-            Comparator.comparingInt(com.mcprotector.network.FactionStatePacket.FactionListEntry::factionLevel)
-                .thenComparing(byMembers.reversed());
-        Comparator<com.mcprotector.network.FactionStatePacket.FactionListEntry> comparator = switch (rankingSort) {
-            case NAME_ASC -> byName;
-            case MEMBERS_DESC -> byMembers;
-            case LEVEL_DESC -> byLevel;
-        };
-        if (!rankingAscending) {
-            comparator = comparator.reversed();
-        }
-        sorted.sort(comparator);
+        sorted.sort(this::compareFactionEntries);
         return sorted;
+    }
+
+    private int compareFactionEntries(com.mcprotector.network.FactionStatePacket.FactionListEntry left,
+                                      com.mcprotector.network.FactionStatePacket.FactionListEntry right) {
+        int result = switch (rankingSort) {
+            case LEVEL_DESC -> {
+                int level = Integer.compare(left.factionLevel(), right.factionLevel());
+                if (level != 0) {
+                    yield level;
+                }
+                int members = Integer.compare(left.memberCount(), right.memberCount());
+                if (members != 0) {
+                    yield members;
+                }
+                yield left.factionName().compareToIgnoreCase(right.factionName());
+            }
+            case MEMBERS_DESC -> {
+                int members = Integer.compare(left.memberCount(), right.memberCount());
+                if (members != 0) {
+                    yield members;
+                }
+                int level = Integer.compare(left.factionLevel(), right.factionLevel());
+                if (level != 0) {
+                    yield level;
+                }
+                yield left.factionName().compareToIgnoreCase(right.factionName());
+            }
+            case NAME_ASC -> {
+                int name = left.factionName().compareToIgnoreCase(right.factionName());
+                if (name != 0) {
+                    yield name;
+                }
+                int level = Integer.compare(left.factionLevel(), right.factionLevel());
+                if (level != 0) {
+                    yield level;
+                }
+                yield Integer.compare(left.memberCount(), right.memberCount());
+            }
+        };
+        return rankingAscending ? result : -result;
     }
 
     private void cycleRankingSort(RankingSort target) {
