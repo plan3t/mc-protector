@@ -114,6 +114,7 @@ public class FactionMainScreen extends Screen {
     private final Set<ChunkPos> selectedChunks = new LinkedHashSet<>();
     private FactionSection selectedFactionSection = FactionSection.OVERVIEW;
     private RankingSort rankingSort = RankingSort.LEVEL_DESC;
+    private boolean rankingAscending;
 
     public FactionMainScreen() {
         super(Component.literal("Faction"));
@@ -1233,9 +1234,9 @@ public class FactionMainScreen extends Screen {
         int nameX = getPanelLeft();
         int levelX = panelX(180);
         int membersX = panelX(250);
-        guiGraphics.drawString(this.font, "Faction", nameX, listStart, 0xE0E0E0);
-        guiGraphics.drawString(this.font, "Level", levelX, listStart, 0xE0E0E0);
-        guiGraphics.drawString(this.font, "Members", membersX, listStart, 0xE0E0E0);
+        guiGraphics.drawString(this.font, rankingHeader("Faction", RankingSort.NAME_ASC), nameX, listStart, 0xE0E0E0);
+        guiGraphics.drawString(this.font, rankingHeader("Level", RankingSort.LEVEL_DESC), levelX, listStart, 0xE0E0E0);
+        guiGraphics.drawString(this.font, rankingHeader("Members", RankingSort.MEMBERS_DESC), membersX, listStart, 0xE0E0E0);
 
         List<com.mcprotector.network.FactionStatePacket.FactionListEntry> sorted = getSortedFactionList(factions);
         int rowsStart = listStart + 12;
@@ -1266,34 +1267,42 @@ public class FactionMainScreen extends Screen {
     }
 
 
+    private String rankingHeader(String label, RankingSort sort) {
+        if (sort != rankingSort) {
+            return label;
+        }
+        return label + (rankingAscending ? " ▲" : " ▼");
+    }
+
     private List<com.mcprotector.network.FactionStatePacket.FactionListEntry> getSortedFactionList(
         List<com.mcprotector.network.FactionStatePacket.FactionListEntry> factions) {
         List<com.mcprotector.network.FactionStatePacket.FactionListEntry> sorted = new ArrayList<>(factions);
         Comparator<com.mcprotector.network.FactionStatePacket.FactionListEntry> byName =
             Comparator.comparing(com.mcprotector.network.FactionStatePacket.FactionListEntry::factionName, String.CASE_INSENSITIVE_ORDER);
-        Comparator<com.mcprotector.network.FactionStatePacket.FactionListEntry> byMembersDesc =
-            Comparator.comparingInt(com.mcprotector.network.FactionStatePacket.FactionListEntry::memberCount).reversed().thenComparing(byName);
-        Comparator<com.mcprotector.network.FactionStatePacket.FactionListEntry> byLevelDesc =
-            Comparator.comparingInt(com.mcprotector.network.FactionStatePacket.FactionListEntry::factionLevel).reversed()
-                .thenComparing(byMembersDesc);
+        Comparator<com.mcprotector.network.FactionStatePacket.FactionListEntry> byMembers =
+            Comparator.comparingInt(com.mcprotector.network.FactionStatePacket.FactionListEntry::memberCount)
+                .thenComparing(byName);
+        Comparator<com.mcprotector.network.FactionStatePacket.FactionListEntry> byLevel =
+            Comparator.comparingInt(com.mcprotector.network.FactionStatePacket.FactionListEntry::factionLevel)
+                .thenComparing(byMembers.reversed());
         Comparator<com.mcprotector.network.FactionStatePacket.FactionListEntry> comparator = switch (rankingSort) {
             case NAME_ASC -> byName;
-            case MEMBERS_DESC -> byMembersDesc;
-            case LEVEL_DESC -> byLevelDesc;
+            case MEMBERS_DESC -> byMembers;
+            case LEVEL_DESC -> byLevel;
         };
+        if (!rankingAscending) {
+            comparator = comparator.reversed();
+        }
         sorted.sort(comparator);
         return sorted;
     }
 
     private void cycleRankingSort(RankingSort target) {
         if (target == rankingSort) {
-            rankingSort = switch (target) {
-                case LEVEL_DESC -> RankingSort.MEMBERS_DESC;
-                case MEMBERS_DESC -> RankingSort.NAME_ASC;
-                case NAME_ASC -> RankingSort.LEVEL_DESC;
-            };
+            rankingAscending = !rankingAscending;
         } else {
             rankingSort = target;
+            rankingAscending = target == RankingSort.NAME_ASC;
         }
         factionListScrollOffset = 0;
     }
