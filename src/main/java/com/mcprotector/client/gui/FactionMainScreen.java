@@ -532,11 +532,11 @@ public class FactionMainScreen extends Screen {
                     cycleRankingSort(RankingSort.NAME_ASC);
                     return true;
                 }
-                if (mouseX >= panelX(180) && mouseX <= panelX(240)) {
+                if (mouseX >= panelX(170) && mouseX <= panelX(220)) {
                     cycleRankingSort(RankingSort.LEVEL_DESC);
                     return true;
                 }
-                if (mouseX >= panelX(250) && mouseX <= panelX(330)) {
+                if (mouseX >= panelX(225) && mouseX <= panelX(290)) {
                     cycleRankingSort(RankingSort.MEMBERS_DESC);
                     return true;
                 }
@@ -1517,11 +1517,13 @@ public class FactionMainScreen extends Screen {
         guiGraphics.drawString(this.font, "Server Ranking:", getPanelLeft(), startY, 0xFFFFFF);
         int listStart = getFactionListStart(startY);
         int nameX = getPanelLeft();
-        int levelX = panelX(180);
-        int membersX = panelX(250);
+        int levelX = panelX(170);
+        int membersX = panelX(225);
+        int relationX = panelX(295);
         guiGraphics.drawString(this.font, rankingHeader("Faction", RankingSort.NAME_ASC), nameX, listStart, 0xE0E0E0);
         guiGraphics.drawString(this.font, rankingHeader("Level", RankingSort.LEVEL_DESC), levelX, listStart, 0xE0E0E0);
         guiGraphics.drawString(this.font, rankingHeader("Members", RankingSort.MEMBERS_DESC), membersX, listStart, 0xE0E0E0);
+        guiGraphics.drawString(this.font, "Relation", relationX, listStart, 0xE0E0E0);
 
         List<com.mcprotector.network.FactionStatePacket.FactionListEntry> sorted = getSortedFactionList(factions);
         int rowsStart = listStart + 12;
@@ -1543,12 +1545,29 @@ public class FactionMainScreen extends Screen {
             int rank = factionListScrollOffset + i + 1;
             String label = rank + ". " + faction.factionName();
             int color = 0xFF000000 | faction.color();
-            guiGraphics.drawString(this.font, label, nameX, y, ClientColorHelper.toGuiColor(color));
+            int nameColor = ClientColorHelper.toGuiColor(color);
+            if ("OWN".equalsIgnoreCase(faction.relation())) {
+                nameColor = 0xFFF9A825;
+            }
+            guiGraphics.drawString(this.font, label, nameX, y, nameColor);
             guiGraphics.drawString(this.font, String.valueOf(faction.factionLevel()), levelX, y, 0xCCCCCC);
             guiGraphics.drawString(this.font, String.valueOf(faction.memberCount()), membersX, y, 0xCCCCCC);
+            guiGraphics.drawString(this.font, faction.relation(), relationX, y, relationColor(faction.relation()));
             y += lineHeight;
         }
         renderScrollIndicator(guiGraphics, sorted.size(), visibleLines, factionListScrollOffset, rowsStart, listBottom);
+    }
+
+    private int relationColor(String relation) {
+        if (relation == null) {
+            return 0xAAAAAA;
+        }
+        return switch (relation.toUpperCase()) {
+            case "OWN" -> 0xFFF9A825;
+            case "ALLY" -> MAP_COLOR_ALLY;
+            case "WAR" -> MAP_COLOR_WAR;
+            default -> 0xAAAAAA;
+        };
     }
 
     private String rankingHeader(String label, RankingSort sort) {
