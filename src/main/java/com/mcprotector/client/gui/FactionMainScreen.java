@@ -495,7 +495,7 @@ public class FactionMainScreen extends Screen {
             if (mouseY >= listStart && mouseY <= listBottom) {
                 int availableHeight = Math.max(0, listBottom - listStart);
                 int visibleLines = Math.max(1, availableHeight / lineHeight);
-                int maxOffset = Math.max(0, FactionClientData.getSnapshot().activityLogs().size() - visibleLines);
+                int maxOffset = Math.max(0, (FactionClientData.getSnapshot().canViewActivityLogs() ? FactionClientData.getSnapshot().activityLogs().size() : 0) - visibleLines);
                 if (scrollY < 0) {
                     activityScrollOffset = Math.min(maxOffset, activityScrollOffset + 1);
                 } else if (scrollY > 0) {
@@ -1354,6 +1354,10 @@ public class FactionMainScreen extends Screen {
         guiGraphics.drawString(this.font, "Activity:", getPanelLeft(), startY, 0xFFFFFF);
         List<FactionStatePacket.ActivityLogEntry> logs = FactionClientData.getSnapshot().activityLogs();
         int listStart = startY + 12;
+        if (!FactionClientData.getSnapshot().canViewActivityLogs()) {
+            guiGraphics.drawString(this.font, "You lack permission to view claim activity logs.", getPanelLeft(), listStart, 0xEF9A9A);
+            return;
+        }
         if (logs.isEmpty()) {
             guiGraphics.drawString(this.font, "No claim activity logs for this claim.", getPanelLeft(), listStart, 0xAAAAAA);
             return;
