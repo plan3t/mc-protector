@@ -27,6 +27,7 @@ public final class FactionClientData {
             packet.factionList(),
             packet.rules(),
             packet.claims(),
+            packet.activityLogs(),
             packet.pendingInviteFaction(),
             packet.claimCount(),
             packet.maxClaims(),
@@ -61,6 +62,7 @@ public final class FactionClientData {
                                  List<FactionStatePacket.FactionListEntry> factionList,
                                  List<String> rules,
                                  List<FactionStatePacket.ClaimEntry> claims,
+                                 List<FactionStatePacket.ActivityLogEntry> activityLogs,
                                  String pendingInviteFaction,
                                  int claimCount,
                                  int maxClaims,
@@ -74,7 +76,7 @@ public final class FactionClientData {
         public static FactionSnapshot empty() {
             return new FactionSnapshot(false, "", "", new ArrayList<>(), new ArrayList<>(), new ArrayList<>(),
                 new ArrayList<>(), new ArrayList<>(), new ArrayList<>(), new ArrayList<>(), new ArrayList<>(),
-                new ArrayList<>(), "", 0, 0, "", 0, "", "", "", "", false);
+                new ArrayList<>(), new ArrayList<>(), "", 0, 0, "", 0, "", "", "", "", false);
         }
     }
 }

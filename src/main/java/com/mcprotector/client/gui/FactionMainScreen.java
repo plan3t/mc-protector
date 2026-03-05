@@ -125,6 +125,7 @@ public class FactionMainScreen extends Screen {
     private int factionListScrollOffset;
     private int selectedRuleIndex = -1;
     private int rulesScrollOffset;
+    private int activityScrollOffset;
     private ClaimType selectedClaimType = ClaimType.FACTION;
     private boolean selectionActive;
     private ChunkPos selectionAnchor;
@@ -487,6 +488,22 @@ public class FactionMainScreen extends Screen {
                 return true;
             }
         }
+        if (isFactionSection(FactionSection.ACTIVITY)) {
+            int lineHeight = 10;
+            int listStart = getRulesListStart(getContentStart(FactionClientData.getSnapshot()));
+            int listBottom = getFactionListBottom();
+            if (mouseY >= listStart && mouseY <= listBottom) {
+                int availableHeight = Math.max(0, listBottom - listStart);
+                int visibleLines = Math.max(1, availableHeight / lineHeight);
+                int maxOffset = Math.max(0, FactionClientData.getSnapshot().activityLogs().size() - visibleLines);
+                if (scrollY < 0) {
+                    activityScrollOffset = Math.min(maxOffset, activityScrollOffset + 1);
+                } else if (scrollY > 0) {
+                    activityScrollOffset = Math.max(0, activityScrollOffset - 1);
+                }
+                return true;
+            }
+        }
         if (selectedTab == FactionTab.SERVER_RANKING) {
             int lineHeight = 10;
             int listStart = getFactionListStart(getContentStart(FactionClientData.getSnapshot())) + 12;
@@ -664,6 +681,9 @@ public class FactionMainScreen extends Screen {
         if (!rules) {
             selectedRuleIndex = -1;
             rulesScrollOffset = 0;
+        }
+        if (!isFactionSection(FactionSection.ACTIVITY)) {
+            activityScrollOffset = 0;
         }
         if (selectedTab != FactionTab.SERVER_RANKING) {
             factionListScrollOffset = 0;
@@ -1332,7 +1352,34 @@ public class FactionMainScreen extends Screen {
 
     private void renderActivity(GuiGraphics guiGraphics, int startY) {
         guiGraphics.drawString(this.font, "Activity:", getPanelLeft(), startY, 0xFFFFFF);
-        guiGraphics.drawString(this.font, "Activity feed integration planned (claim/access logs).", getPanelLeft(), startY + 12, 0xAAAAAA);
+        List<FactionStatePacket.ActivityLogEntry> logs = FactionClientData.getSnapshot().activityLogs();
+        int listStart = startY + 12;
+        if (logs.isEmpty()) {
+            guiGraphics.drawString(this.font, "No claim activity logs for this claim.", getPanelLeft(), listStart, 0xAAAAAA);
+            return;
+        }
+        int listBottom = getFactionListBottom();
+        int lineHeight = 10;
+        int availableHeight = Math.max(0, listBottom - listStart);
+        int visibleLines = Math.max(1, availableHeight / lineHeight);
+        int maxOffset = Math.max(0, logs.size() - visibleLines);
+        activityScrollOffset = Math.min(activityScrollOffset, maxOffset);
+        List<FactionStatePacket.ActivityLogEntry> visible = logs.subList(
+            activityScrollOffset, Math.min(logs.size(), activityScrollOffset + visibleLines));
+        int y = listStart;
+        for (FactionStatePacket.ActivityLogEntry entry : visible) {
+            String line = formatActivityTimestamp(entry.timestamp()) + " | " + entry.playerName()
+                + " | " + entry.action() + " | " + (entry.allowed() ? "allowed" : "denied")
+                + " | " + entry.blockName();
+            guiGraphics.drawString(this.font, line, getPanelLeft(), y, entry.allowed() ? 0xA5D6A7 : 0xEF9A9A);
+            y += lineHeight;
+        }
+        renderScrollIndicator(guiGraphics, logs.size(), visibleLines, activityScrollOffset, listStart, listBottom);
+    }
+
+    private String formatActivityTimestamp(long epochMillis) {
+        Instant instant = Instant.ofEpochMilli(epochMillis);
+        return INVITE_TIME_FORMAT.format(instant);
     }
 
     private void renderSettings(GuiGraphics guiGraphics, FactionClientData.FactionSnapshot snapshot, int startY) {
