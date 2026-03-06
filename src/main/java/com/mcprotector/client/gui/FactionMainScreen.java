@@ -1571,6 +1571,16 @@ public class FactionMainScreen extends Screen {
         return relation.toUpperCase(Locale.ROOT);
     }
 
+    private int relationSortWeight(String relation) {
+        return switch (normalizeRelationLabel(relation)) {
+            case "OWN" -> 0;
+            case "ALLY" -> 1;
+            case "NEUTRAL" -> 2;
+            case "WAR" -> 3;
+            default -> 4;
+        };
+    }
+
     private int relationColor(String relation) {
         return switch (normalizeRelationLabel(relation)) {
             case "OWN" -> 0xFFF9A825;
@@ -1631,7 +1641,7 @@ public class FactionMainScreen extends Screen {
                 yield Integer.compare(left.memberCount(), right.memberCount());
             }
             case RELATION_ASC -> {
-                int relation = normalizeRelationLabel(left.relation()).compareToIgnoreCase(normalizeRelationLabel(right.relation()));
+                int relation = Integer.compare(relationSortWeight(left.relation()), relationSortWeight(right.relation()));
                 if (relation != 0) {
                     yield relation;
                 }
