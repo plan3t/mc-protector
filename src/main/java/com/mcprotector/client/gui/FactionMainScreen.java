@@ -657,6 +657,7 @@ public class FactionMainScreen extends Screen {
 
     private void updateVisibility() {
         updateFactionControlLayout();
+        updateSettingsControlLayout();
         boolean factionTab = selectedTab == FactionTab.FACTION;
         boolean invites = factionTab && selectedFactionSection == FactionSection.INVITES;
         boolean permissions = factionTab && selectedFactionSection == FactionSection.PERMISSIONS;
@@ -805,7 +806,7 @@ public class FactionMainScreen extends Screen {
         if (overviewSectionButton == null) {
             return;
         }
-        int gap = Math.max(2, scaledWidth(2));
+        int gap = 1;
         int y = panelTop + CONTROL_TOP_OFFSET;
 
         Button[] buttons = new Button[] {
@@ -817,47 +818,46 @@ public class FactionMainScreen extends Screen {
             rulesSectionButton,
             activitySectionButton
         };
+        String[] fullLabels = new String[] {"Overview", "Members", "Invites", "Permissions", "Relations", "Rules", "Activity"};
+        String[] compactLabels = new String[] {"Over.", "Members", "Invites", "Perms", "Rel.", "Rules", "Act."};
 
         int left = getPanelLeft();
         int availableWidth = getPanelRight() - left;
-        int minWidth = Math.max(scaledButtonWidth(34), 34);
+        int padding = 12;
+        String[] labels = fullLabels;
+
+        int totalWidth = measureSectionButtonsWidth(labels, buttons, padding, gap);
+        if (totalWidth > availableWidth) {
+            labels = compactLabels;
+            totalWidth = measureSectionButtonsWidth(labels, buttons, padding, gap);
+        }
+        if (totalWidth > availableWidth) {
+            padding = 8;
+            totalWidth = measureSectionButtonsWidth(labels, buttons, padding, gap);
+        }
+
+        int minWidth = Math.max(28, scaledButtonWidth(28));
         int[] widths = new int[buttons.length];
-        int preferredTotal = 0;
         for (int i = 0; i < buttons.length; i++) {
-            Button button = buttons[i];
-            int preferred = minWidth;
-            if (button != null) {
-                preferred = Math.max(minWidth, this.font.width(button.getMessage()) + 12);
-            }
-            widths[i] = preferred;
-            preferredTotal += preferred;
+            widths[i] = Math.max(minWidth, this.font.width(labels[i]) + padding);
         }
 
-        int totalGap = gap * (buttons.length - 1);
-        float scale = 1.0F;
-        if (preferredTotal + totalGap > availableWidth && preferredTotal > 0) {
-            scale = (availableWidth - totalGap) / (float) preferredTotal;
-        }
-        for (int i = 0; i < widths.length; i++) {
-            widths[i] = Math.max(minWidth, Math.round(widths[i] * scale));
-        }
-
-        int totalWidth = totalGap;
-        for (int width : widths) {
-            totalWidth += width;
-        }
-        while (totalWidth > availableWidth) {
-            int widestIndex = -1;
-            for (int i = 0; i < widths.length; i++) {
-                if (widths[i] > minWidth && (widestIndex < 0 || widths[i] > widths[widestIndex])) {
-                    widestIndex = i;
+        if (totalWidth > availableWidth) {
+            int overflow = totalWidth - availableWidth;
+            while (overflow > 0) {
+                int widest = -1;
+                for (int i = 0; i < widths.length; i++) {
+                    int minForLabel = Math.max(minWidth, this.font.width(labels[i]) + 4);
+                    if (widths[i] > minForLabel && (widest < 0 || widths[i] > widths[widest])) {
+                        widest = i;
+                    }
                 }
+                if (widest < 0) {
+                    break;
+                }
+                widths[widest]--;
+                overflow--;
             }
-            if (widestIndex < 0) {
-                break;
-            }
-            widths[widestIndex]--;
-            totalWidth--;
         }
 
         int x = left;
@@ -866,12 +866,22 @@ public class FactionMainScreen extends Screen {
             if (button == null) {
                 continue;
             }
+            button.setMessage(Component.literal(labels[i]));
             button.setWidth(widths[i]);
             button.setHeight(MEMBER_SECTION_BUTTON_HEIGHT);
             button.setX(x);
             button.setY(y);
             x += widths[i] + gap;
         }
+    }
+
+    private int measureSectionButtonsWidth(String[] labels, Button[] buttons, int padding, int gap) {
+        int totalWidth = Math.max(0, (buttons.length - 1) * gap);
+        int minWidth = Math.max(28, scaledButtonWidth(28));
+        for (int i = 0; i < buttons.length; i++) {
+            totalWidth += Math.max(minWidth, this.font.width(labels[i]) + padding);
+        }
+        return totalWidth;
     }
 
     private void updateFactionSectionButtonState() {
@@ -1861,6 +1871,7 @@ public class FactionMainScreen extends Screen {
 
     private int getContentStart(FactionClientData.FactionSnapshot snapshot) {
         boolean hasControls = selectedTab == FactionTab.FACTION
+            || selectedTab == FactionTab.SETTINGS
             || isFactionSection(FactionSection.PERMISSIONS)
             || (isFactionSection(FactionSection.RELATIONS) && snapshot.inFaction())
             || (isFactionSection(FactionSection.RULES) && snapshot.inFaction());
@@ -1893,6 +1904,83 @@ public class FactionMainScreen extends Screen {
 
     private int getFactionListBottom() {
         return this.height - layoutPadding - 20;
+    }
+
+    private void updateSettingsControlLayout() {
+        int left = getPanelLeft();
+        int right = getPanelRight();
+        int contentWidth = Math.max(220, right - left);
+        int buttonGap = 4;
+        int actionButtonWidth = Math.min(88, Math.max(64, scaledButtonWidth(82)));
+        int clearButtonWidth = Math.min(64, Math.max(50, scaledButtonWidth(58)));
+
+        int rowOneY = panelTop + CONTROL_TOP_OFFSET;
+        int rowTwoY = rowOneY + controlRowSpacing;
+        int rowThreeY = rowTwoY + controlRowSpacing;
+        int rowFourY = rowThreeY + controlRowSpacing;
+        int rowFiveY = rowFourY + controlRowSpacing;
+
+        int renameFieldWidth = Math.max(120, contentWidth - actionButtonWidth - buttonGap);
+        settingsRenameField.setX(left);
+        settingsRenameField.setY(rowOneY);
+        settingsRenameField.setWidth(renameFieldWidth);
+        settingsRenameButton.setX(left + renameFieldWidth + buttonGap);
+        settingsRenameButton.setY(rowOneY);
+        settingsRenameButton.setWidth(actionButtonWidth);
+
+        int dualFieldWidth = Math.max(100, contentWidth - actionButtonWidth - clearButtonWidth - buttonGap * 2);
+        settingsMotdField.setX(left);
+        settingsMotdField.setY(rowTwoY);
+        settingsMotdField.setWidth(dualFieldWidth);
+        settingsMotdSetButton.setX(left + dualFieldWidth + buttonGap);
+        settingsMotdSetButton.setY(rowTwoY);
+        settingsMotdSetButton.setWidth(actionButtonWidth);
+        settingsMotdClearButton.setX(left + dualFieldWidth + buttonGap + actionButtonWidth + buttonGap);
+        settingsMotdClearButton.setY(rowTwoY);
+        settingsMotdClearButton.setWidth(clearButtonWidth);
+
+        settingsDescriptionField.setX(left);
+        settingsDescriptionField.setY(rowThreeY);
+        settingsDescriptionField.setWidth(dualFieldWidth);
+        settingsDescriptionSetButton.setX(left + dualFieldWidth + buttonGap);
+        settingsDescriptionSetButton.setY(rowThreeY);
+        settingsDescriptionSetButton.setWidth(actionButtonWidth);
+        settingsDescriptionClearButton.setX(left + dualFieldWidth + buttonGap + actionButtonWidth + buttonGap);
+        settingsDescriptionClearButton.setY(rowThreeY);
+        settingsDescriptionClearButton.setWidth(clearButtonWidth);
+
+        int halfGap = 6;
+        int halfWidth = Math.max(80, (contentWidth - halfGap) / 2);
+        int colorActionWidth = Math.min(88, Math.max(64, scaledButtonWidth(78)));
+        int colorFieldWidth = Math.max(52, halfWidth - colorActionWidth - buttonGap);
+        settingsColorField.setX(left);
+        settingsColorField.setY(rowFourY);
+        settingsColorField.setWidth(colorFieldWidth);
+        settingsColorButton.setX(left + colorFieldWidth + buttonGap);
+        settingsColorButton.setY(rowFourY);
+        settingsColorButton.setWidth(colorActionWidth);
+
+        int rightHalfX = left + halfWidth + halfGap;
+        int bannerSetWidth = Math.min(92, Math.max(66, scaledButtonWidth(84)));
+        int bannerClearWidth = Math.min(60, Math.max(48, scaledButtonWidth(54)));
+        int bannerFieldWidth = Math.max(52, halfWidth - bannerSetWidth - bannerClearWidth - buttonGap * 2);
+        settingsBannerField.setX(rightHalfX);
+        settingsBannerField.setY(rowFourY);
+        settingsBannerField.setWidth(bannerFieldWidth);
+        settingsBannerSetButton.setX(rightHalfX + bannerFieldWidth + buttonGap);
+        settingsBannerSetButton.setY(rowFourY);
+        settingsBannerSetButton.setWidth(bannerSetWidth);
+        settingsBannerClearButton.setX(rightHalfX + bannerFieldWidth + buttonGap + bannerSetWidth + buttonGap);
+        settingsBannerClearButton.setY(rowFourY);
+        settingsBannerClearButton.setWidth(bannerClearWidth);
+
+        int protectionButtonWidth = Math.max(120, Math.min(170, contentWidth - actionButtonWidth - buttonGap));
+        settingsProtectionButton.setX(left);
+        settingsProtectionButton.setY(rowFiveY);
+        settingsProtectionButton.setWidth(protectionButtonWidth);
+        settingsProtectionApplyButton.setX(left + protectionButtonWidth + buttonGap);
+        settingsProtectionApplyButton.setY(rowFiveY);
+        settingsProtectionApplyButton.setWidth(actionButtonWidth);
     }
 
     private void updateBottomRowLayout() {
