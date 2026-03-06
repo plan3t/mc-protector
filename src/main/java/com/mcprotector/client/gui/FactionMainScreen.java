@@ -4,6 +4,7 @@ import com.mcprotector.client.FactionClientData;
 import com.mcprotector.client.FactionMapClientData;
 import com.mcprotector.config.FactionConfig;
 import com.mcprotector.data.FactionPermission;
+import com.mcprotector.data.FactionProtectionTier;
 import com.mcprotector.network.FactionActionPacket;
 import com.mcprotector.network.FactionClaimSelectionPacket;
 import com.mcprotector.network.FactionStatePacket;
@@ -23,6 +24,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 
 public class FactionMainScreen extends Screen {
@@ -55,7 +57,7 @@ public class FactionMainScreen extends Screen {
     private static final DateTimeFormatter INVITE_TIME_FORMAT = DateTimeFormatter.ofPattern("HH:mm")
         .withZone(ZoneId.systemDefault());
 
-    private FactionTab selectedTab = FactionTab.MEMBERS;
+    private FactionTab selectedTab = FactionTab.FACTION;
     private EditBox inviteNameField;
     private Button inviteButton;
     private Button joinInviteButton;
@@ -84,13 +86,34 @@ public class FactionMainScreen extends Screen {
     private EditBox safeZoneFactionField;
     private Button claimTypeButton;
     private Button submitClaimsButton;
+    private Button overviewSectionButton;
     private Button membersSectionButton;
     private Button invitesSectionButton;
+    private Button permissionsSectionButton;
+    private Button relationsSectionButton;
+    private Button rulesSectionButton;
+    private Button activitySectionButton;
+    private EditBox settingsRenameField;
+    private Button settingsRenameButton;
+    private EditBox settingsMotdField;
+    private Button settingsMotdSetButton;
+    private Button settingsMotdClearButton;
+    private EditBox settingsDescriptionField;
+    private Button settingsDescriptionSetButton;
+    private Button settingsDescriptionClearButton;
+    private EditBox settingsColorField;
+    private Button settingsColorButton;
+    private EditBox settingsBannerField;
+    private Button settingsBannerSetButton;
+    private Button settingsBannerClearButton;
+    private Button settingsProtectionButton;
+    private Button settingsProtectionApplyButton;
     private int roleIndex;
     private int permissionIndex;
     private int memberRoleIndex;
     private int relationTypeIndex;
     private int relationPermissionIndex;
+    private int protectionTierIndex;
     private int panelTop;
     private int panelContentWidth = PANEL_CONTENT_WIDTH;
     private float horizontalScale = 1.0F;
@@ -102,11 +125,14 @@ public class FactionMainScreen extends Screen {
     private int factionListScrollOffset;
     private int selectedRuleIndex = -1;
     private int rulesScrollOffset;
+    private int activityScrollOffset;
     private ClaimType selectedClaimType = ClaimType.FACTION;
     private boolean selectionActive;
     private ChunkPos selectionAnchor;
     private final Set<ChunkPos> selectedChunks = new LinkedHashSet<>();
-    private MemberSection selectedMemberSection = MemberSection.MEMBERS;
+    private FactionSection selectedFactionSection = FactionSection.OVERVIEW;
+    private RankingSort rankingSort = RankingSort.LEVEL_DESC;
+    private boolean rankingAscending;
 
     public FactionMainScreen() {
         super(Component.literal("Faction"));
@@ -239,15 +265,78 @@ public class FactionMainScreen extends Screen {
         submitClaimsButton = this.addRenderableWidget(Button.builder(Component.literal("✓"), button -> promptClaimConfirm())
             .bounds(panelX(SAFEZONE_FIELD_WIDTH + CLAIM_CONTROL_GAP + 124), controlRowOne - 2, scaledButtonWidth(16), 16)
             .build());
+        overviewSectionButton = this.addRenderableWidget(Button.builder(Component.literal("Overview"), button -> {
+            selectedFactionSection = FactionSection.OVERVIEW;
+            updateVisibility();
+        }).bounds(panelLeft, panelTop, MEMBER_SECTION_BUTTON_WIDTH, MEMBER_SECTION_BUTTON_HEIGHT).build());
         membersSectionButton = this.addRenderableWidget(Button.builder(Component.literal("Members"), button -> {
-            selectedMemberSection = MemberSection.MEMBERS;
+            selectedFactionSection = FactionSection.MEMBERS;
             updateVisibility();
         }).bounds(panelLeft, panelTop, MEMBER_SECTION_BUTTON_WIDTH, MEMBER_SECTION_BUTTON_HEIGHT).build());
         invitesSectionButton = this.addRenderableWidget(Button.builder(Component.literal("Invites"), button -> {
-            selectedMemberSection = MemberSection.INVITES;
+            selectedFactionSection = FactionSection.INVITES;
             updateVisibility();
         }).bounds(panelLeft, panelTop, MEMBER_SECTION_BUTTON_WIDTH, MEMBER_SECTION_BUTTON_HEIGHT).build());
-        layoutMemberSectionButtons();
+        permissionsSectionButton = this.addRenderableWidget(Button.builder(Component.literal("Permissions"), button -> {
+            selectedFactionSection = FactionSection.PERMISSIONS;
+            updateVisibility();
+        }).bounds(panelLeft, panelTop, MEMBER_SECTION_BUTTON_WIDTH, MEMBER_SECTION_BUTTON_HEIGHT).build());
+        relationsSectionButton = this.addRenderableWidget(Button.builder(Component.literal("Relations"), button -> {
+            selectedFactionSection = FactionSection.RELATIONS;
+            updateVisibility();
+        }).bounds(panelLeft, panelTop, MEMBER_SECTION_BUTTON_WIDTH, MEMBER_SECTION_BUTTON_HEIGHT).build());
+        rulesSectionButton = this.addRenderableWidget(Button.builder(Component.literal("Rules"), button -> {
+            selectedFactionSection = FactionSection.RULES;
+            updateVisibility();
+        }).bounds(panelLeft, panelTop, MEMBER_SECTION_BUTTON_WIDTH, MEMBER_SECTION_BUTTON_HEIGHT).build());
+        activitySectionButton = this.addRenderableWidget(Button.builder(Component.literal("Activity"), button -> {
+            selectedFactionSection = FactionSection.ACTIVITY;
+            updateVisibility();
+        }).bounds(panelLeft, panelTop, MEMBER_SECTION_BUTTON_WIDTH, MEMBER_SECTION_BUTTON_HEIGHT).build());
+
+        settingsRenameField = new EditBox(this.font, panelLeft, controlRowOne, scaledWidth(170), 18, Component.literal("Faction name"));
+        settingsRenameField.setMaxLength(32);
+        this.addRenderableWidget(settingsRenameField);
+        settingsRenameButton = this.addRenderableWidget(Button.builder(Component.literal("Rename"), button -> sendRenameFaction())
+            .bounds(panelX(180), controlRowOne, scaledButtonWidth(80), 20).build());
+
+        settingsMotdField = new EditBox(this.font, panelLeft, controlRowTwo, scaledWidth(220), 18, Component.literal("MOTD"));
+        settingsMotdField.setMaxLength(120);
+        this.addRenderableWidget(settingsMotdField);
+        settingsMotdSetButton = this.addRenderableWidget(Button.builder(Component.literal("Set MOTD"), button -> sendSetMotd())
+            .bounds(panelX(230), controlRowTwo, scaledButtonWidth(80), 20).build());
+        settingsMotdClearButton = this.addRenderableWidget(Button.builder(Component.literal("Clear"), button -> sendClearMotd())
+            .bounds(panelX(315), controlRowTwo, scaledButtonWidth(60), 20).build());
+
+        settingsDescriptionField = new EditBox(this.font, panelLeft, controlRowThree, scaledWidth(220), 18, Component.literal("Description"));
+        settingsDescriptionField.setMaxLength(180);
+        this.addRenderableWidget(settingsDescriptionField);
+        settingsDescriptionSetButton = this.addRenderableWidget(Button.builder(Component.literal("Set Desc"), button -> sendSetDescription())
+            .bounds(panelX(230), controlRowThree, scaledButtonWidth(80), 20).build());
+        settingsDescriptionClearButton = this.addRenderableWidget(Button.builder(Component.literal("Clear"), button -> sendClearDescription())
+            .bounds(panelX(315), controlRowThree, scaledButtonWidth(60), 20).build());
+
+        int settingsRowFour = controlRowThree + controlRowSpacing;
+        settingsColorField = new EditBox(this.font, panelLeft, settingsRowFour, scaledWidth(110), 18, Component.literal("#RRGGBB"));
+        settingsColorField.setMaxLength(16);
+        this.addRenderableWidget(settingsColorField);
+        settingsColorButton = this.addRenderableWidget(Button.builder(Component.literal("Set Color"), button -> sendSetColor())
+            .bounds(panelX(120), settingsRowFour, scaledButtonWidth(80), 20).build());
+        settingsBannerField = new EditBox(this.font, panelX(205), settingsRowFour, scaledWidth(90), 18, Component.literal("Banner"));
+        settingsBannerField.setMaxLength(16);
+        this.addRenderableWidget(settingsBannerField);
+        settingsBannerSetButton = this.addRenderableWidget(Button.builder(Component.literal("Set Banner"), button -> sendSetBanner())
+            .bounds(panelX(300), settingsRowFour, scaledButtonWidth(90), 20).build());
+        settingsBannerClearButton = this.addRenderableWidget(Button.builder(Component.literal("Clear"), button -> sendClearBanner())
+            .bounds(panelX(395), settingsRowFour, scaledButtonWidth(55), 20).build());
+
+        int settingsRowFive = settingsRowFour + controlRowSpacing;
+        settingsProtectionButton = this.addRenderableWidget(Button.builder(Component.literal("Tier: " + currentProtectionTierName()), button -> cycleProtectionTier())
+            .bounds(panelLeft, settingsRowFive, scaledButtonWidth(150), 20).build());
+        settingsProtectionApplyButton = this.addRenderableWidget(Button.builder(Component.literal("Apply Tier"), button -> sendSetProtectionTier())
+            .bounds(panelX(160), settingsRowFive, scaledButtonWidth(90), 20).build());
+
+        layoutFactionSectionButtons();
         updateBottomRowLayout();
 
         updateVisibility();
@@ -283,6 +372,21 @@ public class FactionMainScreen extends Screen {
         if (roleNameField != null && roleNameField.isFocused()) {
             return roleNameField.keyPressed(keyCode, scanCode, modifiers);
         }
+        if (settingsRenameField != null && settingsRenameField.isFocused()) {
+            return settingsRenameField.keyPressed(keyCode, scanCode, modifiers);
+        }
+        if (settingsMotdField != null && settingsMotdField.isFocused()) {
+            return settingsMotdField.keyPressed(keyCode, scanCode, modifiers);
+        }
+        if (settingsDescriptionField != null && settingsDescriptionField.isFocused()) {
+            return settingsDescriptionField.keyPressed(keyCode, scanCode, modifiers);
+        }
+        if (settingsColorField != null && settingsColorField.isFocused()) {
+            return settingsColorField.keyPressed(keyCode, scanCode, modifiers);
+        }
+        if (settingsBannerField != null && settingsBannerField.isFocused()) {
+            return settingsBannerField.keyPressed(keyCode, scanCode, modifiers);
+        }
         return super.keyPressed(keyCode, scanCode, modifiers);
     }
 
@@ -302,6 +406,21 @@ public class FactionMainScreen extends Screen {
         }
         if (roleNameField != null && roleNameField.isFocused()) {
             return roleNameField.charTyped(codePoint, modifiers);
+        }
+        if (settingsRenameField != null && settingsRenameField.isFocused()) {
+            return settingsRenameField.charTyped(codePoint, modifiers);
+        }
+        if (settingsMotdField != null && settingsMotdField.isFocused()) {
+            return settingsMotdField.charTyped(codePoint, modifiers);
+        }
+        if (settingsDescriptionField != null && settingsDescriptionField.isFocused()) {
+            return settingsDescriptionField.charTyped(codePoint, modifiers);
+        }
+        if (settingsColorField != null && settingsColorField.isFocused()) {
+            return settingsColorField.charTyped(codePoint, modifiers);
+        }
+        if (settingsBannerField != null && settingsBannerField.isFocused()) {
+            return settingsBannerField.charTyped(codePoint, modifiers);
         }
         return super.charTyped(codePoint, modifiers);
     }
@@ -325,12 +444,10 @@ public class FactionMainScreen extends Screen {
         }
         int contentStart = getContentStart(snapshot);
         switch (selectedTab) {
-            case MEMBERS -> renderMembers(guiGraphics, snapshot, contentStart);
-            case PERMISSIONS -> renderPermissions(guiGraphics, snapshot.permissions(), contentStart);
-            case RULES -> renderRules(guiGraphics, snapshot.rules(), contentStart);
-            case RELATIONS -> renderRelations(guiGraphics, snapshot.relations(), snapshot.relationPermissions(), contentStart);
-            case FACTION_LIST -> renderFactionList(guiGraphics, snapshot.factionList(), contentStart);
+            case FACTION -> renderFactionSection(guiGraphics, snapshot, contentStart);
+            case SERVER_RANKING -> renderFactionList(guiGraphics, snapshot.factionList(), contentStart);
             case FACTION_MAP -> renderFactionMap(guiGraphics, contentStart, mouseX, mouseY);
+            case SETTINGS -> renderSettings(guiGraphics, snapshot, contentStart);
         }
     }
 
@@ -342,7 +459,7 @@ public class FactionMainScreen extends Screen {
 
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
-        if (selectedTab == FactionTab.PERMISSIONS) {
+        if (isFactionSection(FactionSection.PERMISSIONS)) {
             int lineHeight = 10;
             int listStart = panelTop + contentStartOffset + 22;
             int availableHeight = Math.max(0, this.height - listStart - 30);
@@ -355,7 +472,7 @@ public class FactionMainScreen extends Screen {
             }
             return true;
         }
-        if (selectedTab == FactionTab.RULES) {
+        if (isFactionSection(FactionSection.RULES)) {
             int lineHeight = 10;
             int listStart = getRulesListStart(getContentStart(FactionClientData.getSnapshot()));
             int listBottom = getRulesListBottom(selectedRuleIndex >= 0);
@@ -371,9 +488,25 @@ public class FactionMainScreen extends Screen {
                 return true;
             }
         }
-        if (selectedTab == FactionTab.FACTION_LIST) {
+        if (isFactionSection(FactionSection.ACTIVITY)) {
             int lineHeight = 10;
-            int listStart = getFactionListStart(getContentStart(FactionClientData.getSnapshot()));
+            int listStart = getRulesListStart(getContentStart(FactionClientData.getSnapshot()));
+            int listBottom = getFactionListBottom();
+            if (mouseY >= listStart && mouseY <= listBottom) {
+                int availableHeight = Math.max(0, listBottom - listStart);
+                int visibleLines = Math.max(1, availableHeight / lineHeight);
+                int maxOffset = Math.max(0, (FactionClientData.getSnapshot().canViewActivityLogs() ? FactionClientData.getSnapshot().activityLogs().size() : 0) - visibleLines);
+                if (scrollY < 0) {
+                    activityScrollOffset = Math.min(maxOffset, activityScrollOffset + 1);
+                } else if (scrollY > 0) {
+                    activityScrollOffset = Math.max(0, activityScrollOffset - 1);
+                }
+                return true;
+            }
+        }
+        if (selectedTab == FactionTab.SERVER_RANKING) {
+            int lineHeight = 10;
+            int listStart = getFactionListStart(getContentStart(FactionClientData.getSnapshot())) + 12;
             int listBottom = getFactionListBottom();
             if (mouseY >= listStart && mouseY <= listBottom) {
                 int availableHeight = Math.max(0, listBottom - listStart);
@@ -392,7 +525,28 @@ public class FactionMainScreen extends Screen {
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        if (selectedTab == FactionTab.RULES && button == 0) {
+        if (selectedTab == FactionTab.SERVER_RANKING && button == 0) {
+            int headerY = getFactionListStart(getContentStart(FactionClientData.getSnapshot()));
+            if (mouseY >= headerY && mouseY <= headerY + 10) {
+                if (mouseX >= getPanelLeft() && mouseX <= panelX(170)) {
+                    cycleRankingSort(RankingSort.NAME_ASC);
+                    return true;
+                }
+                if (mouseX >= panelX(170) && mouseX <= panelX(220)) {
+                    cycleRankingSort(RankingSort.LEVEL_DESC);
+                    return true;
+                }
+                if (mouseX >= panelX(225) && mouseX <= panelX(290)) {
+                    cycleRankingSort(RankingSort.MEMBERS_DESC);
+                    return true;
+                }
+                if (mouseX >= panelX(295) && mouseX <= panelX(365)) {
+                    cycleRankingSort(RankingSort.RELATION_ASC);
+                    return true;
+                }
+            }
+        }
+        if (isFactionSection(FactionSection.RULES) && button == 0) {
             FactionClientData.FactionSnapshot snapshot = FactionClientData.getSnapshot();
             int listStart = getRulesListStart(getContentStart(snapshot));
             int listBottom = getRulesListBottom(selectedRuleIndex >= 0);
@@ -461,12 +615,13 @@ public class FactionMainScreen extends Screen {
     }
 
     private void updateVisibility() {
-        boolean membersTab = selectedTab == FactionTab.MEMBERS;
-        boolean invites = membersTab && selectedMemberSection == MemberSection.INVITES;
-        boolean permissions = selectedTab == FactionTab.PERMISSIONS;
-        boolean members = membersTab && selectedMemberSection == MemberSection.MEMBERS;
-        boolean rules = selectedTab == FactionTab.RULES;
-        boolean relations = selectedTab == FactionTab.RELATIONS;
+        boolean factionTab = selectedTab == FactionTab.FACTION;
+        boolean invites = factionTab && selectedFactionSection == FactionSection.INVITES;
+        boolean permissions = factionTab && selectedFactionSection == FactionSection.PERMISSIONS;
+        boolean members = factionTab && selectedFactionSection == FactionSection.MEMBERS;
+        boolean rules = factionTab && selectedFactionSection == FactionSection.RULES;
+        boolean relations = factionTab && selectedFactionSection == FactionSection.RELATIONS;
+        boolean settings = selectedTab == FactionTab.SETTINGS;
         setEditBoxVisible(inviteNameField, invites);
         setButtonVisible(inviteButton, invites);
         setButtonVisible(joinInviteButton, invites);
@@ -490,10 +645,33 @@ public class FactionMainScreen extends Screen {
         setButtonVisible(relationPermissionButton, relations);
         setButtonVisible(relationGrantButton, relations);
         setButtonVisible(relationRevokeButton, relations);
-        setButtonVisible(leaveFactionButton, membersTab);
-        setButtonVisible(membersSectionButton, membersTab);
-        setButtonVisible(invitesSectionButton, membersTab);
-        updateMemberSectionButtonState();
+        setButtonVisible(leaveFactionButton, members);
+
+        setEditBoxVisible(settingsRenameField, settings);
+        setButtonVisible(settingsRenameButton, settings);
+        setEditBoxVisible(settingsMotdField, settings);
+        setButtonVisible(settingsMotdSetButton, settings);
+        setButtonVisible(settingsMotdClearButton, settings);
+        setEditBoxVisible(settingsDescriptionField, settings);
+        setButtonVisible(settingsDescriptionSetButton, settings);
+        setButtonVisible(settingsDescriptionClearButton, settings);
+        setEditBoxVisible(settingsColorField, settings);
+        setButtonVisible(settingsColorButton, settings);
+        setEditBoxVisible(settingsBannerField, settings);
+        setButtonVisible(settingsBannerSetButton, settings);
+        setButtonVisible(settingsBannerClearButton, settings);
+        setButtonVisible(settingsProtectionButton, settings);
+        setButtonVisible(settingsProtectionApplyButton, settings);
+
+        setButtonVisible(overviewSectionButton, factionTab);
+        setButtonVisible(membersSectionButton, factionTab);
+        setButtonVisible(invitesSectionButton, factionTab);
+        setButtonVisible(permissionsSectionButton, factionTab);
+        setButtonVisible(relationsSectionButton, factionTab);
+        setButtonVisible(rulesSectionButton, factionTab);
+        setButtonVisible(activitySectionButton, factionTab);
+        updateFactionSectionButtonState();
+
         boolean mapTab = selectedTab == FactionTab.FACTION_MAP;
         setButtonVisible(claimTypeButton, mapTab);
         setButtonVisible(submitClaimsButton, mapTab);
@@ -508,7 +686,10 @@ public class FactionMainScreen extends Screen {
             selectedRuleIndex = -1;
             rulesScrollOffset = 0;
         }
-        if (selectedTab == FactionTab.FACTION_LIST) {
+        if (!isFactionSection(FactionSection.ACTIVITY)) {
+            activityScrollOffset = 0;
+        }
+        if (selectedTab != FactionTab.SERVER_RANKING) {
             factionListScrollOffset = 0;
         }
         if (selectedTab == FactionTab.FACTION_MAP) {
@@ -517,7 +698,7 @@ public class FactionMainScreen extends Screen {
     }
 
     private void updateDynamicVisibility(FactionClientData.FactionSnapshot snapshot) {
-        boolean invites = selectedTab == FactionTab.MEMBERS && selectedMemberSection == MemberSection.INVITES;
+        boolean invites = selectedTab == FactionTab.FACTION && selectedFactionSection == FactionSection.INVITES;
         boolean inFaction = snapshot.inFaction();
         updateRoleIndices(snapshot);
         setEditBoxVisible(inviteNameField, invites && inFaction);
@@ -525,7 +706,7 @@ public class FactionMainScreen extends Screen {
         boolean hasInvite = invites && !snapshot.pendingInviteFaction().isEmpty() && !snapshot.inFaction();
         setButtonVisible(joinInviteButton, hasInvite);
         setButtonVisible(declineInviteButton, hasInvite);
-        boolean permissions = selectedTab == FactionTab.PERMISSIONS;
+        boolean permissions = isFactionSection(FactionSection.PERMISSIONS);
         setButtonVisible(roleButton, permissions && inFaction);
         setButtonVisible(permissionButton, permissions && inFaction);
         setButtonVisible(grantButton, permissions && inFaction);
@@ -537,7 +718,7 @@ public class FactionMainScreen extends Screen {
             roleButton.setMessage(Component.literal("Role: " + currentRoleDisplay()));
             permissionButton.setMessage(Component.literal("Perm: " + currentPermission().name()));
         }
-        boolean members = selectedTab == FactionTab.MEMBERS && selectedMemberSection == MemberSection.MEMBERS;
+        boolean members = selectedTab == FactionTab.FACTION && selectedFactionSection == FactionSection.MEMBERS;
         setEditBoxVisible(memberNameField, members && inFaction);
         setButtonVisible(kickMemberButton, members && inFaction);
         setButtonVisible(memberRoleButton, members && inFaction);
@@ -546,45 +727,88 @@ public class FactionMainScreen extends Screen {
             memberRoleButton.setMessage(Component.literal("Role: " + currentMemberRoleDisplay()));
         }
         setButtonVisible(leaveFactionButton, members && inFaction);
-        boolean rules = selectedTab == FactionTab.RULES;
+        boolean rules = isFactionSection(FactionSection.RULES);
         setEditBoxVisible(ruleField, rules && inFaction);
         setButtonVisible(addRuleButton, rules && inFaction);
         setButtonVisible(removeRuleButton, rules && inFaction && selectedRuleIndex >= 0);
-        boolean relations = selectedTab == FactionTab.RELATIONS;
+        boolean relations = isFactionSection(FactionSection.RELATIONS);
         setButtonVisible(relationTypeButton, relations && inFaction);
         setButtonVisible(relationPermissionButton, relations && inFaction);
         setButtonVisible(relationGrantButton, relations && inFaction);
         setButtonVisible(relationRevokeButton, relations && inFaction);
+
+        boolean settings = selectedTab == FactionTab.SETTINGS;
+        setEditBoxVisible(settingsRenameField, settings && inFaction);
+        setButtonVisible(settingsRenameButton, settings && inFaction);
+        setEditBoxVisible(settingsMotdField, settings && inFaction);
+        setButtonVisible(settingsMotdSetButton, settings && inFaction);
+        setButtonVisible(settingsMotdClearButton, settings && inFaction);
+        setEditBoxVisible(settingsDescriptionField, settings && inFaction);
+        setButtonVisible(settingsDescriptionSetButton, settings && inFaction);
+        setButtonVisible(settingsDescriptionClearButton, settings && inFaction);
+        setEditBoxVisible(settingsColorField, settings && inFaction);
+        setButtonVisible(settingsColorButton, settings && inFaction);
+        setEditBoxVisible(settingsBannerField, settings && inFaction);
+        setButtonVisible(settingsBannerSetButton, settings && inFaction);
+        setButtonVisible(settingsBannerClearButton, settings && inFaction);
+        setButtonVisible(settingsProtectionButton, settings && inFaction);
+        setButtonVisible(settingsProtectionApplyButton, settings && inFaction);
+        if (settings && inFaction) {
+            syncSettingsFields(snapshot);
+            settingsProtectionButton.setMessage(Component.literal("Tier: " + currentProtectionTierName()));
+        }
     }
 
-    private void layoutMemberSectionButtons() {
-        if (membersSectionButton == null || invitesSectionButton == null) {
+    private void layoutFactionSectionButtons() {
+        if (overviewSectionButton == null) {
             return;
         }
-        int buttonWidth = scaledButtonWidth(MEMBER_SECTION_BUTTON_WIDTH);
-        int buttonHeight = MEMBER_SECTION_BUTTON_HEIGHT;
         int gap = scaledWidth(MEMBER_SECTION_BUTTON_GAP);
-        int startX = getPanelLeft();
-        int y = panelTop + CONTROL_TOP_OFFSET + controlRowSpacing + 2;
+        int y = panelTop + CONTROL_TOP_OFFSET;
+        int total = FactionSection.values().length;
+        int available = getPanelRight() - getPanelLeft() - gap * (total - 1);
+        int buttonWidth = Math.max(scaledButtonWidth(52), available / total);
 
-        membersSectionButton.setWidth(buttonWidth);
-        membersSectionButton.setHeight(buttonHeight);
-        membersSectionButton.setX(startX);
-        membersSectionButton.setY(y);
-
-        invitesSectionButton.setWidth(buttonWidth);
-        invitesSectionButton.setHeight(buttonHeight);
-        invitesSectionButton.setX(startX + buttonWidth + gap);
-        invitesSectionButton.setY(y);
+        Button[] buttons = new Button[] {
+            overviewSectionButton,
+            membersSectionButton,
+            invitesSectionButton,
+            permissionsSectionButton,
+            relationsSectionButton,
+            rulesSectionButton,
+            activitySectionButton
+        };
+        int x = getPanelLeft();
+        for (Button button : buttons) {
+            if (button == null) {
+                continue;
+            }
+            button.setWidth(buttonWidth);
+            button.setHeight(MEMBER_SECTION_BUTTON_HEIGHT);
+            button.setX(x);
+            button.setY(y);
+            x += buttonWidth + gap;
+        }
     }
 
-    private void updateMemberSectionButtonState() {
-        if (membersSectionButton != null) {
-            membersSectionButton.active = selectedMemberSection != MemberSection.MEMBERS;
+    private void updateFactionSectionButtonState() {
+        setFactionSectionButtonState(overviewSectionButton, FactionSection.OVERVIEW);
+        setFactionSectionButtonState(membersSectionButton, FactionSection.MEMBERS);
+        setFactionSectionButtonState(invitesSectionButton, FactionSection.INVITES);
+        setFactionSectionButtonState(permissionsSectionButton, FactionSection.PERMISSIONS);
+        setFactionSectionButtonState(relationsSectionButton, FactionSection.RELATIONS);
+        setFactionSectionButtonState(rulesSectionButton, FactionSection.RULES);
+        setFactionSectionButtonState(activitySectionButton, FactionSection.ACTIVITY);
+    }
+
+    private void setFactionSectionButtonState(Button button, FactionSection section) {
+        if (button != null) {
+            button.active = selectedFactionSection != section;
         }
-        if (invitesSectionButton != null) {
-            invitesSectionButton.active = selectedMemberSection != MemberSection.INVITES;
-        }
+    }
+
+    private boolean isFactionSection(FactionSection section) {
+        return selectedTab == FactionTab.FACTION && selectedFactionSection == section;
     }
 
     private void setButtonVisible(Button button, boolean visible) {
@@ -703,6 +927,48 @@ public class FactionMainScreen extends Screen {
         return FactionPermission.values()[relationPermissionIndex % FactionPermission.values().length];
     }
 
+
+    private String currentProtectionTierName() {
+        FactionProtectionTier[] tiers = FactionProtectionTier.values();
+        if (tiers.length == 0) {
+            return "-";
+        }
+        return tiers[Math.floorMod(protectionTierIndex, tiers.length)].name();
+    }
+
+    private void cycleProtectionTier() {
+        FactionProtectionTier[] tiers = FactionProtectionTier.values();
+        if (tiers.length == 0) {
+            return;
+        }
+        protectionTierIndex = (protectionTierIndex + 1) % tiers.length;
+        if (settingsProtectionButton != null) {
+            settingsProtectionButton.setMessage(Component.literal("Tier: " + currentProtectionTierName()));
+        }
+    }
+
+    private void syncSettingsFields(FactionClientData.FactionSnapshot snapshot) {
+        if (settingsMotdField != null && !settingsMotdField.isFocused() && !snapshot.motd().equals(settingsMotdField.getValue())) {
+            settingsMotdField.setValue(snapshot.motd());
+        }
+        if (settingsDescriptionField != null && !settingsDescriptionField.isFocused() && !snapshot.description().equals(settingsDescriptionField.getValue())) {
+            settingsDescriptionField.setValue(snapshot.description());
+        }
+        if (settingsColorField != null && !settingsColorField.isFocused() && !snapshot.factionColor().equals(settingsColorField.getValue())) {
+            settingsColorField.setValue(snapshot.factionColor());
+        }
+        if (settingsBannerField != null && !settingsBannerField.isFocused() && !snapshot.bannerColor().equals(settingsBannerField.getValue())) {
+            settingsBannerField.setValue(snapshot.bannerColor());
+        }
+        FactionProtectionTier[] tiers = FactionProtectionTier.values();
+        for (int i = 0; i < tiers.length; i++) {
+            if (tiers[i].name().equalsIgnoreCase(snapshot.protectionTier())) {
+                protectionTierIndex = i;
+                break;
+            }
+        }
+    }
+
     private void sendInvite() {
         String name = inviteNameField.getValue().trim();
         if (!name.isEmpty()) {
@@ -802,6 +1068,64 @@ public class FactionMainScreen extends Screen {
         String rule = snapshot.rules().get(selectedRuleIndex);
         ClientNetworkSender.sendToServer(FactionActionPacket.removeRule(rule));
         selectedRuleIndex = -1;
+    }
+
+
+    private void sendRenameFaction() {
+        String name = settingsRenameField.getValue().trim();
+        if (name.isEmpty()) {
+            return;
+        }
+        ClientNetworkSender.sendToServer(FactionActionPacket.renameFaction(name));
+        settingsRenameField.setValue("");
+    }
+
+    private void sendSetMotd() {
+        String motd = settingsMotdField.getValue().trim();
+        if (motd.isEmpty()) {
+            return;
+        }
+        ClientNetworkSender.sendToServer(FactionActionPacket.setMotd(motd));
+    }
+
+    private void sendClearMotd() {
+        ClientNetworkSender.sendToServer(FactionActionPacket.clearMotd());
+    }
+
+    private void sendSetDescription() {
+        String description = settingsDescriptionField.getValue().trim();
+        if (description.isEmpty()) {
+            return;
+        }
+        ClientNetworkSender.sendToServer(FactionActionPacket.setDescription(description));
+    }
+
+    private void sendClearDescription() {
+        ClientNetworkSender.sendToServer(FactionActionPacket.clearDescription());
+    }
+
+    private void sendSetColor() {
+        String color = settingsColorField.getValue().trim();
+        if (color.isEmpty()) {
+            return;
+        }
+        ClientNetworkSender.sendToServer(FactionActionPacket.setColor(color));
+    }
+
+    private void sendSetBanner() {
+        String color = settingsBannerField.getValue().trim();
+        if (color.isEmpty()) {
+            return;
+        }
+        ClientNetworkSender.sendToServer(FactionActionPacket.setBanner(color));
+    }
+
+    private void sendClearBanner() {
+        ClientNetworkSender.sendToServer(FactionActionPacket.clearBanner());
+    }
+
+    private void sendSetProtectionTier() {
+        ClientNetworkSender.sendToServer(FactionActionPacket.setProtectionTier(currentProtectionTierName()));
     }
 
     private void leaveFaction() {
@@ -998,10 +1322,94 @@ public class FactionMainScreen extends Screen {
         return Minecraft.getInstance().player.hasPermissions(FactionConfig.SERVER.adminBypassPermissionLevel.get());
     }
 
+
+    private void renderFactionSection(GuiGraphics guiGraphics, FactionClientData.FactionSnapshot snapshot, int startY) {
+        layoutFactionSectionButtons();
+        int contentY = startY;
+        switch (selectedFactionSection) {
+            case OVERVIEW -> renderOverview(guiGraphics, snapshot, contentY);
+            case MEMBERS, INVITES -> renderMembers(guiGraphics, snapshot, contentY);
+            case PERMISSIONS -> renderPermissions(guiGraphics, snapshot.permissions(), contentY);
+            case RELATIONS -> renderRelations(guiGraphics, snapshot.relations(), snapshot.relationPermissions(), contentY);
+            case RULES -> renderRules(guiGraphics, snapshot.rules(), contentY);
+            case ACTIVITY -> renderActivity(guiGraphics, contentY);
+        }
+    }
+
+    private void renderOverview(GuiGraphics guiGraphics, FactionClientData.FactionSnapshot snapshot, int startY) {
+        guiGraphics.drawString(this.font, "Overview:", getPanelLeft(), startY, 0xFFFFFF);
+        int y = startY + 12;
+        if (!snapshot.inFaction()) {
+            guiGraphics.drawString(this.font, "You are not in a faction.", getPanelLeft(), y, 0xAAAAAA);
+            return;
+        }
+        guiGraphics.drawString(this.font, "Role: " + getRoleDisplayName(snapshot, snapshot.roleName()), getPanelLeft(), y, 0xCCCCCC);
+        y += 10;
+        guiGraphics.drawString(this.font, "Members: " + snapshot.members().size(), getPanelLeft(), y, 0xCCCCCC);
+        y += 10;
+        guiGraphics.drawString(this.font, "Claims: " + snapshot.claimCount() + "/" + snapshot.maxClaims(), getPanelLeft(), y, 0xCCCCCC);
+        y += 10;
+        guiGraphics.drawString(this.font, "Protection: " + snapshot.protectionTier(), getPanelLeft(), y, 0xCCCCCC);
+        y += 10;
+        guiGraphics.drawString(this.font, "Faction Level: " + snapshot.factionLevel(), getPanelLeft(), y, 0xCCCCCC);
+    }
+
+    private void renderActivity(GuiGraphics guiGraphics, int startY) {
+        guiGraphics.drawString(this.font, "Activity:", getPanelLeft(), startY, 0xFFFFFF);
+        List<FactionStatePacket.ActivityLogEntry> logs = FactionClientData.getSnapshot().activityLogs();
+        int listStart = startY + 12;
+        if (!FactionClientData.getSnapshot().canViewActivityLogs()) {
+            guiGraphics.drawString(this.font, "You lack permission to view claim activity logs.", getPanelLeft(), listStart, 0xEF9A9A);
+            return;
+        }
+        if (logs.isEmpty()) {
+            guiGraphics.drawString(this.font, "No claim activity logs for this claim.", getPanelLeft(), listStart, 0xAAAAAA);
+            return;
+        }
+        int listBottom = getFactionListBottom();
+        int lineHeight = 10;
+        int availableHeight = Math.max(0, listBottom - listStart);
+        int visibleLines = Math.max(1, availableHeight / lineHeight);
+        int maxOffset = Math.max(0, logs.size() - visibleLines);
+        activityScrollOffset = Math.min(activityScrollOffset, maxOffset);
+        List<FactionStatePacket.ActivityLogEntry> visible = logs.subList(
+            activityScrollOffset, Math.min(logs.size(), activityScrollOffset + visibleLines));
+        int y = listStart;
+        for (FactionStatePacket.ActivityLogEntry entry : visible) {
+            String line = formatActivityTimestamp(entry.timestamp()) + " | " + entry.playerName()
+                + " | " + entry.action() + " | " + (entry.allowed() ? "allowed" : "denied")
+                + " | " + entry.blockName();
+            guiGraphics.drawString(this.font, line, getPanelLeft(), y, entry.allowed() ? 0xA5D6A7 : 0xEF9A9A);
+            y += lineHeight;
+        }
+        renderScrollIndicator(guiGraphics, logs.size(), visibleLines, activityScrollOffset, listStart, listBottom);
+    }
+
+    private String formatActivityTimestamp(long epochMillis) {
+        Instant instant = Instant.ofEpochMilli(epochMillis);
+        return INVITE_TIME_FORMAT.format(instant);
+    }
+
+    private void renderSettings(GuiGraphics guiGraphics, FactionClientData.FactionSnapshot snapshot, int startY) {
+        guiGraphics.drawString(this.font, "Faction Settings:", getPanelLeft(), startY, 0xFFFFFF);
+        int y = startY + 12;
+        if (!snapshot.inFaction()) {
+            guiGraphics.drawString(this.font, "Join or create a faction to configure settings.", getPanelLeft(), y, 0xAAAAAA);
+            return;
+        }
+        guiGraphics.drawString(this.font, "Current protection: " + snapshot.protectionTier(), getPanelLeft(), y, 0xCCCCCC);
+        y += 10;
+        guiGraphics.drawString(this.font, "Current color: " + snapshot.factionColor(), getPanelLeft(), y, 0xCCCCCC);
+        y += 10;
+        guiGraphics.drawString(this.font, "Current banner: " + snapshot.bannerColor(), getPanelLeft(), y, 0xCCCCCC);
+        y += 10;
+        guiGraphics.drawString(this.font, "Use controls above to rename, update MOTD/description, color, banner, and protection tier.",
+            getPanelLeft(), y, 0xAAAAAA);
+    }
+
     private void renderMembers(GuiGraphics guiGraphics, FactionClientData.FactionSnapshot snapshot, int startY) {
-        layoutMemberSectionButtons();
-        int contentY = startY + MEMBER_SECTION_BUTTON_HEIGHT + 8;
-        if (selectedMemberSection == MemberSection.INVITES) {
+        int contentY = startY;
+        if (selectedFactionSection == FactionSection.INVITES) {
             renderInvites(guiGraphics, snapshot, contentY);
             return;
         }
@@ -1108,35 +1516,156 @@ public class FactionMainScreen extends Screen {
     }
 
     private void renderFactionList(GuiGraphics guiGraphics,
-                                   List<com.mcprotector.network.FactionStatePacket.FactionListEntry> factions,
-                                   int startY) {
-        guiGraphics.drawString(this.font, "Factions:", getPanelLeft(), startY, 0xFFFFFF);
+                                  List<com.mcprotector.network.FactionStatePacket.FactionListEntry> factions,
+                                  int startY) {
+        guiGraphics.drawString(this.font, "Server Ranking:", getPanelLeft(), startY, 0xFFFFFF);
         int listStart = getFactionListStart(startY);
-        if (factions.isEmpty()) {
-            guiGraphics.drawString(this.font, "No factions found.", getPanelLeft(), listStart, 0x777777);
+        int nameX = getPanelLeft();
+        int levelX = panelX(170);
+        int membersX = panelX(225);
+        int relationX = panelX(295);
+        guiGraphics.drawString(this.font, rankingHeader("Faction", RankingSort.NAME_ASC), nameX, listStart, 0xE0E0E0);
+        guiGraphics.drawString(this.font, rankingHeader("Level", RankingSort.LEVEL_DESC), levelX, listStart, 0xE0E0E0);
+        guiGraphics.drawString(this.font, rankingHeader("Members", RankingSort.MEMBERS_DESC), membersX, listStart, 0xE0E0E0);
+        guiGraphics.drawString(this.font, rankingHeader("Relation", RankingSort.RELATION_ASC), relationX, listStart, 0xE0E0E0);
+
+        List<com.mcprotector.network.FactionStatePacket.FactionListEntry> sorted = getSortedFactionList(factions);
+        int rowsStart = listStart + 12;
+        if (sorted.isEmpty()) {
+            guiGraphics.drawString(this.font, "No factions found.", getPanelLeft(), rowsStart, 0x777777);
             return;
         }
         int listBottom = getFactionListBottom();
         int lineHeight = 10;
-        int availableHeight = Math.max(0, listBottom - listStart);
+        int availableHeight = Math.max(0, listBottom - rowsStart);
         int visibleLines = Math.max(1, availableHeight / lineHeight);
-        int maxOffset = Math.max(0, factions.size() - visibleLines);
+        int maxOffset = Math.max(0, sorted.size() - visibleLines);
         factionListScrollOffset = Math.min(factionListScrollOffset, maxOffset);
-        List<com.mcprotector.network.FactionStatePacket.FactionListEntry> visible = factions.subList(
-            factionListScrollOffset, Math.min(factions.size(), factionListScrollOffset + visibleLines));
-        int y = listStart;
-        for (var faction : visible) {
-            String label = faction.factionName() + " (" + faction.memberCount() + " members)";
-            if ("OWN".equalsIgnoreCase(faction.relation())) {
-                label += " - Your faction";
-            } else if (!"NEUTRAL".equalsIgnoreCase(faction.relation())) {
-                label += " - " + faction.relation();
-            }
+        List<com.mcprotector.network.FactionStatePacket.FactionListEntry> visible = sorted.subList(
+            factionListScrollOffset, Math.min(sorted.size(), factionListScrollOffset + visibleLines));
+        int y = rowsStart;
+        for (int i = 0; i < visible.size(); i++) {
+            var faction = visible.get(i);
+            int rank = factionListScrollOffset + i + 1;
+            String label = rank + ". " + faction.factionName();
             int color = 0xFF000000 | faction.color();
-            guiGraphics.drawString(this.font, label, getPanelLeft(), y, ClientColorHelper.toGuiColor(color));
+            String relation = normalizeRelationLabel(faction.relation());
+            int nameColor = ClientColorHelper.toGuiColor(color);
+            if ("OWN".equalsIgnoreCase(relation)) {
+                nameColor = 0xFFF9A825;
+            }
+            guiGraphics.drawString(this.font, label, nameX, y, nameColor);
+            guiGraphics.drawString(this.font, String.valueOf(faction.factionLevel()), levelX, y, 0xCCCCCC);
+            guiGraphics.drawString(this.font, String.valueOf(faction.memberCount()), membersX, y, 0xCCCCCC);
+            guiGraphics.drawString(this.font, relation, relationX, y, relationColor(relation));
             y += lineHeight;
         }
-        renderScrollIndicator(guiGraphics, factions.size(), visibleLines, factionListScrollOffset, listStart, listBottom);
+        renderScrollIndicator(guiGraphics, sorted.size(), visibleLines, factionListScrollOffset, rowsStart, listBottom);
+    }
+
+    private String normalizeRelationLabel(String relation) {
+        if (relation == null || relation.isBlank()) {
+            return "NEUTRAL";
+        }
+        return relation.toUpperCase(Locale.ROOT);
+    }
+
+    private int relationSortWeight(String relation) {
+        return switch (normalizeRelationLabel(relation)) {
+            case "OWN" -> 0;
+            case "ALLY" -> 1;
+            case "NEUTRAL" -> 2;
+            case "WAR" -> 3;
+            default -> 4;
+        };
+    }
+
+    private int relationColor(String relation) {
+        return switch (normalizeRelationLabel(relation)) {
+            case "OWN" -> 0xFFF9A825;
+            case "ALLY" -> MAP_COLOR_ALLY;
+            case "WAR" -> MAP_COLOR_WAR;
+            default -> 0xAAAAAA;
+        };
+    }
+
+    private String rankingHeader(String label, RankingSort sort) {
+        if (sort != rankingSort) {
+            return label;
+        }
+        return label + (rankingAscending ? " ▲" : " ▼");
+    }
+
+    private List<com.mcprotector.network.FactionStatePacket.FactionListEntry> getSortedFactionList(
+        List<com.mcprotector.network.FactionStatePacket.FactionListEntry> factions) {
+        List<com.mcprotector.network.FactionStatePacket.FactionListEntry> sorted = new ArrayList<>(factions);
+        sorted.sort(this::compareFactionEntries);
+        return sorted;
+    }
+
+    private int compareFactionEntries(com.mcprotector.network.FactionStatePacket.FactionListEntry left,
+                                      com.mcprotector.network.FactionStatePacket.FactionListEntry right) {
+        int result = switch (rankingSort) {
+            case LEVEL_DESC -> {
+                int level = Integer.compare(left.factionLevel(), right.factionLevel());
+                if (level != 0) {
+                    yield level;
+                }
+                int members = Integer.compare(left.memberCount(), right.memberCount());
+                if (members != 0) {
+                    yield members;
+                }
+                yield left.factionName().compareToIgnoreCase(right.factionName());
+            }
+            case MEMBERS_DESC -> {
+                int members = Integer.compare(left.memberCount(), right.memberCount());
+                if (members != 0) {
+                    yield members;
+                }
+                int level = Integer.compare(left.factionLevel(), right.factionLevel());
+                if (level != 0) {
+                    yield level;
+                }
+                yield left.factionName().compareToIgnoreCase(right.factionName());
+            }
+            case NAME_ASC -> {
+                int name = left.factionName().compareToIgnoreCase(right.factionName());
+                if (name != 0) {
+                    yield name;
+                }
+                int level = Integer.compare(left.factionLevel(), right.factionLevel());
+                if (level != 0) {
+                    yield level;
+                }
+                yield Integer.compare(left.memberCount(), right.memberCount());
+            }
+            case RELATION_ASC -> {
+                int relation = Integer.compare(relationSortWeight(left.relation()), relationSortWeight(right.relation()));
+                if (relation != 0) {
+                    yield relation;
+                }
+                int level = Integer.compare(left.factionLevel(), right.factionLevel());
+                if (level != 0) {
+                    yield level;
+                }
+                int members = Integer.compare(left.memberCount(), right.memberCount());
+                if (members != 0) {
+                    yield members;
+                }
+                yield left.factionName().compareToIgnoreCase(right.factionName());
+            }
+        };
+        return rankingAscending ? result : -result;
+    }
+
+    private void cycleRankingSort(RankingSort target) {
+        if (target == rankingSort) {
+            rankingAscending = !rankingAscending;
+        } else {
+            rankingSort = target;
+            rankingAscending = target == RankingSort.NAME_ASC || target == RankingSort.RELATION_ASC;
+        }
+        factionListScrollOffset = 0;
     }
 
     private void renderRules(GuiGraphics guiGraphics, List<String> rules, int startY) {
@@ -1248,15 +1777,15 @@ public class FactionMainScreen extends Screen {
 
 
     private int getContentStart(FactionClientData.FactionSnapshot snapshot) {
-        boolean hasControls = selectedTab == FactionTab.PERMISSIONS
-            || (selectedTab == FactionTab.RELATIONS && snapshot.inFaction())
-            || (selectedTab == FactionTab.MEMBERS && snapshot.inFaction())
-            || (selectedTab == FactionTab.RULES && snapshot.inFaction());
+        boolean hasControls = selectedTab == FactionTab.FACTION
+            || isFactionSection(FactionSection.PERMISSIONS)
+            || (isFactionSection(FactionSection.RELATIONS) && snapshot.inFaction())
+            || (isFactionSection(FactionSection.RULES) && snapshot.inFaction());
         int controlOffset = contentStartOffset;
-        if (selectedTab == FactionTab.PERMISSIONS) {
+        if (isFactionSection(FactionSection.PERMISSIONS)) {
             controlOffset += controlRowSpacing;
         }
-        if (selectedTab == FactionTab.MEMBERS) {
+        if (selectedTab == FactionTab.FACTION) {
             controlOffset += MEMBER_SECTION_BUTTON_HEIGHT + 8;
         }
         return panelTop + (hasControls ? controlOffset : CONTROL_TOP_OFFSET);
@@ -1321,9 +1850,21 @@ public class FactionMainScreen extends Screen {
         submitClaimsButton.setY(controlsY);
     }
 
-    private enum MemberSection {
+    private enum FactionSection {
+        OVERVIEW,
         MEMBERS,
-        INVITES
+        INVITES,
+        PERMISSIONS,
+        RELATIONS,
+        RULES,
+        ACTIVITY
+    }
+
+    private enum RankingSort {
+        LEVEL_DESC,
+        MEMBERS_DESC,
+        NAME_ASC,
+        RELATION_ASC
     }
 
     private enum ClaimType {

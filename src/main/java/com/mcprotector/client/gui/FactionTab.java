@@ -1,12 +1,10 @@
 package com.mcprotector.client.gui;
 
 public enum FactionTab {
-    MEMBERS("Members", "Members"),
-    PERMISSIONS("Permissions", "Perms"),
-    RULES("Rules", "Rules"),
-    RELATIONS("Relations", "Relations"),
-    FACTION_LIST("Factions", "List"),
-    FACTION_MAP("Faction Map", "Map");
+    FACTION("Faction", "Faction"),
+    SERVER_RANKING("Server Ranking", "Ranking"),
+    FACTION_MAP("Map", "Map"),
+    SETTINGS("Settings", "Settings");
 
     private final String label;
     private final String compactLabel;
