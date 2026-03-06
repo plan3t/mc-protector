@@ -55,6 +55,12 @@ public class FactionMainScreen extends Screen {
     private static final int MEMBER_SECTION_BUTTON_HEIGHT = 16;
     private static final int MEMBER_SECTION_BUTTON_GAP = 4;
     private static final int MIN_PANEL_CONTENT_WIDTH = 304;
+    private static final int RANKING_LEVEL_X = 170;
+    private static final int RANKING_LEVEL_WIDTH = 50;
+    private static final int RANKING_MEMBERS_X = 225;
+    private static final int RANKING_MEMBERS_WIDTH = 65;
+    private static final int RANKING_RELATION_X = 295;
+    private static final int RANKING_RELATION_WIDTH = 70;
     private static final DateTimeFormatter INVITE_TIME_FORMAT = DateTimeFormatter.ofPattern("HH:mm")
         .withZone(ZoneId.systemDefault());
 
@@ -338,6 +344,7 @@ public class FactionMainScreen extends Screen {
             .bounds(panelX(160), settingsRowFive, scaledButtonWidth(90), 20).build());
 
         layoutFactionSectionButtons();
+        updateFactionControlLayout();
         updateBottomRowLayout();
 
         updateVisibility();
@@ -529,19 +536,19 @@ public class FactionMainScreen extends Screen {
         if (selectedTab == FactionTab.SERVER_RANKING && button == 0) {
             int headerY = getFactionListStart(getContentStart(FactionClientData.getSnapshot()));
             if (mouseY >= headerY && mouseY <= headerY + 10) {
-                if (mouseX >= getPanelLeft() && mouseX <= panelX(170)) {
+                if (mouseX >= getPanelLeft() && mouseX <= panelX(RANKING_LEVEL_X)) {
                     cycleRankingSort(RankingSort.NAME_ASC);
                     return true;
                 }
-                if (mouseX >= panelX(170) && mouseX <= panelX(220)) {
+                if (mouseX >= panelX(RANKING_LEVEL_X) && mouseX <= panelX(RANKING_LEVEL_X + RANKING_LEVEL_WIDTH)) {
                     cycleRankingSort(RankingSort.LEVEL_DESC);
                     return true;
                 }
-                if (mouseX >= panelX(225) && mouseX <= panelX(290)) {
+                if (mouseX >= panelX(RANKING_MEMBERS_X) && mouseX <= panelX(RANKING_MEMBERS_X + RANKING_MEMBERS_WIDTH)) {
                     cycleRankingSort(RankingSort.MEMBERS_DESC);
                     return true;
                 }
-                if (mouseX >= panelX(295) && mouseX <= panelX(365)) {
+                if (mouseX >= panelX(RANKING_RELATION_X) && mouseX <= panelX(RANKING_RELATION_X + RANKING_RELATION_WIDTH)) {
                     cycleRankingSort(RankingSort.RELATION_ASC);
                     return true;
                 }
@@ -616,6 +623,7 @@ public class FactionMainScreen extends Screen {
     }
 
     private void updateVisibility() {
+        updateFactionControlLayout();
         boolean factionTab = selectedTab == FactionTab.FACTION;
         boolean invites = factionTab && selectedFactionSection == FactionSection.INVITES;
         boolean permissions = factionTab && selectedFactionSection == FactionSection.PERMISSIONS;
@@ -1522,9 +1530,9 @@ public class FactionMainScreen extends Screen {
         guiGraphics.drawString(this.font, "Server Ranking:", getPanelLeft(), startY, 0xFFFFFF);
         int listStart = getFactionListStart(startY);
         int nameX = getPanelLeft();
-        int levelX = panelX(170);
-        int membersX = panelX(225);
-        int relationX = panelX(295);
+        int levelX = panelX(RANKING_LEVEL_X);
+        int membersX = panelX(RANKING_MEMBERS_X);
+        int relationX = panelX(RANKING_RELATION_X);
         guiGraphics.drawString(this.font, rankingHeader("Faction", RankingSort.NAME_ASC), nameX, listStart, 0xE0E0E0);
         guiGraphics.drawString(this.font, rankingHeader("Level", RankingSort.LEVEL_DESC), levelX, listStart, 0xE0E0E0);
         guiGraphics.drawString(this.font, rankingHeader("Members", RankingSort.MEMBERS_DESC), membersX, listStart, 0xE0E0E0);
@@ -1825,6 +1833,83 @@ public class FactionMainScreen extends Screen {
         refreshButton.setY(y);
         refreshButton.setWidth(refreshWidth);
         refreshButton.setHeight(refreshHeight);
+    }
+
+    private void updateFactionControlLayout() {
+        int rowOneY = panelTop + CONTROL_TOP_OFFSET + MEMBER_SECTION_BUTTON_HEIGHT + 8;
+        int rowTwoY = rowOneY + controlRowSpacing;
+        int rowThreeY = rowTwoY + controlRowSpacing;
+
+        if (inviteNameField != null) {
+            inviteNameField.setY(rowOneY);
+        }
+        if (inviteButton != null) {
+            inviteButton.setY(rowOneY);
+        }
+        if (joinInviteButton != null) {
+            joinInviteButton.setY(rowTwoY);
+        }
+        if (declineInviteButton != null) {
+            declineInviteButton.setY(rowTwoY);
+        }
+
+        if (roleButton != null) {
+            roleButton.setY(rowOneY);
+        }
+        if (permissionButton != null) {
+            permissionButton.setY(rowOneY);
+        }
+        if (grantButton != null) {
+            grantButton.setY(rowTwoY);
+        }
+        if (revokeButton != null) {
+            revokeButton.setY(rowTwoY);
+        }
+        if (roleNameField != null) {
+            roleNameField.setY(rowThreeY);
+        }
+        if (createRoleButton != null) {
+            createRoleButton.setY(rowThreeY);
+        }
+        if (deleteRoleButton != null) {
+            deleteRoleButton.setY(rowThreeY);
+        }
+
+        if (memberNameField != null) {
+            memberNameField.setY(rowOneY);
+        }
+        if (kickMemberButton != null) {
+            kickMemberButton.setY(rowOneY);
+        }
+        if (memberRoleButton != null) {
+            memberRoleButton.setY(rowOneY);
+        }
+        if (setRoleButton != null) {
+            setRoleButton.setY(rowOneY);
+        }
+
+        if (ruleField != null) {
+            ruleField.setY(rowOneY);
+        }
+        if (addRuleButton != null) {
+            addRuleButton.setY(rowOneY);
+        }
+        if (removeRuleButton != null) {
+            removeRuleButton.setY(rowOneY);
+        }
+
+        if (relationTypeButton != null) {
+            relationTypeButton.setY(rowOneY);
+        }
+        if (relationPermissionButton != null) {
+            relationPermissionButton.setY(rowOneY);
+        }
+        if (relationGrantButton != null) {
+            relationGrantButton.setY(rowTwoY);
+        }
+        if (relationRevokeButton != null) {
+            relationRevokeButton.setY(rowTwoY);
+        }
     }
 
     private void updateMapControlLayout() {
