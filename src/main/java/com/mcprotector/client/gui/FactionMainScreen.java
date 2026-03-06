@@ -806,7 +806,7 @@ public class FactionMainScreen extends Screen {
         if (overviewSectionButton == null) {
             return;
         }
-        int gap = 1;
+        int gap = 2;
         int y = panelTop + CONTROL_TOP_OFFSET;
 
         Button[] buttons = new Button[] {
@@ -818,28 +818,18 @@ public class FactionMainScreen extends Screen {
             rulesSectionButton,
             activitySectionButton
         };
-        String[] fullLabels = new String[] {"Overview", "Members", "Invites", "Permissions", "Relations", "Rules", "Activity"};
-        String[] compactLabels = new String[] {"Over.", "Members", "Invites", "Perms", "Rel.", "Rules", "Act."};
+        String[] labels = new String[] {"Overview", "Members", "Invites", "Permissions", "Relations", "Rules", "Activity"};
 
         int left = getPanelLeft();
         int availableWidth = getPanelRight() - left;
         int padding = 12;
-        String[] labels = fullLabels;
+        int minWidth = Math.max(30, scaledButtonWidth(30));
 
-        int totalWidth = measureSectionButtonsWidth(labels, buttons, padding, gap);
-        if (totalWidth > availableWidth) {
-            labels = compactLabels;
-            totalWidth = measureSectionButtonsWidth(labels, buttons, padding, gap);
-        }
-        if (totalWidth > availableWidth) {
-            padding = 8;
-            totalWidth = measureSectionButtonsWidth(labels, buttons, padding, gap);
-        }
-
-        int minWidth = Math.max(28, scaledButtonWidth(28));
         int[] widths = new int[buttons.length];
+        int totalWidth = gap * (buttons.length - 1);
         for (int i = 0; i < buttons.length; i++) {
             widths[i] = Math.max(minWidth, this.font.width(labels[i]) + padding);
+            totalWidth += widths[i];
         }
 
         if (totalWidth > availableWidth) {
@@ -847,7 +837,7 @@ public class FactionMainScreen extends Screen {
             while (overflow > 0) {
                 int widest = -1;
                 for (int i = 0; i < widths.length; i++) {
-                    int minForLabel = Math.max(minWidth, this.font.width(labels[i]) + 4);
+                    int minForLabel = Math.max(minWidth, this.font.width(labels[i]) + 6);
                     if (widths[i] > minForLabel && (widest < 0 || widths[i] > widths[widest])) {
                         widest = i;
                     }
@@ -858,9 +848,13 @@ public class FactionMainScreen extends Screen {
                 widths[widest]--;
                 overflow--;
             }
+            totalWidth = gap * (buttons.length - 1);
+            for (int width : widths) {
+                totalWidth += width;
+            }
         }
 
-        int x = left;
+        int x = left + Math.max(0, (availableWidth - totalWidth) / 2);
         for (int i = 0; i < buttons.length; i++) {
             Button button = buttons[i];
             if (button == null) {
@@ -873,15 +867,6 @@ public class FactionMainScreen extends Screen {
             button.setY(y);
             x += widths[i] + gap;
         }
-    }
-
-    private int measureSectionButtonsWidth(String[] labels, Button[] buttons, int padding, int gap) {
-        int totalWidth = Math.max(0, (buttons.length - 1) * gap);
-        int minWidth = Math.max(28, scaledButtonWidth(28));
-        for (int i = 0; i < buttons.length; i++) {
-            totalWidth += Math.max(minWidth, this.font.width(labels[i]) + padding);
-        }
-        return totalWidth;
     }
 
     private void updateFactionSectionButtonState() {
@@ -1870,8 +1855,10 @@ public class FactionMainScreen extends Screen {
 
 
     private int getContentStart(FactionClientData.FactionSnapshot snapshot) {
+        if (selectedTab == FactionTab.SETTINGS) {
+            return panelTop + CONTROL_TOP_OFFSET;
+        }
         boolean hasControls = selectedTab == FactionTab.FACTION
-            || selectedTab == FactionTab.SETTINGS
             || isFactionSection(FactionSection.PERMISSIONS)
             || (isFactionSection(FactionSection.RELATIONS) && snapshot.inFaction())
             || (isFactionSection(FactionSection.RULES) && snapshot.inFaction());
@@ -1914,7 +1901,7 @@ public class FactionMainScreen extends Screen {
         int actionButtonWidth = Math.min(88, Math.max(64, scaledButtonWidth(82)));
         int clearButtonWidth = Math.min(64, Math.max(50, scaledButtonWidth(58)));
 
-        int rowOneY = panelTop + CONTROL_TOP_OFFSET;
+        int rowOneY = panelTop + CONTROL_TOP_OFFSET + 34;
         int rowTwoY = rowOneY + controlRowSpacing;
         int rowThreeY = rowTwoY + controlRowSpacing;
         int rowFourY = rowThreeY + controlRowSpacing;
