@@ -343,6 +343,7 @@ public class FactionMainScreen extends Screen {
             .bounds(panelX(160), settingsRowFive, scaledButtonWidth(90), 20).build());
 
         layoutFactionSectionButtons();
+        updateFactionControlLayout();
         updateBottomRowLayout();
 
         updateVisibility();
@@ -621,6 +622,7 @@ public class FactionMainScreen extends Screen {
     }
 
     private void updateVisibility() {
+        updateFactionControlLayout();
         boolean factionTab = selectedTab == FactionTab.FACTION;
         boolean invites = factionTab && selectedFactionSection == FactionSection.INVITES;
         boolean permissions = factionTab && selectedFactionSection == FactionSection.PERMISSIONS;
@@ -1830,6 +1832,83 @@ public class FactionMainScreen extends Screen {
         refreshButton.setY(y);
         refreshButton.setWidth(refreshWidth);
         refreshButton.setHeight(refreshHeight);
+    }
+
+    private void updateFactionControlLayout() {
+        int rowOneY = panelTop + CONTROL_TOP_OFFSET + MEMBER_SECTION_BUTTON_HEIGHT + 8;
+        int rowTwoY = rowOneY + controlRowSpacing;
+        int rowThreeY = rowTwoY + controlRowSpacing;
+
+        if (inviteNameField != null) {
+            inviteNameField.setY(rowOneY);
+        }
+        if (inviteButton != null) {
+            inviteButton.setY(rowOneY);
+        }
+        if (joinInviteButton != null) {
+            joinInviteButton.setY(rowTwoY);
+        }
+        if (declineInviteButton != null) {
+            declineInviteButton.setY(rowTwoY);
+        }
+
+        if (roleButton != null) {
+            roleButton.setY(rowOneY);
+        }
+        if (permissionButton != null) {
+            permissionButton.setY(rowOneY);
+        }
+        if (grantButton != null) {
+            grantButton.setY(rowTwoY);
+        }
+        if (revokeButton != null) {
+            revokeButton.setY(rowTwoY);
+        }
+        if (roleNameField != null) {
+            roleNameField.setY(rowThreeY);
+        }
+        if (createRoleButton != null) {
+            createRoleButton.setY(rowThreeY);
+        }
+        if (deleteRoleButton != null) {
+            deleteRoleButton.setY(rowThreeY);
+        }
+
+        if (memberNameField != null) {
+            memberNameField.setY(rowOneY);
+        }
+        if (kickMemberButton != null) {
+            kickMemberButton.setY(rowOneY);
+        }
+        if (memberRoleButton != null) {
+            memberRoleButton.setY(rowOneY);
+        }
+        if (setRoleButton != null) {
+            setRoleButton.setY(rowOneY);
+        }
+
+        if (ruleField != null) {
+            ruleField.setY(rowOneY);
+        }
+        if (addRuleButton != null) {
+            addRuleButton.setY(rowOneY);
+        }
+        if (removeRuleButton != null) {
+            removeRuleButton.setY(rowOneY);
+        }
+
+        if (relationTypeButton != null) {
+            relationTypeButton.setY(rowOneY);
+        }
+        if (relationPermissionButton != null) {
+            relationPermissionButton.setY(rowOneY);
+        }
+        if (relationGrantButton != null) {
+            relationGrantButton.setY(rowTwoY);
+        }
+        if (relationRevokeButton != null) {
+            relationRevokeButton.setY(rowTwoY);
+        }
     }
 
     private void updateMapControlLayout() {
