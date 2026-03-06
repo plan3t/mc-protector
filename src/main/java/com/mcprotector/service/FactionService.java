@@ -4,11 +4,13 @@ import com.mcprotector.config.FactionConfig;
 import com.mcprotector.data.Faction;
 import com.mcprotector.data.FactionData;
 import com.mcprotector.data.FactionPermission;
+import com.mcprotector.data.FactionProtectionTier;
 import com.mcprotector.data.FactionRelation;
 import com.mcprotector.webmap.WebmapBridge;
 import com.mcprotector.network.FactionClaimMapPacket;
 import com.mcprotector.network.NetworkHandler;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
+import net.minecraft.ChatFormatting;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
@@ -745,6 +747,179 @@ public final class FactionService {
         faction.get().setRelationPermissions(relation, perms);
         data.setDirty();
         source.sendSuccess(() -> Component.literal((grant ? "Granted " : "Revoked ") + permission.name() + " for " + relation.name()), true);
+        return 1;
+    }
+
+
+    public static int renameFaction(CommandSourceStack source, String name) throws CommandSyntaxException {
+        ServerPlayer player = source.getPlayerOrException();
+        FactionData data = FactionData.get(player.serverLevel());
+        Optional<Faction> faction = data.getFactionByPlayer(player.getUUID());
+        if (faction.isEmpty()) {
+            source.sendFailure(Component.literal("You are not in a faction."));
+            return 0;
+        }
+        if (!faction.get().getOwner().equals(player.getUUID())) {
+            source.sendFailure(Component.literal("Only the owner can rename the faction."));
+            return 0;
+        }
+        String trimmed = name == null ? "" : name.trim();
+        if (trimmed.isEmpty()) {
+            source.sendFailure(Component.literal("Faction name cannot be blank."));
+            return 0;
+        }
+        int maxLength = FactionConfig.SERVER.maxFactionNameLength.get();
+        if (trimmed.length() > maxLength) {
+            source.sendFailure(Component.literal("Faction name cannot exceed " + maxLength + " characters."));
+            return 0;
+        }
+        if (data.hasSimilarFactionName(trimmed, faction.get().getId())) {
+            source.sendFailure(Component.literal("A faction with that name or a very similar one already exists."));
+            return 0;
+        }
+        if (!data.renameFaction(faction.get().getId(), trimmed)) {
+            source.sendFailure(Component.literal("Failed to rename faction."));
+            return 0;
+        }
+        source.sendSuccess(() -> Component.literal("Faction renamed to " + trimmed + "."), true);
+        return 1;
+    }
+
+    public static int setMotd(CommandSourceStack source, String motd) throws CommandSyntaxException {
+        ServerPlayer player = source.getPlayerOrException();
+        FactionData data = FactionData.get(player.serverLevel());
+        Optional<Faction> faction = data.getFactionByPlayer(player.getUUID());
+        if (faction.isEmpty()) {
+            source.sendFailure(Component.literal("You are not in a faction."));
+            return 0;
+        }
+        if (!faction.get().hasPermission(player.getUUID(), FactionPermission.MANAGE_SETTINGS)) {
+            source.sendFailure(Component.literal("You lack permission to manage faction settings."));
+            return 0;
+        }
+        faction.get().setMotd(motd == null ? "" : motd.trim());
+        data.setDirty();
+        source.sendSuccess(() -> Component.literal("Faction MOTD updated."), true);
+        return 1;
+    }
+
+    public static int clearMotd(CommandSourceStack source) throws CommandSyntaxException {
+        return setMotd(source, "");
+    }
+
+    public static int setDescription(CommandSourceStack source, String description) throws CommandSyntaxException {
+        ServerPlayer player = source.getPlayerOrException();
+        FactionData data = FactionData.get(player.serverLevel());
+        Optional<Faction> faction = data.getFactionByPlayer(player.getUUID());
+        if (faction.isEmpty()) {
+            source.sendFailure(Component.literal("You are not in a faction."));
+            return 0;
+        }
+        if (!faction.get().hasPermission(player.getUUID(), FactionPermission.MANAGE_SETTINGS)) {
+            source.sendFailure(Component.literal("You lack permission to manage faction settings."));
+            return 0;
+        }
+        faction.get().setDescription(description == null ? "" : description.trim());
+        data.setDirty();
+        source.sendSuccess(() -> Component.literal("Faction description updated."), true);
+        return 1;
+    }
+
+    public static int clearDescription(CommandSourceStack source) throws CommandSyntaxException {
+        return setDescription(source, "");
+    }
+
+    public static int setColor(CommandSourceStack source, String colorName) throws CommandSyntaxException {
+        ServerPlayer player = source.getPlayerOrException();
+        FactionData data = FactionData.get(player.serverLevel());
+        Optional<Faction> faction = data.getFactionByPlayer(player.getUUID());
+        if (faction.isEmpty()) {
+            source.sendFailure(Component.literal("You are not in a faction."));
+            return 0;
+        }
+        if (!faction.get().hasPermission(player.getUUID(), FactionPermission.MANAGE_SETTINGS)) {
+            source.sendFailure(Component.literal("You lack permission to manage faction settings."));
+            return 0;
+        }
+        String normalized = FactionConfig.normalizeColorInput(colorName == null ? "" : colorName.trim());
+        if (!FactionConfig.isHexColor(normalized)) {
+            source.sendFailure(Component.literal("Unknown color. Use hex format only (#RRGGBB)."));
+            return 0;
+        }
+        faction.get().setColorName(normalized);
+        data.setDirty();
+        source.sendSuccess(() -> Component.literal("Faction color updated to " + faction.get().getColorName()), true);
+        return 1;
+    }
+
+    public static int setBanner(CommandSourceStack source, String colorName) throws CommandSyntaxException {
+        ServerPlayer player = source.getPlayerOrException();
+        FactionData data = FactionData.get(player.serverLevel());
+        Optional<Faction> faction = data.getFactionByPlayer(player.getUUID());
+        if (faction.isEmpty()) {
+            source.sendFailure(Component.literal("You are not in a faction."));
+            return 0;
+        }
+        if (!faction.get().hasPermission(player.getUUID(), FactionPermission.MANAGE_SETTINGS)) {
+            source.sendFailure(Component.literal("You lack permission to manage faction settings."));
+            return 0;
+        }
+        String normalized = colorName == null ? "" : colorName.trim();
+        if (normalized.isEmpty()) {
+            source.sendFailure(Component.literal("Banner color cannot be blank."));
+            return 0;
+        }
+        ChatFormatting color = FactionConfig.parseColor(normalized);
+        if (color == ChatFormatting.WHITE && !"white".equalsIgnoreCase(normalized)) {
+            source.sendFailure(Component.literal("Unknown banner color name."));
+            return 0;
+        }
+        faction.get().setBannerColor(color.getName());
+        data.setDirty();
+        source.sendSuccess(() -> Component.literal("Faction banner color updated to " + color.getName()), true);
+        return 1;
+    }
+
+    public static int clearBanner(CommandSourceStack source) throws CommandSyntaxException {
+        ServerPlayer player = source.getPlayerOrException();
+        FactionData data = FactionData.get(player.serverLevel());
+        Optional<Faction> faction = data.getFactionByPlayer(player.getUUID());
+        if (faction.isEmpty()) {
+            source.sendFailure(Component.literal("You are not in a faction."));
+            return 0;
+        }
+        if (!faction.get().hasPermission(player.getUUID(), FactionPermission.MANAGE_SETTINGS)) {
+            source.sendFailure(Component.literal("You lack permission to manage faction settings."));
+            return 0;
+        }
+        faction.get().setBannerColor(FactionConfig.getDefaultBannerColor());
+        data.setDirty();
+        source.sendSuccess(() -> Component.literal("Faction banner color cleared."), true);
+        return 1;
+    }
+
+    public static int setProtectionTier(CommandSourceStack source, String tierName) throws CommandSyntaxException {
+        ServerPlayer player = source.getPlayerOrException();
+        FactionData data = FactionData.get(player.serverLevel());
+        Optional<Faction> faction = data.getFactionByPlayer(player.getUUID());
+        if (faction.isEmpty()) {
+            source.sendFailure(Component.literal("You are not in a faction."));
+            return 0;
+        }
+        if (!faction.get().hasPermission(player.getUUID(), FactionPermission.MANAGE_SETTINGS)) {
+            source.sendFailure(Component.literal("You lack permission to manage faction settings."));
+            return 0;
+        }
+        FactionProtectionTier tier;
+        try {
+            tier = FactionProtectionTier.valueOf((tierName == null ? "" : tierName.trim()).toUpperCase());
+        } catch (IllegalArgumentException ex) {
+            source.sendFailure(Component.literal("Unknown protection tier."));
+            return 0;
+        }
+        faction.get().setProtectionTier(tier);
+        data.setDirty();
+        source.sendSuccess(() -> Component.literal("Protection tier set to " + tier.name()), true);
         return 1;
     }
 
