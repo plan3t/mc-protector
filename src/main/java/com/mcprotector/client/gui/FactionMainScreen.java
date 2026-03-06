@@ -150,17 +150,50 @@ public class FactionMainScreen extends Screen {
         super.init();
         recalculateLayout();
         int panelLeft = getPanelLeft();
-        int tabCount = FactionTab.values().length;
-        int totalTabWidth = tabCount * tabButtonWidth + (tabCount - 1) * TAB_BUTTON_GAP;
-        int startX = (this.width - totalTabWidth) / 2;
+        FactionTab[] tabs = FactionTab.values();
+        int tabCount = tabs.length;
         int y = 42;
-        for (FactionTab tab : FactionTab.values()) {
-            int x = startX + tab.ordinal() * (tabButtonWidth + TAB_BUTTON_GAP);
-            String tabLabel = tabButtonWidth < TAB_COMPACT_LABEL_THRESHOLD ? tab.getCompactLabel() : tab.getLabel();
+        int minTabWidth = 24;
+
+        String[] labels = new String[tabCount];
+        int[] widths = new int[tabCount];
+        int totalTabWidth = TAB_BUTTON_GAP * (tabCount - 1);
+        for (int i = 0; i < tabCount; i++) {
+            labels[i] = tabs[i].getLabel();
+            widths[i] = Math.max(minTabWidth, this.font.width(labels[i]) + 14);
+            totalTabWidth += widths[i];
+        }
+
+        int availableTabWidth = this.width - layoutPadding * 2;
+        if (totalTabWidth > availableTabWidth) {
+            totalTabWidth = TAB_BUTTON_GAP * (tabCount - 1);
+            for (int i = 0; i < tabCount; i++) {
+                labels[i] = tabs[i].getCompactLabel();
+                widths[i] = Math.max(minTabWidth, this.font.width(labels[i]) + 14);
+                totalTabWidth += widths[i];
+            }
+        }
+
+        if (totalTabWidth > availableTabWidth) {
+            int targetWidth = Math.max(minTabWidth, (availableTabWidth - TAB_BUTTON_GAP * (tabCount - 1)) / tabCount);
+            totalTabWidth = TAB_BUTTON_GAP * (tabCount - 1);
+            for (int i = 0; i < tabCount; i++) {
+                widths[i] = targetWidth;
+                totalTabWidth += widths[i];
+            }
+        }
+
+        int startX = (this.width - totalTabWidth) / 2;
+        int x = startX;
+        for (int i = 0; i < tabCount; i++) {
+            FactionTab tab = tabs[i];
+            String tabLabel = labels[i];
+            int width = widths[i];
             this.addRenderableWidget(Button.builder(Component.literal(tabLabel), button -> {
                 selectedTab = tab;
                 updateVisibility();
-            }).bounds(x, y, tabButtonWidth, TAB_BUTTON_HEIGHT).build());
+            }).bounds(x, y, width, TAB_BUTTON_HEIGHT).build());
+            x += width + TAB_BUTTON_GAP;
         }
         panelTop = y + TAB_BUTTON_HEIGHT + 10;
         int controlRowOne = panelTop + CONTROL_TOP_OFFSET;
@@ -772,11 +805,8 @@ public class FactionMainScreen extends Screen {
         if (overviewSectionButton == null) {
             return;
         }
-        int gap = scaledWidth(MEMBER_SECTION_BUTTON_GAP);
+        int gap = Math.max(2, scaledWidth(2));
         int y = panelTop + CONTROL_TOP_OFFSET;
-        int total = FactionSection.values().length;
-        int available = getPanelRight() - getPanelLeft() - gap * (total - 1);
-        int buttonWidth = Math.max(scaledButtonWidth(52), available / total);
 
         Button[] buttons = new Button[] {
             overviewSectionButton,
@@ -787,16 +817,60 @@ public class FactionMainScreen extends Screen {
             rulesSectionButton,
             activitySectionButton
         };
-        int x = getPanelLeft();
-        for (Button button : buttons) {
+
+        int left = getPanelLeft();
+        int availableWidth = getPanelRight() - left;
+        int minWidth = Math.max(scaledButtonWidth(34), 34);
+        int[] widths = new int[buttons.length];
+        int preferredTotal = 0;
+        for (int i = 0; i < buttons.length; i++) {
+            Button button = buttons[i];
+            int preferred = minWidth;
+            if (button != null) {
+                preferred = Math.max(minWidth, this.font.width(button.getMessage()) + 12);
+            }
+            widths[i] = preferred;
+            preferredTotal += preferred;
+        }
+
+        int totalGap = gap * (buttons.length - 1);
+        float scale = 1.0F;
+        if (preferredTotal + totalGap > availableWidth && preferredTotal > 0) {
+            scale = (availableWidth - totalGap) / (float) preferredTotal;
+        }
+        for (int i = 0; i < widths.length; i++) {
+            widths[i] = Math.max(minWidth, Math.round(widths[i] * scale));
+        }
+
+        int totalWidth = totalGap;
+        for (int width : widths) {
+            totalWidth += width;
+        }
+        while (totalWidth > availableWidth) {
+            int widestIndex = -1;
+            for (int i = 0; i < widths.length; i++) {
+                if (widths[i] > minWidth && (widestIndex < 0 || widths[i] > widths[widestIndex])) {
+                    widestIndex = i;
+                }
+            }
+            if (widestIndex < 0) {
+                break;
+            }
+            widths[widestIndex]--;
+            totalWidth--;
+        }
+
+        int x = left;
+        for (int i = 0; i < buttons.length; i++) {
+            Button button = buttons[i];
             if (button == null) {
                 continue;
             }
-            button.setWidth(buttonWidth);
+            button.setWidth(widths[i]);
             button.setHeight(MEMBER_SECTION_BUTTON_HEIGHT);
             button.setX(x);
             button.setY(y);
-            x += buttonWidth + gap;
+            x += widths[i] + gap;
         }
     }
 
